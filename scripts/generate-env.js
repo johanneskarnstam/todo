@@ -1,15 +1,16 @@
 /**
- * Environment Variable Generator
+ * Environment Variable Generator & GitHub Secrets Sync
  *
  * Reads the 'firebaseConfig' object from scripts/pasted_secret_config.js
- * (you can paste the config you copied from Firebase console) and then
- * generates or updates a .env file in the project root. The helper auto-
- * prefixes variable names based on the framework detected in package.json.
+ * (you can paste the config you copied from Firebase console), then
+ * generates or updates a .env file in the project root, and automatically
+ * pushes those environment variables as GitHub Secrets using GitHub CLI (`gh`).
  */
 
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { spawnSync } from 'child_process'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -22,11 +23,9 @@ try {
   // Read the raw file
   const rawContent = fs.readFileSync(configPath, 'utf8')
 
-  // Extract just the object part using an evaluator or regex
-  // since the file might just contain `const firebaseConfig = { ... }` natively pasted.
+  // Extract just the object part using an evaluator
   const match = rawContent.match(/{[\s\S]*?}/)
   if (match) {
-    // A bit hacky but safe since it's a local dev script
     firebaseConfig = new Function('return ' + match[0])()
   }
 } catch (_err) {
@@ -81,23 +80,74 @@ const generatedVars = []
 for (const [key, value] of Object.entries(firebaseConfig)) {
   const snakeKey = toSnakeCase(key)
   const envKey = `${prefix}FIREBASE_${snakeKey}`
+  const stringVal = String(value)
 
   // Match the key and everything after it until a line break
   const regex = new RegExp(`^${envKey}=.*`, 'm')
   if (regex.test(envContent)) {
     // Replace the matched line with the new key=value
-    envContent = envContent.replace(regex, `${envKey}=${value}`)
+    envContent = envContent.replace(regex, `${envKey}=${stringVal}`)
   } else {
     const newline = envContent.endsWith('\n') || envContent === '' ? '' : '\n'
-    envContent += `${newline}${envKey}=${value}`
+    envContent += `${newline}${envKey}=${stringVal}`
   }
-  generatedVars.push({ key: envKey, value })
+  generatedVars.push({ key: envKey, value: stringVal })
 }
 
 fs.writeFileSync(envPath, envContent.trim() + '\n', 'utf-8')
 
 console.log(`\n✅ Read config from scripts/pasted_secret_config.js and updated .env!\n`)
 generatedVars.forEach((v) => console.log(`   - ${v.key}`))
+
+// 4. GitHub Secrets Integration Helpers
+function isGhCliInstalled() {
+  const check = spawnSync('gh', ['--version'])
+  return check.status === 0
+}
+
+function isGhAuthenticated() {
+  const check = spawnSync('gh', ['auth', 'status'])
+  return check.status === 0
+}
+
+function syncToGitHubSecrets(vars) {
+  console.log('\n🚀 Syncing variables to GitHub Secrets...')
+
+  if (!isGhCliInstalled()) {
+    console.warn(
+      '⚠️  GitHub CLI (`gh`) is not installed. Local .env updated, but secrets were NOT pushed to GitHub.\n' +
+      '   Install gh CLI from https://cli.github.com/ and run `gh auth login` to enable GitHub sync.'
+    )
+    return
+  }
+
+  if (!isGhAuthenticated()) {
+    console.warn(
+      '⚠️  You are not logged in to GitHub CLI. Please run `gh auth login` in your terminal and try again.'
+    )
+    return
+  }
+
+  let syncedCount = 0
+  for (const { key, value } of vars) {
+    // Pass key and value securely using spawnSync args to avoid shell escaping issues
+    const result = spawnSync('gh', ['secret', 'set', key, '-b', value])
+
+    if (result.status === 0) {
+      console.log(`   🔒 GitHub Secret updated: ${key}`)
+      syncedCount++
+    } else {
+      const errorMsg = result.stderr ? result.stderr.toString().trim() : 'Unknown error'
+      console.error(`   ❌ Failed to set GitHub Secret ${key}: ${errorMsg}`)
+    }
+  }
+
+  console.log(`\n🎉 Successfully pushed ${syncedCount}/${vars.length} secrets to GitHub Repository!`)
+}
+
+// Execute GitHub Sync
+syncToGitHubSecrets(generatedVars)
+
 console.log(
   `\n⚠️ Make sure scripts/pasted_secret_config.js is in your .gitignore so your secrets remain hidden.\n`,
 )
