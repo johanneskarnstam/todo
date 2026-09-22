@@ -14,9 +14,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['logo.png', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
-        name: 'Vue Firebase Boilerplate',
-        short_name: 'VueBoiler',
-        description: 'A minimalist Vue 3 Boilerplate with Firebase Auth',
+        name: 'Todo',
+        short_name: 'Todo',
+        description: 'Todo',
         theme_color: '#ffffff',
         icons: [
           {
@@ -33,7 +33,7 @@ export default defineConfig({
       },
     }),
   ],
-  base: '/boiler/',
+  base: '/todo/',
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

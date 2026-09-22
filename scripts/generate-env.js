@@ -151,3 +151,4 @@ syncToGitHubSecrets(generatedVars)
 console.log(
   `\n⚠️ Make sure scripts/pasted_secret_config.js is in your .gitignore so your secrets remain hidden.\n`,
 )
+
