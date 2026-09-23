@@ -19,6 +19,7 @@ export default defineConfig({
         description: 'Todo',
         theme_color: '#2564cf',
         background_color: '#faf9f8',
+        display: 'standalone',
         icons: [
           {
             src: 'img/icons/todo-icon.svg',
@@ -31,6 +32,9 @@ export default defineConfig({
             type: 'image/svg+xml',
           },
         ],
+      },
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
       },
     }),
   ],
