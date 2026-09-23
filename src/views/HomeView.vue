@@ -7,20 +7,23 @@ import TaskDetailsPanel from '@/components/TaskDetailsPanel.vue'
 import { useListStore } from '@/stores/listStore'
 import { useTaskStore } from '@/stores/taskStore'
 import type { SmartView } from '@/types'
+import { useI18n } from '@/i18n'
 
-const isSidebarOpen = ref(false)
+const isSidebarOpen = ref(typeof window === 'undefined' ? true : window.innerWidth >= 1024)
 const isDark = ref(false)
 const taskTitle = ref('')
+const pendingDeleteTaskId = ref<string | null>(null)
 const listStore = useListStore()
 const taskStore = useTaskStore()
+const { t } = useI18n()
 
 const currentTitle = computed(() => {
   const view = taskStore.activeView
   if (view?.type === 'smart') {
-    return view.smartView === 'important' ? 'Important' : 'My day'
+    return view.smartView === 'important' ? t('important') : t('myDay')
   }
 
-  return listStore.selectedList?.name ?? 'My day'
+  return listStore.selectedList?.name ?? t('myDay')
 })
 
 const canAddTask = computed(() => taskStore.activeView?.type === 'list')
@@ -62,8 +65,28 @@ const handleDeleteActiveTask = () => {
   const taskId = taskStore.activeTaskId
   if (!taskId) return
 
-  taskStore.setActiveTask(null)
+  pendingDeleteTaskId.value = taskId
+}
+
+const requestDeleteTask = (taskId: string) => {
+  pendingDeleteTaskId.value = taskId
+}
+
+const cancelDeleteTask = () => {
+  pendingDeleteTaskId.value = null
+}
+
+const confirmDeleteTask = () => {
+  const taskId = pendingDeleteTaskId.value
+  if (!taskId) return
+
+  pendingDeleteTaskId.value = null
+  if (taskStore.activeTaskId === taskId) taskStore.setActiveTask(null)
   void taskStore.deleteTask(taskId)
+}
+
+const handleSaveStepTitle = (stepId: string, title: string) => {
+  void taskStore.updateStep(stepId, title)
 }
 
 onMounted(async () => {
@@ -80,7 +103,8 @@ const toggleTheme = () => {
   <div class="flex h-screen flex-col bg-[#faf9f8] text-slate-800 dark:bg-slate-950 dark:text-slate-100" :class="{ dark: isDark }">
     <TodoHeader
       :is-dark="isDark"
-      @toggle-menu="isSidebarOpen = true"
+      :is-sidebar-open="isSidebarOpen"
+      @toggle-menu="isSidebarOpen = !isSidebarOpen"
       @toggle-theme="toggleTheme"
     />
 
@@ -117,11 +141,11 @@ const toggleTheme = () => {
           <form v-if="canAddTask" class="mt-7 flex h-14 w-full items-center gap-4 rounded border border-slate-200 bg-white px-5 text-left text-sm text-[#2564cf] shadow-sm transition focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-200 dark:border-slate-700 dark:bg-slate-900 dark:text-blue-400 dark:focus-within:ring-blue-900" @submit.prevent="handleAddTask">
             <span class="text-2xl font-light leading-none" aria-hidden="true">＋</span>
             <label class="sr-only" for="new-task-title">Add a task</label>
-            <input id="new-task-title" v-model="taskTitle" class="min-w-0 flex-1 bg-transparent text-sm text-slate-800 outline-none placeholder:text-[#2564cf] dark:text-slate-100 dark:placeholder:text-blue-400" type="text" placeholder="Add a task" />
+            <input id="new-task-title" v-model="taskTitle" class="min-w-0 flex-1 bg-transparent text-sm text-slate-800 outline-none placeholder:text-[#2564cf] dark:text-slate-100 dark:placeholder:text-blue-400" type="text" :placeholder="t('addTask')" />
           </form>
 
           <section v-if="taskStore.activeTasks.length" class="mt-6" aria-labelledby="active-tasks-heading">
-            <h2 id="active-tasks-heading" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Active</h2>
+            <h2 id="active-tasks-heading" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ t('tasks') }}</h2>
             <div class="overflow-hidden rounded border border-slate-200 shadow-sm dark:border-slate-700">
               <TaskRow
                 v-for="task in taskStore.activeTasks"
@@ -130,7 +154,7 @@ const toggleTheme = () => {
                 @select="taskStore.setActiveTask(task.id)"
                 @toggle-completed="taskStore.toggleCompleted(task.id)"
                 @toggle-important="taskStore.toggleImportant(task.id)"
-                @delete="taskStore.deleteTask(task.id)"
+                @delete="requestDeleteTask(task.id)"
               />
             </div>
           </section>
@@ -145,7 +169,7 @@ const toggleTheme = () => {
                 @select="taskStore.setActiveTask(task.id)"
                 @toggle-completed="taskStore.toggleCompleted(task.id)"
                 @toggle-important="taskStore.toggleImportant(task.id)"
-                @delete="taskStore.deleteTask(task.id)"
+                @delete="requestDeleteTask(task.id)"
               />
             </div>
           </section>
@@ -161,12 +185,25 @@ const toggleTheme = () => {
         @close="taskStore.setActiveTask(null)"
         @save-title="taskStore.updateTask(taskStore.activeTaskId!, { title: $event })"
         @add-step="taskStore.createStep({ taskId: taskStore.activeTaskId!, title: $event })"
+        @save-step-title="handleSaveStepTitle"
         @toggle-step="taskStore.toggleStep($event)"
+        @delete-step="taskStore.deleteStep($event)"
         @toggle-my-day="taskStore.toggleMyDay(taskStore.activeTaskId!)"
         @set-due-date="taskStore.setDueDate(taskStore.activeTaskId!, $event)"
         @save-note="taskStore.saveNote(taskStore.activeTaskId!, $event)"
         @delete-task="handleDeleteActiveTask"
       />
+
+      <div v-if="pendingDeleteTaskId" class="fixed inset-0 z-[60] grid place-items-center bg-slate-950/40 px-4" role="presentation" @click.self="cancelDeleteTask">
+        <section class="w-full max-w-md rounded border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900" role="dialog" aria-modal="true" aria-labelledby="delete-task-title">
+          <h2 id="delete-task-title" class="text-lg font-semibold text-slate-800 dark:text-slate-100">{{ t('confirmDeleteTask') }}</h2>
+          <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">{{ t('deleteTaskDescription') }}</p>
+          <div class="mt-6 flex justify-end gap-3">
+            <button class="min-h-10 rounded px-4 text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800" type="button" @click="cancelDeleteTask">{{ t('cancel') }}</button>
+            <button class="min-h-10 rounded bg-red-600 px-4 text-sm text-white hover:bg-red-700" type="button" @click="confirmDeleteTask">{{ t('confirm') }}</button>
+          </div>
+        </section>
+      </div>
     </div>
   </div>
 </template>

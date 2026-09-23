@@ -208,4 +208,16 @@ describe('useTaskStore', () => {
     expect(store.activeTaskId).toBe(null)
     expect(firestoreMocks.deleteDoc).toHaveBeenCalled()
   })
+
+  it('deletes a subtask optimistically without changing the parent task', async () => {
+    const store = useTaskStore()
+    store.setActiveTask('task-1')
+    await Promise.resolve()
+    await store.createStep({ taskId: 'task-1', title: 'Remove this step' })
+
+    await store.deleteStep('persisted-id')
+
+    expect(store.activeSteps).toHaveLength(0)
+    expect(firestoreMocks.deleteDoc).toHaveBeenCalledWith(expect.anything())
+  })
 })

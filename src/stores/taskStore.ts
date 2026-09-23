@@ -259,6 +259,40 @@ export const useTaskStore = defineStore('tasks', () => {
     })
   }
 
+  const updateStep = async (stepId: string, title: string) => {
+    const step = steps.value.find((item) => item.id === stepId)
+    if (!step || !activeTaskId.value) return
+
+    const nextTitle = title.trim()
+    if (!nextTitle || nextTitle === step.title) return
+
+    const previousTitle = step.title
+    step.title = nextTitle
+    error.value = null
+
+    try {
+      await updateDoc(doc(taskStepsCollection(activeTaskId.value), stepId), { title: nextTitle })
+    } catch (updateError) {
+      step.title = previousTitle
+      error.value = updateError instanceof Error ? updateError.message : 'Unable to update step.'
+    }
+  }
+
+  const deleteStep = async (stepId: string) => {
+    const stepIndex = steps.value.findIndex((item) => item.id === stepId)
+    if (stepIndex < 0 || !activeTaskId.value) return
+
+    const [deletedStep] = steps.value.splice(stepIndex, 1)
+    error.value = null
+
+    try {
+      await deleteDoc(doc(taskStepsCollection(activeTaskId.value), stepId))
+    } catch (deleteError) {
+      steps.value.splice(stepIndex, 0, deletedStep)
+      error.value = deleteError instanceof Error ? deleteError.message : 'Unable to delete step.'
+    }
+  }
+
   const deleteTask = async (taskId: string) => {
     const taskIndex = tasks.value.findIndex((task) => task.id === taskId)
     if (taskIndex < 0) return
@@ -300,6 +334,8 @@ export const useTaskStore = defineStore('tasks', () => {
     setDueDate,
     saveNote,
     toggleStep,
+    updateStep,
+    deleteStep,
     deleteTask,
   }
 })

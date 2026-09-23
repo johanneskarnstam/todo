@@ -59,6 +59,9 @@ describe('TaskDetailsPanel', () => {
     await wrapper.find('input[type="checkbox"]').trigger('change')
     expect(wrapper.emitted('toggle-step')).toEqual([['step-1']])
 
+    await wrapper.find('button[aria-label="Delete step Buy paint"]').trigger('click')
+    expect(wrapper.emitted('delete-step')).toEqual([['step-1']])
+
     await wrapper.get('button').trigger('click')
     expect(wrapper.emitted('close')).toBeTruthy()
 
@@ -78,5 +81,17 @@ describe('TaskDetailsPanel', () => {
     const deleteButton = wrapper.findAll('button').find((button) => button.text().includes('Delete task'))
     await deleteButton?.trigger('click')
     expect(wrapper.emitted('delete-task')).toHaveLength(1)
+  })
+
+  it('makes a subtask title editable when its text is clicked', async () => {
+    const wrapper = mount(TaskDetailsPanel, { props: { task, steps } })
+
+    const stepButton = wrapper.findAll('button').find((button) => button.text() === 'Buy paint')
+    await stepButton?.trigger('click')
+    const editInput = wrapper.find('input[aria-label="Edit step Buy paint"]')
+    await editInput.setValue('Buy green paint')
+    await editInput.trigger('keydown.enter')
+
+    expect(wrapper.emitted('save-step-title')).toEqual([['step-1', 'Buy green paint']])
   })
 })
