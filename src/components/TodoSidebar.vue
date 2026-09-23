@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import type { Folder, List, SmartView } from '@/types'
 import { useI18n } from '@/i18n'
+import { useAuthStore } from '@/stores/authStore'
 
 interface FolderSection {
   folder: Folder
@@ -32,6 +34,8 @@ interface Emits {
 defineProps<Props>()
 const emit = defineEmits<Emits>()
 const { t } = useI18n()
+const authStore = useAuthStore()
+const router = useRouter()
 const iconUrl = `${import.meta.env.BASE_URL}img/icons/todo-icon.svg`
 
 const smartViews = [
@@ -121,6 +125,11 @@ const toggleMoveMenu = (listId: string) => {
 const moveList = (listId: string, folderId: string | null) => {
   emit('move-list', listId, folderId)
   openMoveMenuListId.value = null
+}
+
+const handleLogout = async () => {
+  await authStore.logout()
+  await router.push('/login')
 }
 </script>
 
@@ -357,6 +366,14 @@ const moveList = (listId: string, folderId: string | null) => {
           <span class="text-lg" aria-hidden="true">⚙</span>
           <span>{{ t('settings') }}</span>
         </RouterLink>
+        <div class="mt-3 flex items-center gap-3 border-t border-slate-200 pt-3 dark:border-slate-700">
+          <img v-if="authStore.user?.photoURL" class="size-9 rounded-full object-cover" :src="authStore.user.photoURL" alt="Profile" />
+          <div v-else class="grid size-9 place-items-center rounded-full bg-slate-200 text-sm font-semibold text-slate-600 dark:bg-slate-700 dark:text-slate-200">
+            {{ (authStore.user?.email?.[0] ?? 'U').toUpperCase() }}
+          </div>
+          <span class="min-w-0 flex-1 truncate text-xs text-slate-600 dark:text-slate-300">{{ authStore.user?.email }}</span>
+          <button class="grid size-9 place-items-center rounded text-lg text-slate-500 transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-slate-800 dark:hover:text-red-400" type="button" aria-label="Log out" @click="handleLogout">↩</button>
+        </div>
       </div>
     </div>
   </aside>

@@ -1,7 +1,7 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
 import SettingsView from '../views/SettingsView.vue'
-import { useAuthStore } from '@/stores/auth'
+import { useAuthStore } from '@/stores/authStore'
 
 const router = createRouter({
   history: createWebHashHistory(import.meta.env.BASE_URL),
@@ -35,6 +35,11 @@ const router = createRouter({
       component: () => import('../views/LoginView.vue'),
     },
     {
+      path: '/register',
+      name: 'register',
+      component: () => import('../views/RegisterView.vue'),
+    },
+    {
       path: '/settings',
       name: 'settings',
       component: SettingsView,
@@ -51,13 +56,13 @@ router.beforeEach(async (to, from, next) => {
     await authStore.initAuth()
   }
 
-  const isPublic = to.name === 'login'
-  const isAuthenticated = !!authStore.user
+  const isPublic = to.name === 'login' || to.name === 'register'
+  const isAuthenticated = authStore.isAuthenticated
 
   if (!isPublic && !isAuthenticated) {
     next('/login')
   } else if (isPublic && isAuthenticated) {
-    next('/') // Redirect to home if already logged in and trying to access login
+    next('/')
   } else {
     next()
   }

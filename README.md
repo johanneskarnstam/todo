@@ -1,127 +1,287 @@
-# .
+# Todo App
 
-This template should help get you started developing with Vue 3 in Vite.
+En modern, responsiv och offline-first att-göra-app inspirerad av Microsoft To Do. Appen erbjuder en ren, intuitiv användarupplevelse för att hantera uppgifter, listor, mappar och delsteg.
 
-## Recommended IDE Setup
+![Vue 3](https://img.shields.io/badge/Vue-3-brightgreen) ![Firebase](https://img.shields.io/badge/Firebase-12.13.0-orange) ![Pinia](https://img.shields.io/badge/Pinia-3.0.4-yellow) ![TypeScript](https://img.shields.io/badge/TypeScript-6.0.3-blue)
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+## 📌 Funktioner
 
-## Recommended Browser Setup
+### 🔐 Autentisering
+- **Google-inloggning**: Säker autentisering via Firebase Authentication
+- **Sessionhantering**: Automatisk inloggningsstatus med offline-stöd
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd) 
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
+### 📁 Organisationsstruktur
+- **Mappar (Folders)**: Skapa och hantera mappar för att gruppera listor
+- **Listor (Lists)**: Skapa obegränsade antalet listor, antingen i mappar eller som fristående
+- **Färgteman**: Anpassa listor med olika färgteman (blå, grön, röd, lila, turkos, orange)
 
-## Type Support for `.vue` Imports in TS
+### 📝 Uppgiftshantering
+- **Skapa, redigera och ta bort uppgifter**: Fullständig CRUD-funktionalitet
+- **Markera som slutförd**: Enkelt klicka för att markera uppgifter som klara
+- **Viktiga uppgifter**: Markera uppgifter som viktiga med stjärnikon
+- **Min dag (My Day)**: Lägg till uppgifter i "Min dag" för att fokusera på dagens prioriteringar
+- **Förfallodatum**: Ställ in förfallodatum för uppgifter
+- **Anteckningar**: Lägg till detaljerade anteckningar till uppgifter
+- **Sortering**: Drag-and-drop-funktionalitet för att ordna om uppgifter och listor
 
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
+### 📋 Delsteg (Steps)
+- **Skapa delsteg**: Bryt ner uppgifter i mindre, hanterbara steg
+- **Markera delsteg som klara**: Spåra framsteg på delsteg
+- **Redigera och ta bort delsteg**: Full kontroll över delsteg
 
-## Customize configuration
+### 🎯 Smarta vyer
+- **Min dag**: Visa alla uppgifter markerade för "Min dag"
+- **Viktigt**: Visa alla uppgifter markerade som viktiga
+- **Planerat**: Visa alla uppgifter med förfallodatum, grupperade efter:
+  - Försenade (över förfallodatum)
+  - Idag
+  - Imorgon
+  - Senare
 
-See [Vite Configuration Reference](https://vite.dev/config/).
+### 🌐 Internationell support
+- **Flerspråkig**: Stöd för Svenska och Engelska
+- **Språkinställningar**: Välj språk i inställningar
 
-## Project Setup
+### 🎨 Design & Användarupplevelse
+- **Responsiv design**: Optimerad för mobil, surfplatta och desktop
+- **Mörkt läge**: Automatisk eller manuell växling mellan ljust och mörkt läge
+- **Offline-first**: Arbeta offline med lokal cache, synkronisering sker automatiskt när anslutning återställs
+- **Optimistisk UI**: Omedelbar feedback vid åtgärder, ingen väntan på server-svar
+- **Microsoft To Do-inspirerad**: Bekant layout med sidomeny och huvudområde
 
-```sh
-npm install
+### ⚙️ Inställningar
+- **Profilhantering**: Visa användarinformation
+- **Språkinställningar**: Välj mellan Svenska och Engelska
+- **Utloggning**: Säker utloggning
+
+### 🔧 Tekniska funktioner
+- **PWA (Progressive Web App)**: Installera som app på din enhet
+- **Formulärvalidering**: Klient-sida validering
+- **Felhantering**: Robust felhantering med användarvänliga meddelanden
+- **Lokal lagring**: Sparar inställningar som sidomeny-status och språkval
+
+---
+
+## 🛠 Teknisk Stack
+
+### Frontend
+- **Ramverk**: [Vue 3](https://vuejs.org/) (Composition API)
+- **Byggverktyg**: [Vite](https://vitejs.dev/)
+- **Språk**: [TypeScript](https://www.typescriptlang.org/)
+- **Styling**: [Tailwind CSS v4](https://tailwindcss.com/) (Mobile-first, Dark mode)
+
+### State Management
+- **Pinia**: Global state management för autentisering, listor, uppgifter och steg
+
+### Backend & Databas
+- **Firebase v12.13.0**:
+  - **Authentication**: Google-inloggning
+  - **Firestore**: NoSQL-databas med offline-stöd
+
+### Routing, Testning & Övrigt
+- **Vue Router v5**: Klient-sida routing med navigation guards
+- **Vitest**: Enhetstestning
+- **ESLint & Prettier**: Kodlintering och formatering
+- **PWA**: vite-plugin-pwa
+
+---
+
+## 📁 Projektstruktur
+
+```
+todo/
+├── src/
+│   ├── assets/              # Statiska tillgångar
+│   ├── components/          # Återanvändbara UI-komponenter
+│   │   ├── TaskDetailsPanel.vue
+│   │   ├── TaskRow.vue
+│   │   ├── TodoHeader.vue
+│   │   └── TodoSidebar.vue
+│   ├── firebase.ts          # Firebase-konfiguration
+│   ├── i18n/                # Internationella översättningar
+│   │   └── index.ts
+│   ├── main.ts              # Appens ingångspunkt
+│   ├── router/              # Vue Router-konfiguration
+│   │   └── index.ts
+│   ├── stores/              # Pinia-stores
+│   │   ├── auth.ts
+│   │   ├── listStore.ts
+│   │   └── taskStore.ts
+│   ├── types/               # TypeScript-typer
+│   │   └── index.ts
+│   ├── App.vue
+│   └── views/
+│       ├── HomeView.vue
+│       ├── LoginView.vue
+│       └── SettingsView.vue
+├── package.json
+└── README.md
 ```
 
-## Quick Start
+---
 
-1. **Set up your Firebase configuration:**
-   - Copy the `firebaseConfig` object from your Firebase console.
-   - Paste it into `scripts/pasted_secret_config.js`.
-   - Run `npm run generate-env` to create/update your `.env` file.
+## 🚀 Snabbstart
 
-2. **Start the development server:**
+### Förutsättningar
+- Node.js v20.19.0 eller högre
+- npm eller yarn
+- Firebase-projekt
+
+### Installation
+1. **Installera beroenden:**
+   ```sh
+   npm install
+   ```
+
+2. **Konfigurera Firebase:**
+   ```sh
+   # Klistra in firebaseConfig i scripts/pasted_secret_config.js
+   npm run generate-env
+   ```
+
+3. **Aktivera Firebase-tjänster:**
+   - Authentication (Google-provider)
+   - Firestore Database
+
+4. **Starta utvecklingsservern:**
    ```sh
    npm run dev
    ```
+   Appen är tillgänglig på `http://localhost:5173`
 
-@todo: implement next step https://medium.com/@guilhermehenrique_23468/streamlining-github-secrets-management-with-a-bash-script-8b757a047e0e
-### Compile and Hot-Reload for Development
+---
 
-```sh
-npm run dev
-```
+## 📦 Bygg och distribution
 
-### Type-Check, Compile and Minify for Production
-
+### Bygg för produktion
 ```sh
 npm run build
 ```
 
-### Run Unit Tests with [Vitest](https://vitest.dev/)
+### Förhandsgranska bygg
+```sh
+npm run preview
+```
 
+### Kör enhetstester
 ```sh
 npm run test:unit
 ```
 
-### Lint with [ESLint](https://eslint.org/)
-
+### Kör alla valideringar
 ```sh
-npm run lint
+npm run validate
 ```
-<br />
-<br />
-
-
-### Adding your Firebase configuration
-
-Rather than typing the variables by hand, you can simply copy the `firebaseConfig`
-object from the Firebase console (usually the snippet that starts with
-`const firebaseConfig = {...}`) and paste it into
-`scripts/pasted_secret_config.js` in the root of this project. The file is
-already ignored by Git so your secrets won't be committed.
-
-Once pasted, run the helper script to generate a `.env` file with the
-correct keys:
-
-```sh
-npm run generate-env      # or node scripts/generate-env.js
-```
-
-The script will detect your framework (Vite, Next, CRA, etc.) and prefix the
-variables appropriately. It will update an existing `.env` or create one if
-needed.
-
-After running it you should see output like:
-
-```
-✅ Read config from scripts/pasted_secret_config.js and updated .env!
-   - VITE_FIREBASE_API_KEY
-   - VITE_FIREBASE_AUTH_DOMAIN
-   - …
-```
-
-The resulting `.env` will contain the values you need, e.g.:  
-```sh
-VITE_FIREBASE_API_KEY=AAA-BBB
-VITE_FIREBASE_AUTH_DOMAIN=your-app.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=your-app
-…
-```
-
-You can now start the dev server as usual (`npm run dev`).
 
 ---
 
-### Add a .env file with this content
+## 🎯 Användningsguide
+
+### Inloggning
+1. Navigera till `/login`
+2. Klicka på "Continue with Google"
+3. Autentisera med ditt Google-konto
+
+### Skapa en ny lista
+1. Klicka på "+ Ny lista" i sidomenyn
+2. Ange listans namn
+3. Tryck på Enter
+
+### Skapa en ny uppgift
+1. Navigera till önskad lista
+2. Klicka i fältet "Lägg till en uppgift"
+3. Ange uppgiftens titel
+4. Tryck på Enter
+
+### Hantera uppgiftsdetaljer
+Klicka på en uppgift för att öppna detaljpanelen där du kan:
+- Redigera titel
+- Lägga till delsteg
+- Markera som "Min dag"
+- Ställa in förfallodatum
+- Lägga till anteckningar
+
+### Använda smarta vyer
+- Klicka på "Min dag", "Viktigt" eller "Planerat" i sidomenyn
+- "Planerat" visar uppgifter grupperade efter förfallodatum
+
+---
+
+## 🔧 Konfiguration
+
+### Miljövariabler
+Skapa en `.env`-fil med Firebase-konfiguration:
 ```sh
-VITE_FIREBASE_API_KEY=
-VITE_FIREBASE_AUTH_DOMAIN=.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=
-VITE_FIREBASE_STORAGE_BUCKET=.firebasestorage.app
-VITE_FIREBASE_MESSAGING_SENDER_ID=
-VITE_FIREBASE_APP_ID=
+npm run generate-env
 ```
 
-
-### Rename app
-
-```sh
-npm run rename -- "My Cool App"
+### Firestore Databasregler
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
 ```
+
+---
+
+## 📊 Datamodell
+
+### Firestore Struktur
+```
+/users/{userId}/
+  ├── folders/
+  │   └── {folderId}
+  │       ├── name: string
+  │       └── order: number
+  ├── lists/
+  │   └── {listId}
+  │       ├── name: string
+  │       ├── folderId?: string
+  │       ├── icon: string
+  │       ├── order: number
+  │       ├── createdAt: Timestamp
+  │       └── themeColor?: string
+  └── tasks/
+      └── {taskId}
+          ├── listId: string
+          ├── title: string
+          ├── completed: boolean
+          ├── important: boolean
+          ├── myDay: boolean
+          ├── dueDate?: string | Timestamp
+          ├── note?: string
+          ├── createdAt: Timestamp
+          └── order?: number
+          └── steps/
+              └── {stepId}
+                  ├── taskId: string
+                  ├── title: string
+                  ├── completed: boolean
+                  └── createdAt: Timestamp
+```
+
+---
+
+## 🤝 Bidrag & Licens
+
+### Git Workflow
+1. Skapa feature-branch: `git checkout -b feature/beskrivning-på-svenska`
+2. Validera: `npm run validate`
+3. Commit (på svenska): `git commit -m "feat: beskrivning på svenska"`
+4. Merge till main
+
+### Kodstandarder
+- Använd `<script setup lang="ts">`
+- Undvik `any`-typer
+- Följ befintliga kodmönster
+
+---
+
+**Version:** 0.7.0 | **Licens:** Privat
+
+*Made with Vue 3, TypeScript, and Firebase ❤️*

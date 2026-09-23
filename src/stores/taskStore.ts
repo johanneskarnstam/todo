@@ -82,6 +82,15 @@ export const useTaskStore = defineStore('tasks', () => {
     planned: tasks.value.filter((task) => Boolean(task.dueDate) && !task.completed).length,
   }))
 
+  const clearState = () => {
+    tasks.value = []
+    allSteps.value = []
+    activeTaskId.value = null
+    activeView.value = null
+    isLoaded.value = false
+    error.value = null
+  }
+
   const userId = () => {
     const currentUserId = auth.currentUser?.uid
     if (!currentUserId) {
@@ -440,6 +449,7 @@ export const useTaskStore = defineStore('tasks', () => {
     completedTasks,
     isLoaded,
     error,
+    clearState,
     fetchTasks,
     setListView,
     setSmartView,

@@ -50,6 +50,16 @@ export const useListStore = defineStore('lists', () => {
   const ungroupedLists = computed(() => lists.value.filter((list) => !list.folderId))
   const selectedList = computed(() => lists.value.find((list) => list.id === selectedListId.value) ?? null)
 
+  const clearState = () => {
+    folders.value = []
+    lists.value = []
+    selectedListId.value = null
+    isLoaded.value = false
+    error.value = null
+    pendingListIds.clear()
+    pendingFolderIds.clear()
+  }
+
   const userCollection = (collectionName: 'folders' | 'lists') => {
     const userId = auth.currentUser?.uid
     if (!userId) {
@@ -325,6 +335,7 @@ export const useListStore = defineStore('lists', () => {
     selectedListId,
     isLoaded,
     error,
+    clearState,
     fetchLists,
     createFolder,
     createList,

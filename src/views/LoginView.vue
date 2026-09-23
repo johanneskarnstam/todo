@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useAuthStore } from '@/stores/auth'
+import { useAuthStore } from '@/stores/authStore'
 import { useRouter } from 'vue-router'
 import { ref } from 'vue'
 
@@ -7,6 +7,8 @@ const authStore = useAuthStore()
 const router = useRouter()
 const isSigningIn = ref(false)
 const loginError = ref('')
+const email = ref('')
+const password = ref('')
 
 const handleLogin = async () => {
   if (isSigningIn.value) return
@@ -19,6 +21,21 @@ const handleLogin = async () => {
   } catch (error) {
     console.error('Login failed:', error)
     loginError.value = 'Sign-in was cancelled or could not be completed. Please try again.'
+  } finally {
+    isSigningIn.value = false
+  }
+}
+
+const handleEmailLogin = async () => {
+  if (isSigningIn.value) return
+
+  isSigningIn.value = true
+  loginError.value = ''
+  try {
+    await authStore.loginWithEmail(email.value, password.value)
+    await router.push('/')
+  } catch {
+    loginError.value = 'The email or password is incorrect.'
   } finally {
     isSigningIn.value = false
   }
@@ -75,6 +92,27 @@ const handleLogin = async () => {
             <span class="grid size-6 place-items-center rounded-full bg-white text-sm font-bold shadow-sm" aria-hidden="true">G</span>
             <span>{{ isSigningIn ? 'Signing in...' : 'Continue with Google' }}</span>
           </button>
+
+          <div class="my-6 flex items-center gap-3 text-xs text-slate-400" aria-hidden="true">
+            <span class="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
+            <span>or</span>
+            <span class="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
+          </div>
+
+          <form class="space-y-3" @submit.prevent="handleEmailLogin">
+            <label class="sr-only" for="login-email">Email</label>
+            <input id="login-email" v-model="email" class="h-12 w-full rounded-lg border border-slate-200 bg-white px-4 text-sm outline-none ring-blue-500 focus:ring-2 dark:border-slate-700 dark:bg-slate-800" type="email" autocomplete="email" placeholder="Email" required />
+            <label class="sr-only" for="login-password">Password</label>
+            <input id="login-password" v-model="password" class="h-12 w-full rounded-lg border border-slate-200 bg-white px-4 text-sm outline-none ring-blue-500 focus:ring-2 dark:border-slate-700 dark:bg-slate-800" type="password" autocomplete="current-password" placeholder="Password" required />
+            <button class="h-12 w-full rounded-lg bg-[#2564cf] px-4 text-sm font-semibold text-white transition hover:bg-[#1d56b5] disabled:cursor-wait disabled:opacity-60" type="submit" :disabled="isSigningIn">
+              {{ isSigningIn ? 'Signing in...' : 'Sign in with email' }}
+            </button>
+          </form>
+
+          <p class="mt-6 text-center text-sm text-slate-500 dark:text-slate-400">
+            New to Todo?
+            <RouterLink class="font-semibold text-[#2564cf] hover:underline dark:text-blue-400" to="/register">Create an account</RouterLink>
+          </p>
 
           <p class="mt-8 text-center text-xs leading-5 text-slate-400 dark:text-slate-500">By continuing, you agree to use Todo for your personal task planning.</p>
         </div>
