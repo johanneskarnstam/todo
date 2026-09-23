@@ -1,0 +1,56 @@
+name: Cleanup
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  pull-requests: write
+  issues: write
+
+jobs:
+  cleanup:
+    name: Cleanup stale PRs and issues
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close stale pull requests
+        uses: actions/stale@v9
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          days-before-stale: 30
+          days-before-close: 7
+          stale-pr-label: 'stale'
+          close-pr-label: 'closed-stale'
+          exempt-pr-labels: 'keep-open,work-in-progress'
+          stale-pr-message: |
+            This pull request has been marked as stale because it has not had recent activity.
+            It will be closed in 7 days if no further activity occurs.
+            To keep this PR open, add the label `keep-open` or comment `/keep-open`.
+          close-pr-message: |
+            This pull request has been closed because it was marked as stale and had no recent activity.
+            Feel free to reopen if you still want to work on this.
+
+      - name: Close stale issues
+        uses: actions/stale@v9
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          days-before-stale: 60
+          days-before-close: 14
+          stale-issue-label: 'stale'
+          close-issue-label: 'closed-stale'
+          exempt-issue-labels: 'keep-open,bug,enhancement'
+          stale-issue-message: |
+            This issue has been marked as stale because it has not had recent activity.
+            It will be closed in 14 days if no further activity occurs.
+          close-issue-message: |
+            This issue has been closed because it was marked as stale and had no recent activity.
+            Feel free to reopen if this is still relevant.
+
+      - name: Delete old workflow runs
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          retain_days: 30
+          keep_minimum_runs: 10
