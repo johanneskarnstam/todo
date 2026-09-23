@@ -8,6 +8,10 @@ type TranslationKey =
   | 'myDay'
   | 'important'
   | 'planned'
+  | 'overdue'
+  | 'today'
+  | 'tomorrow'
+  | 'later'
   | 'tasks'
   | 'settings'
   | 'newFolder'
@@ -50,6 +54,10 @@ const messages: Record<Locale, Record<TranslationKey, string>> = {
     myDay: 'Min dag',
     important: 'Viktigt',
     planned: 'Planerat',
+    overdue: 'Försenat',
+    today: 'Idag',
+    tomorrow: 'Imorgon',
+    later: 'Senare',
     tasks: 'Uppgifter',
     settings: 'Inställningar',
     newFolder: 'Ny mapp',
@@ -91,6 +99,10 @@ const messages: Record<Locale, Record<TranslationKey, string>> = {
     myDay: 'My day',
     important: 'Important',
     planned: 'Planned',
+    overdue: 'Overdue',
+    today: 'Today',
+    tomorrow: 'Tomorrow',
+    later: 'Later',
     tasks: 'Tasks',
     settings: 'Settings',
     newFolder: 'New folder',

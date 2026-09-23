@@ -5,6 +5,7 @@ import {
   deleteField,
   doc,
   getDocs,
+  getDocsFromCache,
   serverTimestamp,
   setDoc,
   Timestamp,
@@ -85,7 +86,20 @@ export const useListStore = defineStore('lists', () => {
       selectedListId.value ??= lists.value[0]?.id ?? null
       isLoaded.value = true
     } catch (fetchError) {
-      error.value = fetchError instanceof Error ? fetchError.message : 'Unable to load lists.'
+      try {
+        const [folderSnapshot, listSnapshot] = await Promise.all([
+          getDocsFromCache(userCollection('folders')),
+          getDocsFromCache(userCollection('lists')),
+        ])
+        const cachedFolders = folderSnapshot.docs.map((folder) => ({ id: folder.id, ...folder.data() }) as Folder)
+        const cachedLists = listSnapshot.docs.map((list) => ({ id: list.id, ...list.data() }) as List)
+        folders.value = sortByOrder(cachedFolders)
+        lists.value = sortByOrder(cachedLists)
+        selectedListId.value ??= lists.value[0]?.id ?? null
+        isLoaded.value = true
+      } catch {
+        error.value = fetchError instanceof Error ? fetchError.message : 'Unable to load lists.'
+      }
     }
   }
 

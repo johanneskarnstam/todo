@@ -14,10 +14,11 @@ interface Emits {
 defineProps<Props>()
 const emit = defineEmits<Emits>()
 const { t } = useI18n()
+const iconUrl = `${import.meta.env.BASE_URL}img/icons/todo-icon.svg`
 </script>
 
 <template>
-  <header class="flex h-14 shrink-0 items-center bg-[#2564cf] px-3 text-white shadow-sm sm:px-4">
+  <header class="flex h-14 shrink-0 items-center bg-[#2564cf] px-3 text-white shadow-sm dark:bg-slate-900 sm:px-4">
     <div class="flex min-w-0 flex-1 items-center gap-2 sm:w-52 sm:flex-none sm:gap-3">
       <button
         class="grid size-8 place-items-center rounded-sm text-white/90 transition hover:bg-white/15"
@@ -28,7 +29,7 @@ const { t } = useI18n()
         <span class="text-xl leading-none">☰</span>
       </button>
       <div class="flex items-center gap-2">
-        <span class="grid size-8 place-items-center rounded-lg bg-white text-lg font-bold text-[#2564cf] shadow-sm" aria-hidden="true">✓</span>
+        <img class="size-8 rounded-lg shadow-sm" :src="iconUrl" alt="" aria-hidden="true" />
         <span class="text-lg font-semibold tracking-tight">{{ t('appName') }}</span>
       </div>
     </div>

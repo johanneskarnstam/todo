@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import TodoHeader from '@/components/TodoHeader.vue'
 import TodoSidebar from '@/components/TodoSidebar.vue'
 import TaskRow from '@/components/TaskRow.vue'
@@ -16,11 +17,23 @@ const pendingDeleteTaskId = ref<string | null>(null)
 const listStore = useListStore()
 const taskStore = useTaskStore()
 const { t } = useI18n()
+const route = useRoute()
+const router = useRouter()
+
+interface PlannedGroup {
+  key: 'overdue' | 'today' | 'tomorrow' | 'later'
+  tasks: typeof taskStore.visibleTasks
+}
+
+const routeSmartView = computed(() => route.meta.smartView as SmartView | undefined)
+const isPlannedView = computed(() => routeSmartView.value === 'planned')
 
 const currentTitle = computed(() => {
   const view = taskStore.activeView
   if (view?.type === 'smart') {
-    return view.smartView === 'important' ? t('important') : t('myDay')
+    if (view.smartView === 'important') return t('important')
+    if (view.smartView === 'planned') return t('planned')
+    return t('myDay')
   }
 
   return listStore.selectedList?.name ?? t('myDay')
@@ -28,9 +41,45 @@ const currentTitle = computed(() => {
 
 const canAddTask = computed(() => taskStore.activeView?.type === 'list')
 
+const taskListName = (listId: string) => listStore.lists.find((list) => list.id === listId)?.name ?? null
+
+const dueDateKey = (task: (typeof taskStore.tasks)[number]) => {
+  if (!task.dueDate) return ''
+  if (typeof task.dueDate === 'string') return task.dueDate
+  const date = task.dueDate.toDate()
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
+const plannedGroups = computed<PlannedGroup[]>(() => {
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const tomorrow = new Date(today)
+  tomorrow.setDate(today.getDate() + 1)
+  const formatDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  const todayKey = formatDate(today)
+  const tomorrowKey = formatDate(tomorrow)
+  const groups: Record<PlannedGroup['key'], PlannedGroup['tasks']> = {
+    overdue: [],
+    today: [],
+    tomorrow: [],
+    later: [],
+  }
+
+  for (const task of taskStore.visibleTasks) {
+    const key = dueDateKey(task)
+    const group = key < todayKey ? 'overdue' : key === todayKey ? 'today' : key === tomorrowKey ? 'tomorrow' : 'later'
+    groups[group].push(task)
+  }
+
+  return (Object.keys(groups) as PlannedGroup['key'][])
+    .map((key) => ({ key, tasks: groups[key].sort((first, second) => dueDateKey(first).localeCompare(dueDateKey(second))) }))
+    .filter((group) => group.tasks.length > 0)
+})
+
 const handleSelectList = (listId: string) => {
   listStore.selectList(listId)
   taskStore.setListView(listId)
+  void router.push('/')
   isSidebarOpen.value = false
 }
 
@@ -50,6 +99,7 @@ const handleMoveList = (listId: string, folderId: string | null) => {
 
 const handleSelectSmartView = (view: SmartView) => {
   taskStore.setSmartView(view)
+  void router.push({ name: view === 'myDay' ? 'my-day' : view })
   isSidebarOpen.value = false
 }
 
@@ -91,7 +141,15 @@ const handleSaveStepTitle = (stepId: string, title: string) => {
 
 onMounted(async () => {
   await listStore.fetchLists()
-  if (listStore.selectedListId) taskStore.setListView(listStore.selectedListId)
+  if (routeSmartView.value) {
+    taskStore.setSmartView(routeSmartView.value)
+  } else if (listStore.selectedListId) {
+    taskStore.setListView(listStore.selectedListId)
+  }
+})
+
+watch(routeSmartView, (view) => {
+  if (view) taskStore.setSmartView(view)
 })
 
 const toggleTheme = () => {
@@ -115,6 +173,7 @@ const toggleTheme = () => {
         :active-smart-view="taskStore.activeView?.type === 'smart' ? taskStore.activeView.smartView : null"
         :folders="listStore.foldersWithLists"
         :ungrouped-lists="listStore.ungroupedLists"
+        :smart-view-counts="taskStore.smartViewCounts"
         @close="isSidebarOpen = false"
         @select-list="handleSelectList"
         @select-smart-view="handleSelectSmartView"
@@ -144,31 +203,57 @@ const toggleTheme = () => {
             <input id="new-task-title" v-model="taskTitle" class="min-w-0 flex-1 bg-transparent text-sm text-slate-800 outline-none placeholder:text-[#2564cf] dark:text-slate-100 dark:placeholder:text-blue-400" type="text" :placeholder="t('addTask')" />
           </form>
 
-          <section v-if="taskStore.activeTasks.length" class="mt-6" aria-labelledby="active-tasks-heading">
+          <template v-if="isPlannedView">
+            <section v-for="group in plannedGroups" :key="group.key" class="mt-6" :aria-labelledby="`${group.key}-tasks-heading`">
+              <h2 :id="`${group.key}-tasks-heading`" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ t(group.key) }}</h2>
+              <div class="overflow-hidden rounded border border-slate-200 shadow-sm dark:border-slate-700">
+                <TaskRow
+                  v-for="task in group.tasks"
+                  :key="task.id"
+                  :task="task"
+                  :step-count="taskStore.taskStepCounts.get(task.id) ?? null"
+                  :list-name="taskListName(task.listId)"
+                  @select="taskStore.setActiveTask(task.id)"
+                  @toggle-completed="taskStore.toggleCompleted(task.id)"
+                  @toggle-important="taskStore.toggleImportant(task.id)"
+                  @toggle-my-day="taskStore.toggleMyDay(task.id)"
+                  @delete="requestDeleteTask(task.id)"
+                />
+              </div>
+            </section>
+          </template>
+
+          <section v-else-if="taskStore.activeTasks.length" class="mt-6" aria-labelledby="active-tasks-heading">
             <h2 id="active-tasks-heading" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ t('tasks') }}</h2>
             <div class="overflow-hidden rounded border border-slate-200 shadow-sm dark:border-slate-700">
               <TaskRow
                 v-for="task in taskStore.activeTasks"
                 :key="task.id"
                 :task="task"
+                :step-count="taskStore.taskStepCounts.get(task.id) ?? null"
+                :list-name="taskStore.activeView?.type === 'smart' && taskStore.activeView.smartView === 'important' ? taskListName(task.listId) : null"
                 @select="taskStore.setActiveTask(task.id)"
                 @toggle-completed="taskStore.toggleCompleted(task.id)"
                 @toggle-important="taskStore.toggleImportant(task.id)"
+                @toggle-my-day="taskStore.toggleMyDay(task.id)"
                 @delete="requestDeleteTask(task.id)"
               />
             </div>
           </section>
 
-          <section v-if="taskStore.completedTasks.length" class="mt-7" aria-labelledby="completed-tasks-heading">
+          <section v-if="!isPlannedView && taskStore.completedTasks.length" class="mt-7" aria-labelledby="completed-tasks-heading">
             <h2 id="completed-tasks-heading" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Completed</h2>
             <div class="overflow-hidden rounded border border-slate-200 shadow-sm dark:border-slate-700">
               <TaskRow
                 v-for="task in taskStore.completedTasks"
                 :key="task.id"
                 :task="task"
+                :step-count="taskStore.taskStepCounts.get(task.id) ?? null"
+                :list-name="taskStore.activeView?.type === 'smart' && taskStore.activeView.smartView === 'important' ? taskListName(task.listId) : null"
                 @select="taskStore.setActiveTask(task.id)"
                 @toggle-completed="taskStore.toggleCompleted(task.id)"
                 @toggle-important="taskStore.toggleImportant(task.id)"
+                @toggle-my-day="taskStore.toggleMyDay(task.id)"
                 @delete="requestDeleteTask(task.id)"
               />
             </div>

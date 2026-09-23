@@ -29,6 +29,20 @@ describe('TaskRow', () => {
     await wrapper.find('button[aria-label="Mark task important"]').trigger('click')
     expect(wrapper.emitted('toggle-important')).toHaveLength(1)
     expect(wrapper.emitted('select')).toHaveLength(1)
+
+    await wrapper.find('button[aria-label="Add to My day"]').trigger('click')
+    expect(wrapper.emitted('toggle-my-day')).toHaveLength(1)
+  })
+
+  it('shows a subtask count only when steps exist', () => {
+    const withSteps = mount(TaskRow, {
+      props: { task, stepCount: { completed: 2, total: 3 } },
+    })
+    expect(withSteps.text()).toContain('(2/3)')
+    expect(withSteps.find('[aria-label="2 of 3 subtasks completed"]').exists()).toBe(true)
+
+    const withoutSteps = mount(TaskRow, { props: { task } })
+    expect(withoutSteps.text()).not.toContain('(/')
   })
 })
 

@@ -7,12 +7,13 @@ import {
   deleteDoc,
   doc,
   getDocs,
+  getDocsFromCache,
   serverTimestamp,
   Timestamp,
   updateDoc,
 } from 'firebase/firestore'
 import { auth, db } from '@/firebase'
-import type { SmartView, Step, Task, TaskView } from '@/types'
+import type { SmartView, Step, StepCount, Task, TaskView } from '@/types'
 
 interface NewTaskInput {
   listId: string
@@ -29,7 +30,7 @@ const sortByCreatedAt = (tasks: Task[]): Task[] =>
 
 export const useTaskStore = defineStore('tasks', () => {
   const tasks = ref<Task[]>([])
-  const steps = ref<Step[]>([])
+  const allSteps = ref<Step[]>([])
   const activeTaskId = ref<string | null>(null)
   const activeView = ref<TaskView | null>(null)
   const isLoaded = ref(false)
@@ -47,13 +48,34 @@ export const useTaskStore = defineStore('tasks', () => {
       return tasks.value.filter((task) => task.important)
     }
 
+    if (view.smartView === 'planned') {
+      return tasks.value.filter((task) => Boolean(task.dueDate))
+    }
+
     return tasks.value.filter((task) => task.myDay)
   })
 
   const activeTasks = computed(() => visibleTasks.value.filter((task) => !task.completed))
   const completedTasks = computed(() => visibleTasks.value.filter((task) => task.completed))
   const activeTask = computed(() => tasks.value.find((task) => task.id === activeTaskId.value) ?? null)
-  const activeSteps = computed(() => steps.value.filter((step) => step.taskId === activeTaskId.value))
+  const activeSteps = computed(() => allSteps.value.filter((step) => step.taskId === activeTaskId.value))
+  const taskStepCounts = computed(() => {
+    const counts = new Map<string, StepCount>()
+
+    for (const step of allSteps.value) {
+      const count = counts.get(step.taskId) ?? { completed: 0, total: 0 }
+      count.total += 1
+      if (step.completed) count.completed += 1
+      counts.set(step.taskId, count)
+    }
+
+    return counts
+  })
+  const smartViewCounts = computed<Record<SmartView, number>>(() => ({
+    myDay: tasks.value.filter((task) => task.myDay && !task.completed).length,
+    important: tasks.value.filter((task) => task.important && !task.completed).length,
+    planned: tasks.value.filter((task) => Boolean(task.dueDate) && !task.completed).length,
+  }))
 
   const userId = () => {
     const currentUserId = auth.currentUser?.uid
@@ -71,19 +93,49 @@ export const useTaskStore = defineStore('tasks', () => {
   const taskStepsCollection = (taskId: string) =>
     collection(db, 'users', userId(), 'tasks', taskId, 'steps')
 
-  const fetchSteps = async (taskId: string) => {
+  const fetchStepsForTask = async (taskId: string): Promise<Step[] | null> => {
     try {
       const snapshot = await getDocs(taskStepsCollection(taskId))
-      if (activeTaskId.value !== taskId) return
-      steps.value = snapshot.docs.map((step) => ({ id: step.id, ...step.data() }) as Step)
+      return snapshot.docs.map((step) => ({ id: step.id, ...step.data() }) as Step)
     } catch (fetchError) {
-      error.value = fetchError instanceof Error ? fetchError.message : 'Unable to load steps.'
+      try {
+        const cachedSnapshot = await getDocsFromCache(taskStepsCollection(taskId))
+        return cachedSnapshot.docs.map((step) => ({ id: step.id, ...step.data() }) as Step)
+      } catch {
+        error.value = fetchError instanceof Error ? fetchError.message : 'Unable to load steps.'
+        return null
+      }
+    }
+  }
+
+  const replaceFetchedSteps = (taskId: string, fetchedSteps: Step[]) => {
+    const optimisticSteps = allSteps.value.filter(
+      (step) => step.taskId === taskId && step.id.startsWith('optimistic-'),
+    )
+    const otherSteps = allSteps.value.filter((step) => step.taskId !== taskId)
+    allSteps.value = [...otherSteps, ...fetchedSteps, ...optimisticSteps]
+  }
+
+  const fetchSteps = async (taskId: string) => {
+    const fetchedSteps = await fetchStepsForTask(taskId)
+    if (fetchedSteps) replaceFetchedSteps(taskId, fetchedSteps)
+  }
+
+  const fetchAllSteps = async (tasksToLoad: Task[]) => {
+    const taskIds = new Set(tasksToLoad.map((task) => task.id))
+    allSteps.value = allSteps.value.filter((step) => taskIds.has(step.taskId))
+
+    const fetchedSteps = await Promise.all(
+      tasksToLoad.map(async (task) => ({ taskId: task.id, steps: await fetchStepsForTask(task.id) })),
+    )
+
+    for (const result of fetchedSteps) {
+      if (result.steps) replaceFetchedSteps(result.taskId, result.steps)
     }
   }
 
   const setActiveTask = (taskId: string | null) => {
     activeTaskId.value = taskId
-    steps.value = []
     if (taskId) void fetchSteps(taskId)
   }
 
@@ -95,9 +147,20 @@ export const useTaskStore = defineStore('tasks', () => {
       tasks.value = sortByCreatedAt(
         snapshot.docs.map((task) => ({ id: task.id, ...task.data() }) as Task),
       )
+      await fetchAllSteps(tasks.value)
       isLoaded.value = true
     } catch (fetchError) {
-      error.value = fetchError instanceof Error ? fetchError.message : 'Unable to load tasks.'
+      try {
+        const cachedSnapshot = await getDocsFromCache(userCollection())
+        tasks.value = sortByCreatedAt(
+          cachedSnapshot.docs.map((task) => ({ id: task.id, ...task.data() }) as Task),
+        )
+        await fetchAllSteps(tasks.value)
+        isLoaded.value = true
+        return
+      } catch {
+        error.value = fetchError instanceof Error ? fetchError.message : 'Unable to load tasks.'
+      }
     }
   }
 
@@ -223,7 +286,7 @@ export const useTaskStore = defineStore('tasks', () => {
       createdAt: Timestamp.now(),
     }
 
-    steps.value = [...steps.value, optimisticStep]
+    allSteps.value = [...allSteps.value, optimisticStep]
     error.value = null
 
     try {
@@ -233,18 +296,18 @@ export const useTaskStore = defineStore('tasks', () => {
         completed: optimisticStep.completed,
         createdAt: serverTimestamp(),
       })
-      steps.value = steps.value.map((step) =>
+      allSteps.value = allSteps.value.map((step) =>
         step.id === optimisticId ? { ...optimisticStep, id: stepReference.id } : step,
       )
-      return steps.value.find((step) => step.id === stepReference.id)
+      return allSteps.value.find((step) => step.id === stepReference.id)
     } catch (createError) {
-      steps.value = steps.value.filter((step) => step.id !== optimisticId)
+      allSteps.value = allSteps.value.filter((step) => step.id !== optimisticId)
       error.value = createError instanceof Error ? createError.message : 'Unable to create step.'
     }
   }
 
   const toggleStep = (stepId: string) => {
-    const step = steps.value.find((item) => item.id === stepId)
+    const step = allSteps.value.find((item) => item.id === stepId)
     if (!step || !activeTaskId.value) return
 
     const previousCompleted = step.completed
@@ -260,7 +323,7 @@ export const useTaskStore = defineStore('tasks', () => {
   }
 
   const updateStep = async (stepId: string, title: string) => {
-    const step = steps.value.find((item) => item.id === stepId)
+    const step = allSteps.value.find((item) => item.id === stepId)
     if (!step || !activeTaskId.value) return
 
     const nextTitle = title.trim()
@@ -279,16 +342,16 @@ export const useTaskStore = defineStore('tasks', () => {
   }
 
   const deleteStep = async (stepId: string) => {
-    const stepIndex = steps.value.findIndex((item) => item.id === stepId)
+    const stepIndex = allSteps.value.findIndex((item) => item.id === stepId)
     if (stepIndex < 0 || !activeTaskId.value) return
 
-    const [deletedStep] = steps.value.splice(stepIndex, 1)
+    const [deletedStep] = allSteps.value.splice(stepIndex, 1)
     error.value = null
 
     try {
       await deleteDoc(doc(taskStepsCollection(activeTaskId.value), stepId))
     } catch (deleteError) {
-      steps.value.splice(stepIndex, 0, deletedStep)
+      allSteps.value.splice(stepIndex, 0, deletedStep)
       error.value = deleteError instanceof Error ? deleteError.message : 'Unable to delete step.'
     }
   }
@@ -302,6 +365,7 @@ export const useTaskStore = defineStore('tasks', () => {
 
     try {
       await deleteDoc(doc(userCollection(), taskId))
+      allSteps.value = allSteps.value.filter((step) => step.taskId !== taskId)
       if (activeTaskId.value === taskId) setActiveTask(null)
     } catch (deleteError) {
       tasks.value = sortByCreatedAt([...tasks.value, deletedTask])
@@ -311,10 +375,13 @@ export const useTaskStore = defineStore('tasks', () => {
 
   return {
     tasks,
-    steps,
+    steps: allSteps,
+    allSteps,
     activeTaskId,
     activeTask,
     activeSteps,
+    taskStepCounts,
+    smartViewCounts,
     activeView,
     visibleTasks,
     activeTasks,

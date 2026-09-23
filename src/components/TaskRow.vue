@@ -1,14 +1,17 @@
 <script setup lang="ts">
-import type { Task } from '@/types'
+import type { StepCount, Task } from '@/types'
 
 interface Props {
   task: Task
+  stepCount?: StepCount | null
+  listName?: string | null
 }
 
 interface Emits {
   (event: 'select'): void
   (event: 'toggle-completed'): void
   (event: 'toggle-important'): void
+  (event: 'toggle-my-day'): void
   (event: 'delete'): void
 }
 
@@ -30,6 +33,14 @@ const emit = defineEmits<Emits>()
 
     <span class="min-w-0 flex-1 text-sm text-slate-800 dark:text-slate-100" :class="{ 'text-slate-400 line-through dark:text-slate-500': task.completed }">
       {{ task.title }}
+      <span
+        v-if="stepCount && stepCount.total > 0"
+        class="ml-2 text-xs text-slate-500 dark:text-slate-400"
+        :aria-label="`${stepCount.completed} of ${stepCount.total} subtasks completed`"
+      >
+        ({{ stepCount.completed }}/{{ stepCount.total }})
+      </span>
+      <span v-if="listName" class="ml-2 text-xs text-slate-500 dark:text-slate-400">{{ listName }}</span>
     </span>
 
     <button
@@ -40,6 +51,16 @@ const emit = defineEmits<Emits>()
       @click.stop="emit('toggle-important')"
     >
       <span aria-hidden="true">{{ task.important ? '★' : '☆' }}</span>
+    </button>
+
+    <button
+      class="grid size-8 shrink-0 place-items-center rounded text-lg leading-none transition hover:bg-slate-100 dark:hover:bg-slate-700"
+      :class="task.myDay ? 'text-[#2564cf] dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'"
+      type="button"
+      :aria-label="task.myDay ? 'Remove from My day' : 'Add to My day'"
+      @click.stop="emit('toggle-my-day')"
+    >
+      <span aria-hidden="true">☼</span>
     </button>
 
     <button

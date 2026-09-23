@@ -35,7 +35,12 @@ export interface Step {
   createdAt: Timestamp
 }
 
-export type SmartView = 'myDay' | 'important'
+export interface StepCount {
+  completed: number
+  total: number
+}
+
+export type SmartView = 'myDay' | 'important' | 'planned'
 
 export type TaskView =
   | { type: 'list'; listId: string }

@@ -10,6 +10,7 @@ const firestoreMocks = vi.hoisted(() => ({
   deleteField: vi.fn(() => 'delete-field'),
   doc: vi.fn(),
   getDocs: vi.fn(),
+  getDocsFromCache: vi.fn(),
   serverTimestamp: vi.fn(() => 'server-timestamp'),
   updateDoc: vi.fn(),
 }))
@@ -47,6 +48,7 @@ describe('useTaskStore', () => {
     firestoreMocks.collection.mockImplementation((...path: string[]) => ({ path }))
     firestoreMocks.doc.mockImplementation((...path: string[]) => ({ path }))
     firestoreMocks.getDocs.mockResolvedValue(snapshot([]))
+    firestoreMocks.getDocsFromCache.mockResolvedValue(snapshot([]))
     firestoreMocks.addDoc.mockResolvedValue({ id: 'persisted-id' })
     firestoreMocks.updateDoc.mockResolvedValue(undefined)
     firestoreMocks.deleteDoc.mockResolvedValue(undefined)
@@ -80,11 +82,22 @@ describe('useTaskStore', () => {
           myDay: true,
           createdAt,
         }),
+        taskDocument('planned-task', {
+          listId: 'list-2',
+          title: 'Planned task',
+          completed: false,
+          important: false,
+          myDay: false,
+          dueDate: '2026-10-01',
+          createdAt,
+        }),
       ]),
     )
 
     const store = useTaskStore()
     await store.fetchTasks()
+
+    expect(store.smartViewCounts).toEqual({ myDay: 1, important: 0, planned: 1 })
 
     store.setListView('list-1')
     expect(store.visibleTasks.map((task) => task.id)).toEqual(['list-task'])
@@ -95,6 +108,83 @@ describe('useTaskStore', () => {
 
     store.setSmartView('myDay')
     expect(store.visibleTasks.map((task) => task.id)).toEqual(['today-task'])
+
+    store.setSmartView('planned')
+    expect(store.visibleTasks.map((task) => task.id)).toEqual(['planned-task'])
+  })
+
+  it('counts steps for every task and keeps counts when the active task changes', async () => {
+    const createdAt = Timestamp.now()
+    firestoreMocks.getDocs
+      .mockResolvedValueOnce(
+        snapshot([
+          taskDocument('task-1', {
+            listId: 'list-1',
+            title: 'First task',
+            completed: false,
+            important: false,
+            myDay: false,
+            createdAt,
+          }),
+          taskDocument('task-2', {
+            listId: 'list-1',
+            title: 'Second task',
+            completed: false,
+            important: false,
+            myDay: false,
+            createdAt,
+          }),
+        ]),
+      )
+      .mockResolvedValueOnce(
+        snapshot([
+          taskDocument('step-1', { taskId: 'task-1', title: 'One', completed: true, createdAt }),
+          taskDocument('step-2', { taskId: 'task-1', title: 'Two', completed: false, createdAt }),
+          taskDocument('step-3', { taskId: 'task-1', title: 'Three', completed: true, createdAt }),
+        ]),
+      )
+      .mockResolvedValueOnce(
+        snapshot([taskDocument('step-4', { taskId: 'task-2', title: 'Four', completed: false, createdAt })]),
+      )
+
+    const store = useTaskStore()
+    await store.fetchTasks()
+
+    expect(store.taskStepCounts.get('task-1')).toEqual({ completed: 2, total: 3 })
+    expect(store.taskStepCounts.get('task-2')).toEqual({ completed: 0, total: 1 })
+
+    store.setActiveTask('task-1')
+    await Promise.resolve()
+
+    expect(store.taskStepCounts.get('task-2')).toEqual({ completed: 0, total: 1 })
+  })
+
+  it('loads step counts from cache when task and step reads are offline', async () => {
+    const createdAt = Timestamp.now()
+    firestoreMocks.getDocs
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockRejectedValueOnce(new Error('offline'))
+    firestoreMocks.getDocsFromCache
+      .mockResolvedValueOnce(
+        snapshot([
+          taskDocument('task-1', {
+            listId: 'list-1',
+            title: 'Cached task',
+            completed: false,
+            important: false,
+            myDay: false,
+            createdAt,
+          }),
+        ]),
+      )
+      .mockResolvedValueOnce(
+        snapshot([taskDocument('step-1', { taskId: 'task-1', title: 'Cached step', completed: true, createdAt })]),
+      )
+
+    const store = useTaskStore()
+    await store.fetchTasks()
+
+    expect(store.taskStepCounts.get('task-1')).toEqual({ completed: 1, total: 1 })
   })
 
   it('adds a task optimistically and replaces its temporary id after persistence', async () => {
@@ -162,6 +252,7 @@ describe('useTaskStore', () => {
 
     expect(store.activeSteps).toHaveLength(1)
     expect(store.activeSteps[0].title).toBe('Measure wall')
+    expect(store.taskStepCounts.get('task-1')).toEqual({ completed: 0, total: 1 })
 
     pendingCreate.resolve({ id: 'step-1' })
     await creation
@@ -171,6 +262,7 @@ describe('useTaskStore', () => {
     firestoreMocks.updateDoc.mockReturnValueOnce(pendingToggle.promise)
     store.toggleStep('step-1')
     expect(store.activeSteps[0].completed).toBe(true)
+    expect(store.taskStepCounts.get('task-1')).toEqual({ completed: 1, total: 1 })
     pendingToggle.resolve()
     await pendingToggle.promise
   })
@@ -218,6 +310,7 @@ describe('useTaskStore', () => {
     await store.deleteStep('persisted-id')
 
     expect(store.activeSteps).toHaveLength(0)
+    expect(store.taskStepCounts.has('task-1')).toBe(false)
     expect(firestoreMocks.deleteDoc).toHaveBeenCalledWith(expect.anything())
   })
 })

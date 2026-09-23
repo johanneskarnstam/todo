@@ -14,6 +14,7 @@ interface Props {
   activeSmartView: SmartView | null
   folders: FolderSection[]
   ungroupedLists: List[]
+  smartViewCounts: Record<SmartView, number>
 }
 
 interface Emits {
@@ -28,11 +29,12 @@ interface Emits {
 defineProps<Props>()
 const emit = defineEmits<Emits>()
 const { t } = useI18n()
+const iconUrl = `${import.meta.env.BASE_URL}img/icons/todo-icon.svg`
 
 const smartViews = [
   { key: 'myDay' as const, view: 'myDay' as SmartView },
   { key: 'important' as const, view: 'important' as SmartView },
-  { key: 'planned' as const },
+  { key: 'planned' as const, view: 'planned' as SmartView },
   { key: 'tasks' as const },
 ]
 
@@ -111,7 +113,7 @@ const moveList = (listId: string, folderId: string | null) => {
     <div class="flex h-full flex-col px-3 py-5">
       <div class="mb-5 flex h-10 items-center justify-between lg:hidden">
         <div class="flex items-center gap-2 px-1">
-          <span class="grid size-8 place-items-center rounded-lg bg-[#2564cf] text-lg font-bold text-white shadow-sm" aria-hidden="true">✓</span>
+          <img class="size-8 rounded-lg shadow-sm" :src="iconUrl" alt="" aria-hidden="true" />
           <span class="text-lg font-semibold tracking-tight text-slate-800 dark:text-slate-100">{{ t('appName') }}</span>
         </div>
         <button
@@ -135,6 +137,7 @@ const moveList = (listId: string, folderId: string | null) => {
         >
           <span class="w-4 text-center text-lg leading-none text-slate-600 dark:text-slate-300" aria-hidden="true">{{ icons[view.key] }}</span>
           <span class="flex-1">{{ t(view.key) }}</span>
+          <span v-if="view.view" class="min-w-5 text-right text-xs text-slate-500 dark:text-slate-400">{{ smartViewCounts[view.view] }}</span>
         </button>
       </nav>
 
