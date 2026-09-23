@@ -101,7 +101,7 @@ const moveList = (listId: string, folderId: string | null) => {
   >
     <div class="flex h-full flex-col px-3 py-5">
       <button
-        class="mb-5 flex h-9 w-10 items-center justify-center rounded text-xl text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+        class="mb-5 flex h-9 w-10 items-center justify-center rounded text-xl text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 lg:hidden"
         type="button"
         aria-label="Close navigation menu"
         @click="emit('close')"

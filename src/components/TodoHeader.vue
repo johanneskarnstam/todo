@@ -27,28 +27,23 @@ const { t } = useI18n()
       >
         <span class="text-xl leading-none">☰</span>
       </button>
-      <span class="hidden text-lg font-semibold tracking-tight sm:inline">{{ t('appName') }}</span>
+      <div class="flex items-center gap-2">
+        <span class="grid size-8 place-items-center rounded-lg bg-white text-lg font-bold text-[#2564cf] shadow-sm" aria-hidden="true">✓</span>
+        <span class="text-lg font-semibold tracking-tight">{{ t('appName') }}</span>
+      </div>
     </div>
 
-    <label class="relative mx-auto flex w-full max-w-xl items-center">
-      <span class="sr-only">{{ t('search') }}</span>
-      <span class="pointer-events-none absolute left-3 text-[#2564cf]" aria-hidden="true">⌕</span>
-      <input
-        class="h-9 w-full rounded border-0 bg-white px-10 text-sm text-slate-700 outline-none ring-2 ring-transparent transition placeholder:text-slate-400 focus:ring-white/70"
-        type="search"
-        :placeholder="t('search')"
-      />
-    </label>
-
-    <div class="flex w-52 shrink-0 justify-end">
-      <button
-        class="grid size-8 place-items-center rounded-sm text-lg text-white/90 transition hover:bg-white/15"
-        type="button"
-        :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
-        @click="emit('toggle-theme')"
-      >
-        <span aria-hidden="true">{{ isDark ? '☀' : '☾' }}</span>
-      </button>
+    <div class="flex flex-1 justify-end">
+      <div class="flex w-52 shrink-0 justify-end">
+        <button
+          class="grid size-8 place-items-center rounded-sm text-lg text-white/90 transition hover:bg-white/15"
+          type="button"
+          :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
+          @click="emit('toggle-theme')"
+        >
+          <span aria-hidden="true">{{ isDark ? '☀' : '☾' }}</span>
+        </button>
+      </div>
     </div>
   </header>
 </template>
