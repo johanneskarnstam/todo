@@ -22,6 +22,16 @@ export interface Task {
   completed: boolean
   important: boolean
   myDay: boolean
+  dueDate?: string | Timestamp
+  note?: string
+  createdAt: Timestamp
+}
+
+export interface Step {
+  id: string
+  taskId: string
+  title: string
+  completed: boolean
   createdAt: Timestamp
 }
 

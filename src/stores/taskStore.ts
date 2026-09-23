@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 import {
   addDoc,
   collection,
+  deleteField,
   deleteDoc,
   doc,
   getDocs,
@@ -11,10 +12,15 @@ import {
   updateDoc,
 } from 'firebase/firestore'
 import { auth, db } from '@/firebase'
-import type { SmartView, Task, TaskView } from '@/types'
+import type { SmartView, Step, Task, TaskView } from '@/types'
 
 interface NewTaskInput {
   listId: string
+  title: string
+}
+
+interface NewStepInput {
+  taskId: string
   title: string
 }
 
@@ -23,6 +29,8 @@ const sortByCreatedAt = (tasks: Task[]): Task[] =>
 
 export const useTaskStore = defineStore('tasks', () => {
   const tasks = ref<Task[]>([])
+  const steps = ref<Step[]>([])
+  const activeTaskId = ref<string | null>(null)
   const activeView = ref<TaskView | null>(null)
   const isLoaded = ref(false)
   const error = ref<string | null>(null)
@@ -44,14 +52,39 @@ export const useTaskStore = defineStore('tasks', () => {
 
   const activeTasks = computed(() => visibleTasks.value.filter((task) => !task.completed))
   const completedTasks = computed(() => visibleTasks.value.filter((task) => task.completed))
+  const activeTask = computed(() => tasks.value.find((task) => task.id === activeTaskId.value) ?? null)
+  const activeSteps = computed(() => steps.value.filter((step) => step.taskId === activeTaskId.value))
 
-  const userCollection = () => {
-    const userId = auth.currentUser?.uid
-    if (!userId) {
+  const userId = () => {
+    const currentUserId = auth.currentUser?.uid
+    if (!currentUserId) {
       throw new Error('A signed-in user is required to access tasks.')
     }
 
-    return collection(db, 'users', userId, 'tasks')
+    return currentUserId
+  }
+
+  const userCollection = () => {
+    return collection(db, 'users', userId(), 'tasks')
+  }
+
+  const taskStepsCollection = (taskId: string) =>
+    collection(db, 'users', userId(), 'tasks', taskId, 'steps')
+
+  const fetchSteps = async (taskId: string) => {
+    try {
+      const snapshot = await getDocs(taskStepsCollection(taskId))
+      if (activeTaskId.value !== taskId) return
+      steps.value = snapshot.docs.map((step) => ({ id: step.id, ...step.data() }) as Step)
+    } catch (fetchError) {
+      error.value = fetchError instanceof Error ? fetchError.message : 'Unable to load steps.'
+    }
+  }
+
+  const setActiveTask = (taskId: string | null) => {
+    activeTaskId.value = taskId
+    steps.value = []
+    if (taskId) void fetchSteps(taskId)
   }
 
   const fetchTasks = async () => {
@@ -120,7 +153,10 @@ export const useTaskStore = defineStore('tasks', () => {
     }
   }
 
-  const updateTask = async (taskId: string, updates: Partial<Pick<Task, 'completed' | 'important' | 'myDay' | 'title'>>) => {
+  const updateTask = async (
+    taskId: string,
+    updates: Partial<Pick<Task, 'completed' | 'important' | 'myDay' | 'title' | 'dueDate' | 'note'>>,
+  ) => {
     const currentTask = tasks.value.find((task) => task.id === taskId)
     if (!currentTask) return
 
@@ -146,6 +182,83 @@ export const useTaskStore = defineStore('tasks', () => {
     if (task) void updateTask(taskId, { important: !task.important })
   }
 
+  const toggleMyDay = (taskId: string) => {
+    const task = tasks.value.find((item) => item.id === taskId)
+    if (task) void updateTask(taskId, { myDay: !task.myDay })
+  }
+
+  const setDueDate = (taskId: string, dueDate: string) => {
+    if (dueDate) {
+      void updateTask(taskId, { dueDate })
+      return
+    }
+
+    const task = tasks.value.find((item) => item.id === taskId)
+    if (!task) return
+
+    const previousDueDate = task.dueDate
+    delete task.dueDate
+    error.value = null
+
+    void updateDoc(doc(userCollection(), taskId), { dueDate: deleteField() }).catch((clearError: unknown) => {
+      if (previousDueDate) task.dueDate = previousDueDate
+      error.value = clearError instanceof Error ? clearError.message : 'Unable to clear due date.'
+    })
+  }
+
+  const saveNote = (taskId: string, note: string) => {
+    void updateTask(taskId, { note })
+  }
+
+  const createStep = async (input: NewStepInput) => {
+    const title = input.title.trim()
+    if (!title) return
+
+    const optimisticId = `optimistic-${crypto.randomUUID()}`
+    const optimisticStep: Step = {
+      id: optimisticId,
+      taskId: input.taskId,
+      title,
+      completed: false,
+      createdAt: Timestamp.now(),
+    }
+
+    steps.value = [...steps.value, optimisticStep]
+    error.value = null
+
+    try {
+      const stepReference = await addDoc(taskStepsCollection(input.taskId), {
+        taskId: optimisticStep.taskId,
+        title: optimisticStep.title,
+        completed: optimisticStep.completed,
+        createdAt: serverTimestamp(),
+      })
+      steps.value = steps.value.map((step) =>
+        step.id === optimisticId ? { ...optimisticStep, id: stepReference.id } : step,
+      )
+      return steps.value.find((step) => step.id === stepReference.id)
+    } catch (createError) {
+      steps.value = steps.value.filter((step) => step.id !== optimisticId)
+      error.value = createError instanceof Error ? createError.message : 'Unable to create step.'
+    }
+  }
+
+  const toggleStep = (stepId: string) => {
+    const step = steps.value.find((item) => item.id === stepId)
+    if (!step || !activeTaskId.value) return
+
+    const previousCompleted = step.completed
+    step.completed = !step.completed
+    error.value = null
+
+    void updateDoc(doc(taskStepsCollection(activeTaskId.value), stepId), {
+      completed: step.completed,
+    }).catch((toggleError: unknown) => {
+      step.completed = previousCompleted
+      error.value = toggleError instanceof Error ? toggleError.message : 'Unable to update step.'
+    })
+  }
+
   const deleteTask = async (taskId: string) => {
     const taskIndex = tasks.value.findIndex((task) => task.id === taskId)
     if (taskIndex < 0) return
@@ -155,6 +268,7 @@ export const useTaskStore = defineStore('tasks', () => {
 
     try {
       await deleteDoc(doc(userCollection(), taskId))
+      if (activeTaskId.value === taskId) setActiveTask(null)
     } catch (deleteError) {
       tasks.value = sortByCreatedAt([...tasks.value, deletedTask])
       error.value = deleteError instanceof Error ? deleteError.message : 'Unable to delete task.'
@@ -163,6 +277,10 @@ export const useTaskStore = defineStore('tasks', () => {
 
   return {
     tasks,
+    steps,
+    activeTaskId,
+    activeTask,
+    activeSteps,
     activeView,
     visibleTasks,
     activeTasks,
@@ -172,9 +290,16 @@ export const useTaskStore = defineStore('tasks', () => {
     fetchTasks,
     setListView,
     setSmartView,
+    setActiveTask,
     createTask,
+    createStep,
+    updateTask,
     toggleCompleted,
     toggleImportant,
+    toggleMyDay,
+    setDueDate,
+    saveNote,
+    toggleStep,
     deleteTask,
   }
 })

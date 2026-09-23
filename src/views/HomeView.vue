@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import TodoHeader from '@/components/TodoHeader.vue'
 import TodoSidebar from '@/components/TodoSidebar.vue'
 import TaskRow from '@/components/TaskRow.vue'
+import TaskDetailsPanel from '@/components/TaskDetailsPanel.vue'
 import { useListStore } from '@/stores/listStore'
 import { useTaskStore } from '@/stores/taskStore'
 import type { SmartView } from '@/types'
@@ -47,6 +48,14 @@ const handleAddTask = () => {
 
   void taskStore.createTask({ listId, title: taskTitle.value })
   taskTitle.value = ''
+}
+
+const handleDeleteActiveTask = () => {
+  const taskId = taskStore.activeTaskId
+  if (!taskId) return
+
+  taskStore.setActiveTask(null)
+  void taskStore.deleteTask(taskId)
 }
 
 onMounted(async () => {
@@ -104,6 +113,7 @@ const toggleTheme = () => {
                 v-for="task in taskStore.activeTasks"
                 :key="task.id"
                 :task="task"
+                @select="taskStore.setActiveTask(task.id)"
                 @toggle-completed="taskStore.toggleCompleted(task.id)"
                 @toggle-important="taskStore.toggleImportant(task.id)"
                 @delete="taskStore.deleteTask(task.id)"
@@ -118,6 +128,7 @@ const toggleTheme = () => {
                 v-for="task in taskStore.completedTasks"
                 :key="task.id"
                 :task="task"
+                @select="taskStore.setActiveTask(task.id)"
                 @toggle-completed="taskStore.toggleCompleted(task.id)"
                 @toggle-important="taskStore.toggleImportant(task.id)"
                 @delete="taskStore.deleteTask(task.id)"
@@ -128,6 +139,20 @@ const toggleTheme = () => {
           <p v-if="!taskStore.visibleTasks.length" class="mt-16 text-center text-sm text-slate-500 dark:text-slate-400">No tasks yet</p>
         </div>
       </main>
+
+      <TaskDetailsPanel
+        v-if="taskStore.activeTask"
+        :task="taskStore.activeTask"
+        :steps="taskStore.activeSteps"
+        @close="taskStore.setActiveTask(null)"
+        @save-title="taskStore.updateTask(taskStore.activeTaskId!, { title: $event })"
+        @add-step="taskStore.createStep({ taskId: taskStore.activeTaskId!, title: $event })"
+        @toggle-step="taskStore.toggleStep($event)"
+        @toggle-my-day="taskStore.toggleMyDay(taskStore.activeTaskId!)"
+        @set-due-date="taskStore.setDueDate(taskStore.activeTaskId!, $event)"
+        @save-note="taskStore.saveNote(taskStore.activeTaskId!, $event)"
+        @delete-task="handleDeleteActiveTask"
+      />
     </div>
   </div>
 </template>
