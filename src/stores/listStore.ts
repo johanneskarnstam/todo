@@ -1,11 +1,11 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import {
-  addDoc,
   collection,
   doc,
   getDocs,
   serverTimestamp,
+  setDoc,
   Timestamp,
   updateDoc,
 } from 'firebase/firestore'
@@ -34,6 +34,8 @@ export const useListStore = defineStore('lists', () => {
   const selectedListId = ref<string | null>(null)
   const isLoaded = ref(false)
   const error = ref<string | null>(null)
+  const pendingListIds = new Set<string>()
+  const pendingFolderIds = new Set<string>()
 
   const foldersWithLists = computed(() =>
     folders.value.map((folder) => ({
@@ -63,12 +65,19 @@ export const useListStore = defineStore('lists', () => {
         getDocs(userCollection('lists')),
       ])
 
-      folders.value = sortByOrder(
-        folderSnapshot.docs.map((folder) => ({ id: folder.id, ...folder.data() }) as Folder),
-      )
-      lists.value = sortByOrder(
-        listSnapshot.docs.map((list) => ({ id: list.id, ...list.data() }) as List),
-      )
+      const fetchedFolders = folderSnapshot.docs.map((folder) => ({ id: folder.id, ...folder.data() }) as Folder)
+      const fetchedLists = listSnapshot.docs.map((list) => ({ id: list.id, ...list.data() }) as List)
+      const pendingFolders = folders.value.filter((folder) => pendingFolderIds.has(folder.id))
+      const pendingLists = lists.value.filter((list) => pendingListIds.has(list.id))
+
+      folders.value = sortByOrder([
+        ...fetchedFolders,
+        ...pendingFolders.filter((folder) => !fetchedFolders.some((item) => item.id === folder.id)),
+      ])
+      lists.value = sortByOrder([
+        ...fetchedLists,
+        ...pendingLists.filter((list) => !fetchedLists.some((item) => item.id === list.id)),
+      ])
       selectedListId.value ??= lists.value[0]?.id ?? null
       isLoaded.value = true
     } catch (fetchError) {
@@ -81,6 +90,7 @@ export const useListStore = defineStore('lists', () => {
     if (!name) return
 
     const optimisticId = `optimistic-${crypto.randomUUID()}`
+    const listReference = doc(userCollection('lists'), optimisticId)
     const optimisticList: List = {
       id: optimisticId,
       name,
@@ -91,22 +101,22 @@ export const useListStore = defineStore('lists', () => {
     }
 
     lists.value = sortByOrder([...lists.value, optimisticList])
+    pendingListIds.add(optimisticId)
     selectedListId.value = optimisticId
     error.value = null
 
     try {
-      const listReference = await addDoc(userCollection('lists'), {
+      await setDoc(listReference, {
         name: optimisticList.name,
         ...(optimisticList.folderId ? { folderId: optimisticList.folderId } : {}),
         icon: optimisticList.icon,
         order: optimisticList.order,
         createdAt: serverTimestamp(),
       })
-      const persistedList: List = { ...optimisticList, id: listReference.id }
-      lists.value = lists.value.map((list) => (list.id === optimisticId ? persistedList : list))
-      selectedListId.value = listReference.id
-      return persistedList
+      pendingListIds.delete(optimisticId)
+      return optimisticList
     } catch (createError) {
+      pendingListIds.delete(optimisticId)
       lists.value = lists.value.filter((list) => list.id !== optimisticId)
       selectedListId.value = lists.value[0]?.id ?? null
       error.value = createError instanceof Error ? createError.message : 'Unable to create list.'
@@ -118,6 +128,7 @@ export const useListStore = defineStore('lists', () => {
     if (!name) return
 
     const optimisticId = `optimistic-${crypto.randomUUID()}`
+    const folderReference = doc(userCollection('folders'), optimisticId)
     const optimisticFolder: Folder = {
       id: optimisticId,
       name,
@@ -125,17 +136,18 @@ export const useListStore = defineStore('lists', () => {
     }
 
     folders.value = sortByOrder([...folders.value, optimisticFolder])
+    pendingFolderIds.add(optimisticId)
     error.value = null
 
     try {
-      const folderReference = await addDoc(userCollection('folders'), {
+      await setDoc(folderReference, {
         name: optimisticFolder.name,
         order: optimisticFolder.order,
       })
-      const persistedFolder: Folder = { ...optimisticFolder, id: folderReference.id }
-      folders.value = folders.value.map((folder) => (folder.id === optimisticId ? persistedFolder : folder))
-      return persistedFolder
+      pendingFolderIds.delete(optimisticId)
+      return optimisticFolder
     } catch (createError) {
+      pendingFolderIds.delete(optimisticId)
       folders.value = folders.value.filter((folder) => folder.id !== optimisticId)
       error.value = createError instanceof Error ? createError.message : 'Unable to create folder.'
     }

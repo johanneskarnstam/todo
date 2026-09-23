@@ -4,11 +4,11 @@ import { Timestamp } from 'firebase/firestore'
 import { useListStore } from '@/stores/listStore'
 
 const firestoreMocks = vi.hoisted(() => ({
-  addDoc: vi.fn(),
   collection: vi.fn(),
   doc: vi.fn(),
   getDocs: vi.fn(),
   serverTimestamp: vi.fn(() => 'server-timestamp'),
+  setDoc: vi.fn(),
   updateDoc: vi.fn(),
 }))
 
@@ -33,7 +33,7 @@ describe('useListStore', () => {
     firestoreMocks.collection.mockImplementation((...path: string[]) => ({ path }))
     firestoreMocks.doc.mockImplementation((...path: string[]) => ({ path }))
     firestoreMocks.getDocs.mockResolvedValue(snapshot([]))
-    firestoreMocks.addDoc.mockResolvedValue({ id: 'persisted-list' })
+    firestoreMocks.setDoc.mockResolvedValue(undefined)
     firestoreMocks.updateDoc.mockResolvedValue(undefined)
   })
 
@@ -68,23 +68,31 @@ describe('useListStore', () => {
     expect(store.selectedListId).toBe('list-1')
   })
 
-  it('adds a list optimistically and replaces the temporary id', async () => {
-    let resolveAdd: (value: { id: string }) => void = () => undefined
-    firestoreMocks.addDoc.mockReturnValueOnce(new Promise<{ id: string }>((resolve) => {
-      resolveAdd = resolve
+  it('keeps a new list visible across a concurrent fetch and persists its stable id', async () => {
+    let resolveAdd: () => void = () => undefined
+    firestoreMocks.setDoc.mockReturnValueOnce(new Promise<void>((resolve) => {
+      resolveAdd = () => resolve()
     }))
     const store = useListStore()
 
     const creation = store.createList({ name: '  Weekend jobs  ' })
+    const optimisticId = store.lists[0].id
     expect(store.lists[0]).toMatchObject({
-      id: expect.stringContaining('optimistic-'),
+      id: optimisticId,
       name: 'Weekend jobs',
     })
 
-    resolveAdd({ id: 'list-1' })
+    await store.fetchLists()
+    expect(store.lists.map((list) => list.id)).toContain(optimisticId)
+
+    resolveAdd()
     await creation
-    expect(store.lists[0].id).toBe('list-1')
-    expect(store.selectedListId).toBe('list-1')
+    expect(store.lists[0].id).toBe(optimisticId)
+    expect(store.selectedListId).toBe(optimisticId)
+    expect(firestoreMocks.setDoc).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ name: 'Weekend jobs' }),
+    )
   })
 
   it('rolls back an optimistic list update when Firestore rejects', async () => {
