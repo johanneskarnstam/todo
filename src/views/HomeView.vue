@@ -100,6 +100,10 @@ const toggleTheme = () => {
             <button class="hidden size-9 place-items-center rounded text-lg text-[#2564cf] transition hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-slate-800 sm:grid" type="button" aria-label="Sort tasks">☷</button>
           </div>
 
+          <p v-if="listStore.error" class="mt-3 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200" role="alert">
+            {{ listStore.error }}
+          </p>
+
           <form v-if="canAddTask" class="mt-7 flex h-14 w-full items-center gap-4 rounded border border-slate-200 bg-white px-5 text-left text-sm text-[#2564cf] shadow-sm transition focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-200 dark:border-slate-700 dark:bg-slate-900 dark:text-blue-400 dark:focus-within:ring-blue-900" @submit.prevent="handleAddTask">
             <span class="text-2xl font-light leading-none" aria-hidden="true">＋</span>
             <label class="sr-only" for="new-task-title">Add a task</label>

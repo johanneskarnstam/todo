@@ -70,6 +70,9 @@ export const useListStore = defineStore('lists', () => {
       const pendingFolders = folders.value.filter((folder) => pendingFolderIds.has(folder.id))
       const pendingLists = lists.value.filter((list) => pendingListIds.has(list.id))
 
+      fetchedFolders.forEach((folder) => pendingFolderIds.delete(folder.id))
+      fetchedLists.forEach((list) => pendingListIds.delete(list.id))
+
       folders.value = sortByOrder([
         ...fetchedFolders,
         ...pendingFolders.filter((folder) => !fetchedFolders.some((item) => item.id === folder.id)),
@@ -113,13 +116,10 @@ export const useListStore = defineStore('lists', () => {
         order: optimisticList.order,
         createdAt: serverTimestamp(),
       })
-      pendingListIds.delete(optimisticId)
       return optimisticList
     } catch (createError) {
-      pendingListIds.delete(optimisticId)
-      lists.value = lists.value.filter((list) => list.id !== optimisticId)
-      selectedListId.value = lists.value[0]?.id ?? null
       error.value = createError instanceof Error ? createError.message : 'Unable to create list.'
+      return optimisticList
     }
   }
 
@@ -144,12 +144,10 @@ export const useListStore = defineStore('lists', () => {
         name: optimisticFolder.name,
         order: optimisticFolder.order,
       })
-      pendingFolderIds.delete(optimisticId)
       return optimisticFolder
     } catch (createError) {
-      pendingFolderIds.delete(optimisticId)
-      folders.value = folders.value.filter((folder) => folder.id !== optimisticId)
       error.value = createError instanceof Error ? createError.message : 'Unable to create folder.'
+      return optimisticFolder
     }
   }
 
