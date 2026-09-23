@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import TodoHeader from '@/components/TodoHeader.vue'
 import TodoSidebar from '@/components/TodoSidebar.vue'
@@ -200,13 +200,38 @@ const handleSetDueDate = async (taskId: string, dueDate: string) => {
   taskStore.setDueDate(taskId, dueDate)
 }
 
+const handleGlobalKeydown = (event: KeyboardEvent) => {
+  if (event.key !== 'Escape') return
+
+  if (pendingDeleteTaskId.value) {
+    cancelDeleteTask()
+    return
+  }
+
+  if (pendingDeleteListId.value) {
+    pendingDeleteListId.value = null
+    return
+  }
+
+  if (!taskStore.activeTaskId) return
+
+  const taskId = taskStore.activeTaskId
+  taskStore.setActiveTask(null)
+  void nextTick(() => document.querySelector<HTMLElement>(`[data-task-id="${taskId}"]`)?.focus())
+}
+
 onMounted(async () => {
+  window.addEventListener('keydown', handleGlobalKeydown)
   await listStore.fetchLists()
   if (routeSmartView.value) {
     taskStore.setSmartView(routeSmartView.value)
   } else if (listStore.selectedListId) {
     taskStore.setListView(listStore.selectedListId)
   }
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleGlobalKeydown)
 })
 
 watch(routeSmartView, (view) => {

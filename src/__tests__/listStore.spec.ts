@@ -218,4 +218,18 @@ describe('useListStore', () => {
     expect(store.lists).toHaveLength(0)
     expect(firestoreMocks.deleteDoc).toHaveBeenCalledTimes(2)
   })
+
+  it('clears all user data and selection on logout', () => {
+    const store = useListStore()
+    store.folders.push({ id: 'folder-1', name: 'Projects', order: 1 })
+    store.lists.push({ id: 'list-1', name: 'Work', order: 1, icon: '☷', createdAt: Timestamp.now() })
+    store.selectedListId = 'list-1'
+
+    store.clearState()
+
+    expect(store.folders).toEqual([])
+    expect(store.lists).toEqual([])
+    expect(store.selectedListId).toBeNull()
+    expect(store.isLoaded).toBe(false)
+  })
 })

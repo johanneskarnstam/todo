@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import type { Step, Task } from '@/types'
 import { useI18n } from '@/i18n'
 
@@ -30,6 +30,7 @@ const note = ref(props.task.note ?? '')
 const stepTitle = ref('')
 const editingStepId = ref<string | null>(null)
 const editingStepTitle = ref('')
+const titleInput = ref<HTMLInputElement | null>(null)
 
 const dueDate = computed(() => {
   if (typeof props.task.dueDate === 'string') return props.task.dueDate
@@ -43,6 +44,10 @@ watch(
     note.value = props.task.note ?? ''
   },
 )
+
+onMounted(() => {
+  void nextTick(() => titleInput.value?.focus())
+})
 
 const saveTitle = () => {
   const nextTitle = title.value.trim()
@@ -76,14 +81,15 @@ const saveStepTitle = () => {
 </script>
 
 <template>
-  <aside class="fixed inset-0 z-50 flex flex-col bg-white shadow-2xl dark:bg-slate-900 lg:static lg:z-auto lg:w-80 lg:shrink-0 lg:border-l lg:border-slate-200 lg:shadow-none dark:lg:border-slate-700" :aria-label="t('taskDetails')">
+  <aside class="fixed inset-0 z-50 flex flex-col bg-white shadow-2xl dark:bg-slate-900 lg:static lg:z-auto lg:w-80 lg:shrink-0 lg:border-l lg:border-slate-200 lg:shadow-none dark:lg:border-slate-700" role="dialog" aria-modal="true" aria-labelledby="task-details-heading">
     <div class="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 px-4 dark:border-slate-700">
-      <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">{{ t('taskDetails') }}</span>
+      <span id="task-details-heading" class="text-sm font-semibold text-slate-700 dark:text-slate-200">{{ t('taskDetails') }}</span>
       <button class="grid size-8 place-items-center rounded text-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800" type="button" :aria-label="t('close')" @click="emit('close')">×</button>
     </div>
 
     <div class="min-h-0 flex-1 overflow-y-auto p-4">
       <input
+        ref="titleInput"
         v-model="title"
         class="w-full border-b border-transparent bg-transparent pb-2 text-lg font-semibold text-slate-800 outline-none transition focus:border-[#2564cf] dark:text-slate-100"
         type="text"

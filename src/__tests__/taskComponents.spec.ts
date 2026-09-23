@@ -44,6 +44,17 @@ describe('TaskRow', () => {
     const withoutSteps = mount(TaskRow, { props: { task } })
     expect(withoutSteps.text()).not.toContain('(/')
   })
+
+  it('toggles completion with Space and opens details with Enter', async () => {
+    const wrapper = mount(TaskRow, { props: { task } })
+    const row = wrapper.find('article')
+
+    await row.trigger('keydown', { key: ' ' })
+    await row.trigger('keydown', { key: 'Enter' })
+
+    expect(wrapper.emitted('toggle-completed')).toHaveLength(1)
+    expect(wrapper.emitted('select')).toHaveLength(1)
+  })
 })
 
 describe('TaskDetailsPanel', () => {
