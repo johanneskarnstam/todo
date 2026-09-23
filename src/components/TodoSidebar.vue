@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import type { Folder, List } from '@/types'
+import type { Folder, List, SmartView } from '@/types'
 
 interface FolderSection {
   folder: Folder
@@ -10,6 +10,7 @@ interface FolderSection {
 interface Props {
   open: boolean
   activeListId: string | null
+  activeSmartView: SmartView | null
   folders: FolderSection[]
   ungroupedLists: List[]
 }
@@ -17,6 +18,7 @@ interface Props {
 interface Emits {
   (event: 'close'): void
   (event: 'select-list', listId: string): void
+  (event: 'select-smart-view', view: SmartView): void
   (event: 'create-list', name: string): void
 }
 
@@ -24,8 +26,8 @@ defineProps<Props>()
 const emit = defineEmits<Emits>()
 
 const smartViews = [
-  { name: 'My day' },
-  { name: 'Important' },
+  { name: 'My day', view: 'myDay' as SmartView },
+  { name: 'Important', view: 'important' as SmartView },
   { name: 'Planned' },
   { name: 'Assigned to me' },
   { name: 'Flagged email' },
@@ -57,6 +59,10 @@ const submitNewList = () => {
   newListName.value = ''
   isAddingList.value = false
 }
+
+const selectSmartView = (view?: SmartView) => {
+  if (view) emit('select-smart-view', view)
+}
 </script>
 
 <template>
@@ -87,7 +93,9 @@ const submitNewList = () => {
           v-for="view in smartViews"
           :key="view.name"
           class="flex h-11 w-full items-center gap-4 rounded px-3 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+          :class="{ 'bg-[#eef5fc] text-slate-900 dark:bg-slate-800 dark:text-white': activeSmartView === view.view }"
           type="button"
+          @click="selectSmartView(view.view)"
         >
           <span class="w-4 text-center text-lg leading-none text-slate-600 dark:text-slate-300" aria-hidden="true">{{ icons[view.name] }}</span>
           <span class="flex-1">{{ view.name }}</span>

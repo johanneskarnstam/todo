@@ -24,3 +24,9 @@ export interface Task {
   myDay: boolean
   createdAt: Timestamp
 }
+
+export type SmartView = 'myDay' | 'important'
+
+export type TaskView =
+  | { type: 'list'; listId: string }
+  | { type: 'smart'; smartView: SmartView }
