@@ -7,6 +7,7 @@ import TaskRow from '@/components/TaskRow.vue'
 import TaskDetailsPanel from '@/components/TaskDetailsPanel.vue'
 import { useListStore } from '@/stores/listStore'
 import { useTaskStore } from '@/stores/taskStore'
+import { useReminderNotifications } from '@/composables/useReminderNotifications'
 import type { SmartView } from '@/types'
 import { useI18n } from '@/i18n'
 
@@ -20,6 +21,7 @@ const isListOptionsOpen = ref(false)
 const listRenameTitle = ref('')
 const listStore = useListStore()
 const taskStore = useTaskStore()
+const { requestPermission, scheduleTaskReminder, cancelTaskReminder } = useReminderNotifications()
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
@@ -193,6 +195,11 @@ const handleSaveStepTitle = (stepId: string, title: string) => {
   void taskStore.updateStep(stepId, title)
 }
 
+const handleSetDueDate = async (taskId: string, dueDate: string) => {
+  if (dueDate) await requestPermission()
+  taskStore.setDueDate(taskId, dueDate)
+}
+
 onMounted(async () => {
   await listStore.fetchLists()
   if (routeSmartView.value) {
@@ -205,6 +212,20 @@ onMounted(async () => {
 watch(routeSmartView, (view) => {
   if (view) taskStore.setSmartView(view)
 })
+
+watch(
+  () => taskStore.tasks,
+  (tasks) => {
+    for (const task of tasks) {
+      if (task.completed || !task.dueDate) {
+        cancelTaskReminder(task.id)
+      } else {
+        scheduleTaskReminder(task)
+      }
+    }
+  },
+  { deep: true, immediate: true },
+)
 
 const toggleTheme = () => {
   isDark.value = !isDark.value
@@ -360,7 +381,7 @@ const toggleTheme = () => {
         @toggle-step="taskStore.toggleStep($event)"
         @delete-step="taskStore.deleteStep($event)"
         @toggle-my-day="taskStore.toggleMyDay(taskStore.activeTaskId!)"
-        @set-due-date="taskStore.setDueDate(taskStore.activeTaskId!, $event)"
+        @set-due-date="handleSetDueDate(taskStore.activeTaskId!, $event)"
         @save-note="taskStore.saveNote(taskStore.activeTaskId!, $event)"
         @delete-task="handleDeleteActiveTask"
       />

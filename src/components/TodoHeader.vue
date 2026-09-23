@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from '@/i18n'
 
 interface Props {
@@ -15,6 +16,22 @@ defineProps<Props>()
 const emit = defineEmits<Emits>()
 const { t } = useI18n()
 const iconUrl = `${import.meta.env.BASE_URL}img/icons/todo-icon.svg`
+const isOnline = ref(true)
+
+const updateNetworkStatus = () => {
+  isOnline.value = navigator.onLine
+}
+
+onMounted(() => {
+  updateNetworkStatus()
+  window.addEventListener('online', updateNetworkStatus)
+  window.addEventListener('offline', updateNetworkStatus)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('online', updateNetworkStatus)
+  window.removeEventListener('offline', updateNetworkStatus)
+})
 </script>
 
 <template>
@@ -34,7 +51,8 @@ const iconUrl = `${import.meta.env.BASE_URL}img/icons/todo-icon.svg`
       </div>
     </div>
 
-    <div class="flex shrink-0 justify-end sm:flex-1">
+    <div class="flex shrink-0 items-center justify-end gap-2 sm:flex-1">
+      <span v-if="!isOnline" class="rounded bg-white/15 px-2 py-1 text-xs font-medium text-white" role="status">Offline</span>
       <button
         class="grid size-9 place-items-center rounded-sm text-lg text-white/90 transition hover:bg-white/15"
         type="button"
