@@ -122,4 +122,18 @@ describe('useListStore', () => {
     expect(store.lists.map((list) => list.name)).toContain('Offline list')
     expect(store.error).toBe('temporarily unavailable')
   })
+
+  it('creates a folder optimistically and persists it with a stable id', async () => {
+    const store = useListStore()
+
+    const createdFolder = await store.createFolder({ name: 'Home projects' })
+
+    expect(createdFolder?.name).toBe('Home projects')
+    expect(store.folders).toHaveLength(1)
+    expect(store.folders[0].id).toBe(createdFolder?.id)
+    expect(firestoreMocks.setDoc).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ name: 'Home projects', order: 0 }),
+    )
+  })
 })

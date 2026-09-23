@@ -37,6 +37,10 @@ const handleCreateList = (name: string) => {
   })
 }
 
+const handleCreateFolder = (name: string) => {
+  void listStore.createFolder({ name })
+}
+
 const handleSelectSmartView = (view: SmartView) => {
   taskStore.setSmartView(view)
   isSidebarOpen.value = false
@@ -87,6 +91,7 @@ const toggleTheme = () => {
         @select-list="handleSelectList"
         @select-smart-view="handleSelectSmartView"
         @create-list="handleCreateList"
+        @create-folder="handleCreateFolder"
       />
 
       <main class="min-w-0 flex-1 overflow-y-auto bg-[#faf9f8] dark:bg-slate-950">

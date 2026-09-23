@@ -20,6 +20,7 @@ interface Emits {
   (event: 'select-list', listId: string): void
   (event: 'select-smart-view', view: SmartView): void
   (event: 'create-list', name: string): void
+  (event: 'create-folder', name: string): void
 }
 
 defineProps<Props>()
@@ -37,6 +38,8 @@ const smartViews = [
 const collapsedFolders = ref<Record<string, boolean>>({})
 const isAddingList = ref(false)
 const newListName = ref('')
+const isAddingFolder = ref(false)
+const newFolderName = ref('')
 
 const icons: Record<string, string> = {
   'My day': '☼',
@@ -58,6 +61,15 @@ const submitNewList = () => {
   emit('create-list', name)
   newListName.value = ''
   isAddingList.value = false
+}
+
+const submitNewFolder = () => {
+  const name = newFolderName.value.trim()
+  if (!name) return
+
+  emit('create-folder', name)
+  newFolderName.value = ''
+  isAddingFolder.value = false
 }
 
 const selectSmartView = (view?: SmartView) => {
@@ -105,6 +117,25 @@ const selectSmartView = (view?: SmartView) => {
       <div class="my-4 border-t border-slate-200 dark:border-slate-700" />
 
       <div class="min-h-0 flex-1 overflow-y-auto">
+        <div class="mb-3 border-b border-slate-200 pb-2 dark:border-slate-700">
+          <form v-if="isAddingFolder" class="flex gap-2 px-2" @submit.prevent="submitNewFolder">
+            <label class="sr-only" for="new-folder-name">New folder name</label>
+            <input
+              id="new-folder-name"
+              v-model="newFolderName"
+              class="min-w-0 flex-1 rounded border border-blue-400 bg-white px-2 text-sm text-slate-800 outline-none ring-2 ring-blue-100 dark:bg-slate-800 dark:text-white dark:ring-blue-900"
+              type="text"
+              placeholder="Folder name"
+              autofocus
+            />
+            <button class="text-sm text-[#2564cf] dark:text-blue-400" type="submit">Add</button>
+          </form>
+          <button v-else class="flex h-9 w-full items-center gap-3 px-3 text-sm text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800" type="button" @click="isAddingFolder = true">
+            <span class="text-lg text-[#2564cf] dark:text-blue-400" aria-hidden="true">＋</span>
+            <span>New folder</span>
+          </button>
+        </div>
+
         <section v-for="section in folders" :key="section.folder.id" class="mb-4">
           <button
             class="flex w-full items-center px-3 pb-2 text-left text-sm font-semibold text-slate-800 dark:text-slate-100"
