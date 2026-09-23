@@ -87,27 +87,42 @@ const moveList = (listId: string, folderId: string | null) => {
 </script>
 
 <template>
-  <div
-    v-if="open"
-    class="fixed inset-0 z-30 bg-slate-950/30 lg:hidden"
-    aria-hidden="true"
-    @click="emit('close')"
-  />
+  <Transition
+    enter-active-class="transition-opacity duration-300 ease-out"
+    enter-from-class="opacity-0"
+    enter-to-class="opacity-100"
+    leave-active-class="transition-opacity duration-300 ease-in"
+    leave-from-class="opacity-100"
+    leave-to-class="opacity-0"
+  >
+    <div
+      v-if="open"
+      class="fixed inset-0 z-30 bg-slate-950/30 lg:hidden"
+      aria-hidden="true"
+      @click="emit('close')"
+    />
+  </Transition>
 
   <aside
-    class="fixed inset-y-0 left-0 z-40 flex w-[292px] -translate-x-full flex-col border-r border-slate-200 bg-white pt-14 shadow-xl transition-[width,transform] duration-200 dark:border-slate-700 dark:bg-slate-900 lg:static lg:z-auto lg:pt-0 lg:shadow-none"
+    class="fixed inset-y-0 left-0 z-40 flex w-[292px] -translate-x-full flex-col border-r border-slate-200 bg-white shadow-xl transition-[width,transform] duration-300 ease-out dark:border-slate-700 dark:bg-slate-900 lg:static lg:z-auto lg:shadow-none"
     :class="open ? 'translate-x-0 lg:w-[292px]' : '-translate-x-full lg:w-0 lg:overflow-hidden lg:border-transparent lg:px-0'"
     aria-label="Task navigation"
   >
     <div class="flex h-full flex-col px-3 py-5">
-      <button
-        class="mb-5 flex h-9 w-10 items-center justify-center rounded text-xl text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 lg:hidden"
-        type="button"
-        aria-label="Close navigation menu"
-        @click="emit('close')"
-      >
-        ☰
-      </button>
+      <div class="mb-5 flex h-10 items-center justify-between lg:hidden">
+        <div class="flex items-center gap-2 px-1">
+          <span class="grid size-8 place-items-center rounded-lg bg-[#2564cf] text-lg font-bold text-white shadow-sm" aria-hidden="true">✓</span>
+          <span class="text-lg font-semibold tracking-tight text-slate-800 dark:text-slate-100">{{ t('appName') }}</span>
+        </div>
+        <button
+          class="grid size-9 place-items-center rounded text-xl text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+          type="button"
+          aria-label="Close navigation menu"
+          @click="emit('close')"
+        >
+          ☰
+        </button>
+      </div>
 
       <nav class="space-y-1" aria-label="Smart views">
         <button

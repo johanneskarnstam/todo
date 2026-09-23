@@ -18,7 +18,7 @@ const { t } = useI18n()
 
 <template>
   <header class="flex h-14 shrink-0 items-center bg-[#2564cf] px-3 text-white shadow-sm sm:px-4">
-    <div class="flex w-52 shrink-0 items-center gap-3">
+    <div class="flex min-w-0 flex-1 items-center gap-2 sm:w-52 sm:flex-none sm:gap-3">
       <button
         class="grid size-8 place-items-center rounded-sm text-white/90 transition hover:bg-white/15"
         type="button"
@@ -33,17 +33,15 @@ const { t } = useI18n()
       </div>
     </div>
 
-    <div class="flex flex-1 justify-end">
-      <div class="flex w-52 shrink-0 justify-end">
-        <button
-          class="grid size-8 place-items-center rounded-sm text-lg text-white/90 transition hover:bg-white/15"
-          type="button"
-          :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
-          @click="emit('toggle-theme')"
-        >
-          <span aria-hidden="true">{{ isDark ? '☀' : '☾' }}</span>
-        </button>
-      </div>
+    <div class="flex shrink-0 justify-end sm:flex-1">
+      <button
+        class="grid size-9 place-items-center rounded-sm text-lg text-white/90 transition hover:bg-white/15"
+        type="button"
+        :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
+        @click="emit('toggle-theme')"
+      >
+        <span aria-hidden="true">{{ isDark ? '☀' : '☾' }}</span>
+      </button>
     </div>
   </header>
 </template>
