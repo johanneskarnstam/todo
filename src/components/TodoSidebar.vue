@@ -1,49 +1,40 @@
 <script setup lang="ts">
-interface ListItem {
-  name: string
-  count?: number
-}
+import { ref } from 'vue'
+import type { Folder, List } from '@/types'
 
-interface Folder {
-  name: string
-  lists: ListItem[]
+interface FolderSection {
+  folder: Folder
+  lists: List[]
 }
 
 interface Props {
   open: boolean
-  activeList: string
+  activeListId: string | null
+  folders: FolderSection[]
+  ungroupedLists: List[]
 }
 
 interface Emits {
   (event: 'close'): void
-  (event: 'select-list', name: string): void
+  (event: 'select-list', listId: string): void
+  (event: 'create-list', name: string): void
 }
 
 defineProps<Props>()
 const emit = defineEmits<Emits>()
 
-const smartViews: ListItem[] = [
+const smartViews = [
   { name: 'My day' },
   { name: 'Important' },
-  { name: 'Planned', count: 22 },
+  { name: 'Planned' },
   { name: 'Assigned to me' },
-  { name: 'Flagged email', count: 35 },
-  { name: 'Tasks', count: 1 },
+  { name: 'Flagged email' },
+  { name: 'Tasks' },
 ]
 
-const folders: Folder[] = [
-  {
-    name: 'Packing lists',
-    lists: [
-      { name: 'Pack for the mountains', count: 1 },
-      { name: 'Pack for Nice' },
-    ],
-  },
-  {
-    name: 'Build the cabin',
-    lists: [{ name: 'Buy materials' }, { name: 'Build walls' }],
-  },
-]
+const collapsedFolders = ref<Record<string, boolean>>({})
+const isAddingList = ref(false)
+const newListName = ref('')
 
 const icons: Record<string, string> = {
   'My day': '☼',
@@ -52,6 +43,19 @@ const icons: Record<string, string> = {
   'Assigned to me': '♙',
   'Flagged email': '⚑',
   Tasks: '⌂',
+}
+
+const toggleFolder = (folderId: string) => {
+  collapsedFolders.value[folderId] = !collapsedFolders.value[folderId]
+}
+
+const submitNewList = () => {
+  const name = newListName.value.trim()
+  if (!name) return
+
+  emit('create-list', name)
+  newListName.value = ''
+  isAddingList.value = false
 }
 </script>
 
@@ -87,42 +91,69 @@ const icons: Record<string, string> = {
         >
           <span class="w-4 text-center text-lg leading-none text-slate-600 dark:text-slate-300" aria-hidden="true">{{ icons[view.name] }}</span>
           <span class="flex-1">{{ view.name }}</span>
-          <span v-if="view.count" class="text-xs text-slate-500 dark:text-slate-400">{{ view.count }}</span>
         </button>
       </nav>
 
       <div class="my-4 border-t border-slate-200 dark:border-slate-700" />
 
       <div class="min-h-0 flex-1 overflow-y-auto">
-        <section v-for="folder in folders" :key="folder.name" class="mb-4">
+        <section v-for="section in folders" :key="section.folder.id" class="mb-4">
           <button
             class="flex w-full items-center px-3 pb-2 text-left text-sm font-semibold text-slate-800 dark:text-slate-100"
             type="button"
+            @click="toggleFolder(section.folder.id)"
           >
-            <span class="flex-1">{{ folder.name }}</span>
-            <span class="text-base font-normal text-slate-500" aria-hidden="true">⌄</span>
+            <span class="flex-1">{{ section.folder.name }}</span>
+            <span class="text-base font-normal text-slate-500" aria-hidden="true">{{ collapsedFolders[section.folder.id] ? '›' : '⌄' }}</span>
           </button>
-          <div class="border-l-2 border-slate-300 dark:border-slate-600">
+          <div v-if="!collapsedFolders[section.folder.id]" class="border-l-2 border-slate-300 dark:border-slate-600">
             <button
-              v-for="list in folder.lists"
-              :key="list.name"
+              v-for="list in section.lists"
+              :key="list.id"
               class="group flex h-11 w-full items-center gap-4 border-l-2 border-transparent px-4 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
               :class="{
-                'border-[#2564cf] bg-[#eef5fc] text-slate-900 dark:border-blue-400 dark:bg-slate-800 dark:text-white': activeList === list.name,
+                'border-[#2564cf] bg-[#eef5fc] text-slate-900 dark:border-blue-400 dark:bg-slate-800 dark:text-white': activeListId === list.id,
               }"
               type="button"
-              @click="emit('select-list', list.name)"
+              @click="emit('select-list', list.id)"
             >
-              <span class="text-lg text-slate-600 dark:text-slate-300" aria-hidden="true">☷</span>
+              <span class="text-lg text-slate-600 dark:text-slate-300" aria-hidden="true">{{ list.icon }}</span>
               <span class="flex-1 truncate">{{ list.name }}</span>
-              <span v-if="list.count" class="text-xs text-slate-500 dark:text-slate-400">{{ list.count }}</span>
+            </button>
+          </div>
+        </section>
+
+        <section v-if="ungroupedLists.length" class="mb-4">
+          <div class="border-l-2 border-slate-300 dark:border-slate-600">
+            <button
+              v-for="list in ungroupedLists"
+              :key="list.id"
+              class="group flex h-11 w-full items-center gap-4 border-l-2 border-transparent px-4 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+              :class="{ 'border-[#2564cf] bg-[#eef5fc] text-slate-900 dark:border-blue-400 dark:bg-slate-800 dark:text-white': activeListId === list.id }"
+              type="button"
+              @click="emit('select-list', list.id)"
+            >
+              <span class="text-lg text-slate-600 dark:text-slate-300" aria-hidden="true">{{ list.icon }}</span>
+              <span class="flex-1 truncate">{{ list.name }}</span>
             </button>
           </div>
         </section>
       </div>
 
       <div class="border-t border-slate-200 pt-3 dark:border-slate-700">
-        <button class="flex h-10 w-full items-center gap-4 px-3 text-sm text-[#2564cf] transition hover:bg-slate-100 dark:text-blue-400 dark:hover:bg-slate-800" type="button">
+        <form v-if="isAddingList" class="flex gap-2 px-2" @submit.prevent="submitNewList">
+          <label class="sr-only" for="new-list-name">New list name</label>
+          <input
+            id="new-list-name"
+            v-model="newListName"
+            class="min-w-0 flex-1 rounded border border-blue-400 bg-white px-2 text-sm text-slate-800 outline-none ring-2 ring-blue-100 dark:bg-slate-800 dark:text-white dark:ring-blue-900"
+            type="text"
+            placeholder="List name"
+            autofocus
+          />
+          <button class="text-sm text-[#2564cf] dark:text-blue-400" type="submit">Add</button>
+        </form>
+        <button v-else class="flex h-10 w-full items-center gap-4 px-3 text-sm text-[#2564cf] transition hover:bg-slate-100 dark:text-blue-400 dark:hover:bg-slate-800" type="button" @click="isAddingList = true">
           <span class="text-xl leading-none" aria-hidden="true">＋</span>
           <span class="flex-1 text-left">New list</span>
           <span aria-hidden="true">▣</span>

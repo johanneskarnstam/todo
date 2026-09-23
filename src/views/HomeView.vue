@@ -1,11 +1,25 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import TodoHeader from '@/components/TodoHeader.vue'
 import TodoSidebar from '@/components/TodoSidebar.vue'
+import { useListStore } from '@/stores/listStore'
 
 const isSidebarOpen = ref(false)
 const isDark = ref(false)
-const activeList = ref('Build walls')
+const listStore = useListStore()
+
+const handleSelectList = (listId: string) => {
+  listStore.selectList(listId)
+  isSidebarOpen.value = false
+}
+
+const handleCreateList = (name: string) => {
+  void listStore.createList({ name })
+}
+
+onMounted(() => {
+  void listStore.fetchLists()
+})
 
 const toggleTheme = () => {
   isDark.value = !isDark.value
@@ -23,16 +37,19 @@ const toggleTheme = () => {
     <div class="flex min-h-0 flex-1">
       <TodoSidebar
         :open="isSidebarOpen"
-        :active-list="activeList"
+        :active-list-id="listStore.selectedListId"
+        :folders="listStore.foldersWithLists"
+        :ungrouped-lists="listStore.ungroupedLists"
         @close="isSidebarOpen = false"
-        @select-list="activeList = $event; isSidebarOpen = false"
+        @select-list="handleSelectList"
+        @create-list="handleCreateList"
       />
 
       <main class="min-w-0 flex-1 overflow-y-auto bg-[#faf9f8] dark:bg-slate-950">
         <div class="mx-auto w-full max-w-5xl px-4 pb-12 pt-7 sm:px-8 lg:px-12">
           <div class="flex items-center gap-4">
             <h1 class="min-w-0 flex-1 truncate text-2xl font-semibold tracking-tight text-[#2564cf] dark:text-blue-400 sm:text-3xl">
-              {{ activeList }}
+              {{ listStore.selectedList?.name ?? 'My day' }}
             </h1>
             <button class="grid size-9 place-items-center rounded text-xl text-slate-500 transition hover:bg-slate-200 dark:hover:bg-slate-800" type="button" aria-label="More list options">⋯</button>
             <button class="grid size-9 place-items-center rounded text-lg text-[#2564cf] transition hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-slate-800" type="button" aria-label="Change list view">▤</button>
