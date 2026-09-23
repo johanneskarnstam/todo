@@ -21,10 +21,28 @@ interface Emits {
 
 defineProps<Props>()
 const emit = defineEmits<Emits>()
+
+const handleKeydown = (event: KeyboardEvent) => {
+  if (event.key === 'Enter') {
+    event.preventDefault()
+    emit('select')
+  } else if (event.key === ' ') {
+    event.preventDefault()
+    emit('toggle-completed')
+  }
+}
 </script>
 
 <template>
-  <article class="group flex min-h-14 cursor-pointer items-center gap-3 border-b border-slate-200 bg-white px-4 py-2 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800" @click="emit('select')">
+  <article
+    class="group flex min-h-14 cursor-pointer items-center gap-3 border-b border-slate-200 bg-white px-4 py-2 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#2564cf] dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
+    role="group"
+    tabindex="0"
+    :data-task-id="task.id"
+    :aria-label="`Task: ${task.title}`"
+    @click="emit('select')"
+    @keydown="handleKeydown"
+  >
     <button
       class="grid size-6 shrink-0 place-items-center rounded-full border border-slate-400 text-xs text-white transition hover:border-[#2564cf] dark:border-slate-500"
       :class="{ 'border-[#2564cf] bg-[#2564cf] dark:border-blue-400 dark:bg-blue-400': task.completed }"

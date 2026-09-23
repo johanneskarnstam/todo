@@ -13,6 +13,7 @@ import {
   updateDoc,
 } from 'firebase/firestore'
 import { auth, db } from '@/firebase'
+import { useToastStore } from '@/stores/toastStore'
 import type { SmartView, Step, StepCount, Task, TaskView } from '@/types'
 
 interface NewTaskInput {
@@ -40,6 +41,13 @@ export const useTaskStore = defineStore('tasks', () => {
   const activeView = ref<TaskView | null>(null)
   const isLoaded = ref(false)
   const error = ref<string | null>(null)
+  const toastStore = useToastStore()
+
+  const reportWriteError = (writeError: unknown, fallback: string) => {
+    const message = writeError instanceof Error ? writeError.message : fallback
+    error.value = message
+    toastStore.show(message)
+  }
 
   const visibleTasks = computed(() => {
     const view = activeView.value
@@ -228,7 +236,7 @@ export const useTaskStore = defineStore('tasks', () => {
       return tasks.value.find((task) => task.id === taskReference.id)
     } catch (createError) {
       tasks.value = tasks.value.filter((task) => task.id !== optimisticId)
-      error.value = createError instanceof Error ? createError.message : 'Unable to create task.'
+      reportWriteError(createError, 'Unable to create task.')
     }
   }
 
@@ -247,7 +255,7 @@ export const useTaskStore = defineStore('tasks', () => {
       await updateDoc(doc(userCollection(), taskId), updates)
     } catch (updateError) {
       tasks.value = tasks.value.map((task) => (task.id === taskId ? previousTask : task))
-      error.value = updateError instanceof Error ? updateError.message : 'Unable to update task.'
+      reportWriteError(updateError, 'Unable to update task.')
     }
   }
 
@@ -281,7 +289,7 @@ export const useTaskStore = defineStore('tasks', () => {
 
     void updateDoc(doc(userCollection(), taskId), { dueDate: deleteField() }).catch((clearError: unknown) => {
       if (previousDueDate) task.dueDate = previousDueDate
-      error.value = clearError instanceof Error ? clearError.message : 'Unable to clear due date.'
+      reportWriteError(clearError, 'Unable to clear due date.')
     })
   }
 
@@ -318,7 +326,7 @@ export const useTaskStore = defineStore('tasks', () => {
       return allSteps.value.find((step) => step.id === stepReference.id)
     } catch (createError) {
       allSteps.value = allSteps.value.filter((step) => step.id !== optimisticId)
-      error.value = createError instanceof Error ? createError.message : 'Unable to create step.'
+      reportWriteError(createError, 'Unable to create step.')
     }
   }
 
@@ -334,7 +342,7 @@ export const useTaskStore = defineStore('tasks', () => {
       completed: step.completed,
     }).catch((toggleError: unknown) => {
       step.completed = previousCompleted
-      error.value = toggleError instanceof Error ? toggleError.message : 'Unable to update step.'
+      reportWriteError(toggleError, 'Unable to update step.')
     })
   }
 
@@ -353,7 +361,7 @@ export const useTaskStore = defineStore('tasks', () => {
       await updateDoc(doc(taskStepsCollection(activeTaskId.value), stepId), { title: nextTitle })
     } catch (updateError) {
       step.title = previousTitle
-      error.value = updateError instanceof Error ? updateError.message : 'Unable to update step.'
+      reportWriteError(updateError, 'Unable to update step.')
     }
   }
 
@@ -368,7 +376,7 @@ export const useTaskStore = defineStore('tasks', () => {
       await deleteDoc(doc(taskStepsCollection(activeTaskId.value), stepId))
     } catch (deleteError) {
       allSteps.value.splice(stepIndex, 0, deletedStep)
-      error.value = deleteError instanceof Error ? deleteError.message : 'Unable to delete step.'
+      reportWriteError(deleteError, 'Unable to delete step.')
     }
   }
 
@@ -385,7 +393,7 @@ export const useTaskStore = defineStore('tasks', () => {
       if (activeTaskId.value === taskId) setActiveTask(null)
     } catch (deleteError) {
       tasks.value = sortByCreatedAt([...tasks.value, deletedTask])
-      error.value = deleteError instanceof Error ? deleteError.message : 'Unable to delete task.'
+      reportWriteError(deleteError, 'Unable to delete task.')
     }
   }
 
@@ -430,7 +438,7 @@ export const useTaskStore = defineStore('tasks', () => {
       restoredTasks[currentIndex] = currentTask
       restoredTasks[otherIndex] = otherTask
       tasks.value = restoredTasks
-      error.value = reorderError instanceof Error ? reorderError.message : 'Unable to reorder task.'
+      reportWriteError(reorderError, 'Unable to reorder task.')
     }
   }
 

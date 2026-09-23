@@ -54,6 +54,26 @@ describe('useTaskStore', () => {
     firestoreMocks.deleteDoc.mockResolvedValue(undefined)
   })
 
+  it('clears tasks, steps, and active view on logout', () => {
+    const store = useTaskStore()
+    store.tasks.push({
+      id: 'task-1', listId: 'list-1', title: 'Task', completed: false, important: false,
+      myDay: true, createdAt: Timestamp.now(),
+    })
+    store.allSteps.push({
+      id: 'step-1', taskId: 'task-1', title: 'Step', completed: false, createdAt: Timestamp.now(),
+    })
+    store.setListView('list-1')
+    store.setActiveTask('task-1')
+
+    store.clearState()
+
+    expect(store.tasks).toEqual([])
+    expect(store.allSteps).toEqual([])
+    expect(store.activeTaskId).toBeNull()
+    expect(store.activeView).toBeNull()
+  })
+
   it('filters loaded tasks by custom list, Important, and My day views', async () => {
     const createdAt = Timestamp.now()
     firestoreMocks.getDocs.mockResolvedValueOnce(

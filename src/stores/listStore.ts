@@ -13,6 +13,7 @@ import {
   updateDoc,
 } from 'firebase/firestore'
 import { auth, db } from '@/firebase'
+import { useToastStore } from '@/stores/toastStore'
 import type { Folder, List } from '@/types'
 
 interface NewListInput {
@@ -39,6 +40,13 @@ export const useListStore = defineStore('lists', () => {
   const error = ref<string | null>(null)
   const pendingListIds = new Set<string>()
   const pendingFolderIds = new Set<string>()
+  const toastStore = useToastStore()
+
+  const reportWriteError = (writeError: unknown, fallback: string) => {
+    const message = writeError instanceof Error ? writeError.message : fallback
+    error.value = message
+    toastStore.show(message)
+  }
 
   const foldersWithLists = computed(() =>
     folders.value.map((folder) => ({
@@ -144,7 +152,7 @@ export const useListStore = defineStore('lists', () => {
       })
       return optimisticList
     } catch (createError) {
-      error.value = createError instanceof Error ? createError.message : 'Unable to create list.'
+      reportWriteError(createError, 'Unable to create list.')
       return optimisticList
     }
   }
@@ -172,7 +180,7 @@ export const useListStore = defineStore('lists', () => {
       })
       return optimisticFolder
     } catch (createError) {
-      error.value = createError instanceof Error ? createError.message : 'Unable to create folder.'
+      reportWriteError(createError, 'Unable to create folder.')
       return optimisticFolder
     }
   }
@@ -189,7 +197,7 @@ export const useListStore = defineStore('lists', () => {
       await updateDoc(doc(userCollection('lists'), listId), updates)
     } catch (updateError) {
       lists.value = lists.value.map((list) => (list.id === listId ? previousList : list))
-      error.value = updateError instanceof Error ? updateError.message : 'Unable to update list.'
+      reportWriteError(updateError, 'Unable to update list.')
     }
   }
 
@@ -210,7 +218,7 @@ export const useListStore = defineStore('lists', () => {
       })
     } catch (moveError) {
       lists.value = lists.value.map((list) => (list.id === listId ? previousList : list))
-      error.value = moveError instanceof Error ? moveError.message : 'Unable to move list.'
+      reportWriteError(moveError, 'Unable to move list.')
     }
   }
 
@@ -231,7 +239,7 @@ export const useListStore = defineStore('lists', () => {
     } catch (deleteError) {
       lists.value = sortByOrder([...lists.value, deletedList])
       selectedListId.value ??= listId
-      error.value = deleteError instanceof Error ? deleteError.message : 'Unable to delete list.'
+      reportWriteError(deleteError, 'Unable to delete list.')
       return false
     }
   }
@@ -269,7 +277,7 @@ export const useListStore = defineStore('lists', () => {
     } catch (deleteError) {
       lists.value = previousLists
       folders.value = previousFolders
-      error.value = deleteError instanceof Error ? deleteError.message : 'Unable to delete folder.'
+      reportWriteError(deleteError, 'Unable to delete folder.')
       return null
     }
   }
@@ -300,7 +308,7 @@ export const useListStore = defineStore('lists', () => {
       currentList.order = otherList.order
       otherList.order = currentOrder
       lists.value = sortByOrder(lists.value)
-      error.value = reorderError instanceof Error ? reorderError.message : 'Unable to reorder list.'
+      reportWriteError(reorderError, 'Unable to reorder list.')
     }
   }
 
@@ -316,7 +324,7 @@ export const useListStore = defineStore('lists', () => {
       await updateDoc(doc(userCollection('folders'), folderId), updates)
     } catch (updateError) {
       folders.value = folders.value.map((folder) => (folder.id === folderId ? previousFolder : folder))
-      error.value = updateError instanceof Error ? updateError.message : 'Unable to update folder.'
+      reportWriteError(updateError, 'Unable to update folder.')
     }
   }
 
