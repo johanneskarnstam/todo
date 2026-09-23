@@ -5,6 +5,7 @@ import { useListStore } from '@/stores/listStore'
 
 const firestoreMocks = vi.hoisted(() => ({
   collection: vi.fn(),
+  deleteDoc: vi.fn(),
   doc: vi.fn(),
   getDocs: vi.fn(),
   serverTimestamp: vi.fn(() => 'server-timestamp'),
@@ -35,6 +36,7 @@ describe('useListStore', () => {
     firestoreMocks.getDocs.mockResolvedValue(snapshot([]))
     firestoreMocks.setDoc.mockResolvedValue(undefined)
     firestoreMocks.updateDoc.mockResolvedValue(undefined)
+    firestoreMocks.deleteDoc.mockResolvedValue(undefined)
   })
 
   it('loads folders and lists sorted by order', async () => {
@@ -183,5 +185,37 @@ describe('useListStore', () => {
       expect.anything(),
       expect.objectContaining({ name: 'Home projects', order: 0 }),
     )
+  })
+
+  it('renames, reorders, and deletes a folder while keeping lists unassigned', async () => {
+    const store = useListStore()
+    store.folders.push({ id: 'folder-1', name: 'Old name', order: 1 })
+    store.lists.push(
+      { id: 'list-1', name: 'First', folderId: 'folder-1', order: 1, icon: '☷', createdAt: Timestamp.now() },
+      { id: 'list-2', name: 'Second', folderId: 'folder-1', order: 2, icon: '☷', createdAt: Timestamp.now() },
+    )
+    store.selectedListId = 'list-1'
+
+    await store.updateFolder('folder-1', { name: 'Renamed' })
+    await store.reorderList('list-2', 'up')
+    const removedLists = await store.deleteFolder('folder-1', false)
+
+    expect(store.folders).toHaveLength(0)
+    expect(store.lists.every((list) => !list.folderId)).toBe(true)
+    expect(removedLists).toEqual([])
+    expect(store.foldersWithLists).toHaveLength(0)
+    expect(firestoreMocks.deleteDoc).toHaveBeenCalled()
+  })
+
+  it('deletes a folder and returns the contained list ids', async () => {
+    const store = useListStore()
+    store.folders.push({ id: 'folder-1', name: 'Projects', order: 1 })
+    store.lists.push({ id: 'list-1', name: 'Work', folderId: 'folder-1', order: 1, icon: '☷', createdAt: Timestamp.now() })
+
+    const removedLists = await store.deleteFolder('folder-1', true)
+
+    expect(removedLists).toEqual(['list-1'])
+    expect(store.lists).toHaveLength(0)
+    expect(firestoreMocks.deleteDoc).toHaveBeenCalledTimes(2)
   })
 })

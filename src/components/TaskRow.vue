@@ -5,6 +5,8 @@ interface Props {
   task: Task
   stepCount?: StepCount | null
   listName?: string | null
+  canMoveUp?: boolean
+  canMoveDown?: boolean
 }
 
 interface Emits {
@@ -12,6 +14,8 @@ interface Emits {
   (event: 'toggle-completed'): void
   (event: 'toggle-important'): void
   (event: 'toggle-my-day'): void
+  (event: 'move-up'): void
+  (event: 'move-down'): void
   (event: 'delete'): void
 }
 
@@ -61,6 +65,26 @@ const emit = defineEmits<Emits>()
       @click.stop="emit('toggle-my-day')"
     >
       <span aria-hidden="true">☼</span>
+    </button>
+
+    <button
+      v-if="canMoveUp"
+      class="grid size-8 shrink-0 place-items-center rounded text-slate-400 transition hover:bg-slate-100 dark:hover:bg-slate-700"
+      type="button"
+      aria-label="Move task up"
+      @click.stop="emit('move-up')"
+    >
+      <span aria-hidden="true">↑</span>
+    </button>
+
+    <button
+      v-if="canMoveDown"
+      class="grid size-8 shrink-0 place-items-center rounded text-slate-400 transition hover:bg-slate-100 dark:hover:bg-slate-700"
+      type="button"
+      aria-label="Move task down"
+      @click.stop="emit('move-down')"
+    >
+      <span aria-hidden="true">↓</span>
     </button>
 
     <button

@@ -211,6 +211,20 @@ describe('useTaskStore', () => {
     )
   })
 
+  it('reorders tasks optimistically and persists their order', async () => {
+    const createdAt = Timestamp.now()
+    const store = useTaskStore()
+    store.tasks.push(
+      { id: 'task-1', listId: 'list-1', title: 'First', completed: false, important: false, myDay: false, order: 0, createdAt },
+      { id: 'task-2', listId: 'list-1', title: 'Second', completed: false, important: false, myDay: false, order: 1, createdAt },
+    )
+
+    await store.reorderTask('task-2', 'up')
+
+    expect(store.tasks.map((task) => task.id)).toEqual(['task-2', 'task-1'])
+    expect(firestoreMocks.updateDoc).toHaveBeenCalledTimes(2)
+  })
+
   it('rolls back an optimistic completion when Firestore rejects the update', async () => {
     const createdAt = Timestamp.now()
     firestoreMocks.getDocs.mockResolvedValueOnce(

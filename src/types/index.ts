@@ -13,6 +13,7 @@ export interface List {
   icon: string
   order: number
   createdAt: Timestamp
+  themeColor?: string
 }
 
 export interface Task {
@@ -25,6 +26,7 @@ export interface Task {
   dueDate?: string | Timestamp
   note?: string
   createdAt: Timestamp
+  order?: number
 }
 
 export interface Step {

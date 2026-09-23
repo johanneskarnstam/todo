@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import type { Folder, List, SmartView } from '@/types'
 import { useI18n } from '@/i18n'
 
@@ -24,6 +24,9 @@ interface Emits {
   (event: 'create-list', name: string): void
   (event: 'create-folder', name: string): void
   (event: 'move-list', listId: string, folderId: string | null): void
+  (event: 'rename-folder', folderId: string, name: string): void
+  (event: 'delete-folder', folderId: string, deleteLists: boolean): void
+  (event: 'reorder-list', listId: string, direction: 'up' | 'down'): void
 }
 
 defineProps<Props>()
@@ -38,12 +41,30 @@ const smartViews = [
   { key: 'tasks' as const },
 ]
 
-const collapsedFolders = ref<Record<string, boolean>>({})
+const readCollapsedFolders = (): Record<string, boolean> => {
+  if (typeof localStorage === 'undefined') return {}
+
+  try {
+    const storedValue = localStorage.getItem('todo-collapsed-folders')
+    return storedValue ? JSON.parse(storedValue) as Record<string, boolean> : {}
+  } catch {
+    return {}
+  }
+}
+
+const collapsedFolders = ref<Record<string, boolean>>(readCollapsedFolders())
 const isAddingList = ref(false)
 const newListName = ref('')
 const isAddingFolder = ref(false)
 const newFolderName = ref('')
 const openMoveMenuListId = ref<string | null>(null)
+const openFolderMenuId = ref<string | null>(null)
+const editingFolderId = ref<string | null>(null)
+const editingFolderName = ref('')
+
+watch(collapsedFolders, (value) => {
+  if (typeof localStorage !== 'undefined') localStorage.setItem('todo-collapsed-folders', JSON.stringify(value))
+}, { deep: true })
 
 const icons: Record<string, string> = {
   myDay: '☼',
@@ -54,6 +75,21 @@ const icons: Record<string, string> = {
 
 const toggleFolder = (folderId: string) => {
   collapsedFolders.value[folderId] = !collapsedFolders.value[folderId]
+}
+
+const startRenamingFolder = (folder: Folder) => {
+  editingFolderId.value = folder.id
+  editingFolderName.value = folder.name
+  openFolderMenuId.value = null
+}
+
+const submitRenameFolder = () => {
+  const folderId = editingFolderId.value
+  const name = editingFolderName.value.trim()
+  if (!folderId || !name) return
+
+  emit('rename-folder', folderId, name)
+  editingFolderId.value = null
 }
 
 const submitNewList = () => {
@@ -164,14 +200,23 @@ const moveList = (listId: string, folderId: string | null) => {
         </div>
 
         <section v-for="section in folders" :key="section.folder.id" class="mb-4">
-          <button
-            class="flex w-full items-center px-3 pb-2 text-left text-sm font-semibold text-slate-800 dark:text-slate-100"
-            type="button"
-            @click="toggleFolder(section.folder.id)"
-          >
-            <span class="flex-1">{{ section.folder.name }}</span>
-            <span class="text-base font-normal text-slate-500" aria-hidden="true">{{ collapsedFolders[section.folder.id] ? '›' : '⌄' }}</span>
-          </button>
+          <div v-if="editingFolderId === section.folder.id" class="mb-2 flex gap-2 px-2">
+            <label class="sr-only" :for="`rename-folder-${section.folder.id}`">Rename folder</label>
+            <input :id="`rename-folder-${section.folder.id}`" v-model="editingFolderName" class="min-w-0 flex-1 rounded border border-blue-400 px-2 text-sm outline-none" type="text" autofocus @keydown.enter="submitRenameFolder" />
+            <button class="text-sm text-[#2564cf]" type="button" @click="submitRenameFolder">Save</button>
+          </div>
+          <div v-else class="relative flex items-center px-3 pb-2">
+            <button class="flex min-w-0 flex-1 items-center text-left text-sm font-semibold text-slate-800 dark:text-slate-100" type="button" @click="toggleFolder(section.folder.id)">
+              <span class="flex-1 truncate">{{ section.folder.name }}</span>
+              <span class="text-base font-normal text-slate-500" aria-hidden="true">{{ collapsedFolders[section.folder.id] ? '›' : '⌄' }}</span>
+            </button>
+            <button class="grid size-7 place-items-center rounded text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800" type="button" :aria-label="`Options for ${section.folder.name}`" @click.stop="openFolderMenuId = openFolderMenuId === section.folder.id ? null : section.folder.id">⋯</button>
+            <div v-if="openFolderMenuId === section.folder.id" class="absolute right-0 top-8 z-20 w-56 rounded border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-800">
+              <button class="flex min-h-9 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="startRenamingFolder(section.folder)">Rename folder</button>
+              <button class="flex min-h-9 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="emit('delete-folder', section.folder.id, false); openFolderMenuId = null">Delete folder, keep lists</button>
+              <button class="flex min-h-9 w-full items-center rounded px-3 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950" type="button" @click="emit('delete-folder', section.folder.id, true); openFolderMenuId = null">Delete folder and lists</button>
+            </div>
+          </div>
           <div v-if="!collapsedFolders[section.folder.id]" class="border-l-2 border-slate-300 dark:border-slate-600">
             <div v-for="list in section.lists" :key="list.id" class="group/list relative">
               <button
@@ -221,6 +266,10 @@ const moveList = (listId: string, folderId: string | null) => {
                 >
                   {{ folderOption.folder.name }}
                 </button>
+                <div class="mt-2 border-t border-slate-200 pt-2 dark:border-slate-700">
+                  <button class="flex min-h-9 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" role="menuitem" @click="emit('reorder-list', list.id, 'up'); openMoveMenuListId = null">Move list up</button>
+                  <button class="flex min-h-9 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" role="menuitem" @click="emit('reorder-list', list.id, 'down'); openMoveMenuListId = null">Move list down</button>
+                </div>
               </div>
             </div>
           </div>
@@ -272,6 +321,10 @@ const moveList = (listId: string, folderId: string | null) => {
                 >
                   {{ folderOption.folder.name }}
                 </button>
+                <div class="mt-2 border-t border-slate-200 pt-2 dark:border-slate-700">
+                  <button class="flex min-h-9 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" role="menuitem" @click="emit('reorder-list', list.id, 'up'); openMoveMenuListId = null">Move list up</button>
+                  <button class="flex min-h-9 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" role="menuitem" @click="emit('reorder-list', list.id, 'down'); openMoveMenuListId = null">Move list down</button>
+                </div>
               </div>
             </div>
           </div>

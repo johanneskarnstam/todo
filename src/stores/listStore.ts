@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 import {
   collection,
   deleteField,
+  deleteDoc,
   doc,
   getDocs,
   getDocsFromCache,
@@ -24,7 +25,7 @@ interface NewFolderInput {
   name: string
 }
 
-type ListUpdate = Partial<Pick<List, 'name' | 'folderId' | 'icon' | 'order'>>
+type ListUpdate = Partial<Pick<List, 'name' | 'folderId' | 'icon' | 'order' | 'themeColor'>>
 type FolderUpdate = Partial<Pick<Folder, 'name' | 'order'>>
 
 const sortByOrder = <T extends { order: number }>(items: T[]): T[] =>
@@ -203,6 +204,96 @@ export const useListStore = defineStore('lists', () => {
     }
   }
 
+  const updateListTheme = (listId: string, themeColor: string) => {
+    void updateList(listId, { themeColor })
+  }
+
+  const deleteList = async (listId: string) => {
+    const listIndex = lists.value.findIndex((list) => list.id === listId)
+    if (listIndex < 0) return false
+
+    const [deletedList] = lists.value.splice(listIndex, 1)
+    if (selectedListId.value === listId) selectedListId.value = lists.value[0]?.id ?? null
+
+    try {
+      await deleteDoc(doc(userCollection('lists'), listId))
+      return true
+    } catch (deleteError) {
+      lists.value = sortByOrder([...lists.value, deletedList])
+      selectedListId.value ??= listId
+      error.value = deleteError instanceof Error ? deleteError.message : 'Unable to delete list.'
+      return false
+    }
+  }
+
+  const deleteFolder = async (folderId: string, deleteContainedLists: boolean) => {
+    const containedLists = lists.value.filter((list) => list.folderId === folderId)
+    const previousLists = [...lists.value]
+    const previousFolders = [...folders.value]
+    const removedListIds = deleteContainedLists ? containedLists.map((list) => list.id) : []
+
+    if (deleteContainedLists) {
+      lists.value = lists.value.filter((list) => list.folderId !== folderId)
+      if (containedLists.some((list) => list.id === selectedListId.value)) {
+        selectedListId.value = lists.value[0]?.id ?? null
+      }
+    } else {
+      lists.value = lists.value.map((list) => {
+        if (list.folderId !== folderId) return list
+        const { folderId: _folderId, ...listWithoutFolder } = list
+        return listWithoutFolder
+      })
+    }
+    folders.value = folders.value.filter((folder) => folder.id !== folderId)
+
+    try {
+      await deleteDoc(doc(userCollection('folders'), folderId))
+      await Promise.all(
+        containedLists.map((list) =>
+          deleteContainedLists
+            ? deleteDoc(doc(userCollection('lists'), list.id))
+            : updateDoc(doc(userCollection('lists'), list.id), { folderId: deleteField() }),
+        ),
+      )
+      return removedListIds
+    } catch (deleteError) {
+      lists.value = previousLists
+      folders.value = previousFolders
+      error.value = deleteError instanceof Error ? deleteError.message : 'Unable to delete folder.'
+      return null
+    }
+  }
+
+  const reorderList = async (listId: string, direction: 'up' | 'down') => {
+    const currentList = lists.value.find((list) => list.id === listId)
+    if (!currentList) return
+
+    const siblings = lists.value
+      .filter((list) => list.folderId === currentList.folderId)
+      .sort((first, second) => first.order - second.order)
+    const index = siblings.findIndex((list) => list.id === listId)
+    const swapIndex = direction === 'up' ? index - 1 : index + 1
+    if (index < 0 || swapIndex < 0 || swapIndex >= siblings.length) return
+
+    const otherList = siblings[swapIndex]
+    const currentOrder = currentList.order
+    currentList.order = otherList.order
+    otherList.order = currentOrder
+    lists.value = sortByOrder(lists.value)
+
+    try {
+      await Promise.all([
+        updateDoc(doc(userCollection('lists'), currentList.id), { order: currentList.order }),
+        updateDoc(doc(userCollection('lists'), otherList.id), { order: otherList.order }),
+      ])
+    } catch (reorderError) {
+      currentList.order = otherList.order
+      otherList.order = currentOrder
+      lists.value = sortByOrder(lists.value)
+      error.value = reorderError instanceof Error ? reorderError.message : 'Unable to reorder list.'
+    }
+  }
+
   const updateFolder = async (folderId: string, updates: FolderUpdate) => {
     const currentFolder = folders.value.find((folder) => folder.id === folderId)
     if (!currentFolder) return
@@ -237,7 +328,11 @@ export const useListStore = defineStore('lists', () => {
     fetchLists,
     createFolder,
     createList,
+    updateListTheme,
+    deleteList,
+    deleteFolder,
     moveList,
+    reorderList,
     updateList,
     updateFolder,
     selectList,

@@ -26,7 +26,12 @@ interface NewStepInput {
 }
 
 const sortByCreatedAt = (tasks: Task[]): Task[] =>
-  [...tasks].sort((first, second) => first.createdAt.toMillis() - second.createdAt.toMillis())
+  [...tasks].sort((first, second) => {
+    if (first.listId === second.listId && first.order !== undefined && second.order !== undefined) {
+      return first.order - second.order
+    }
+    return first.createdAt.toMillis() - second.createdAt.toMillis()
+  })
 
 export const useTaskStore = defineStore('tasks', () => {
   const tasks = ref<Task[]>([])
@@ -192,6 +197,7 @@ export const useTaskStore = defineStore('tasks', () => {
       important: false,
       myDay: false,
       createdAt: Timestamp.now(),
+      order: tasks.value.filter((task) => task.listId === input.listId).length,
     }
 
     tasks.value = sortByCreatedAt([...tasks.value, optimisticTask])
@@ -204,6 +210,7 @@ export const useTaskStore = defineStore('tasks', () => {
         completed: optimisticTask.completed,
         important: optimisticTask.important,
         myDay: optimisticTask.myDay,
+        order: optimisticTask.order,
         createdAt: serverTimestamp(),
       })
       tasks.value = tasks.value.map((task) =>
@@ -373,6 +380,51 @@ export const useTaskStore = defineStore('tasks', () => {
     }
   }
 
+  const deleteTasksForLists = async (listIds: string[]) => {
+    for (const task of tasks.value.filter((item) => listIds.includes(item.listId))) {
+      await deleteTask(task.id)
+    }
+  }
+
+  const reorderTask = async (taskId: string, direction: 'up' | 'down') => {
+    const currentTask = tasks.value.find((task) => task.id === taskId)
+    if (!currentTask) return
+
+    const siblings = tasks.value
+      .filter((task) => task.listId === currentTask.listId)
+      .sort((first, second) => (first.order ?? Number.MAX_SAFE_INTEGER) - (second.order ?? Number.MAX_SAFE_INTEGER))
+    const index = siblings.findIndex((task) => task.id === taskId)
+    const swapIndex = direction === 'up' ? index - 1 : index + 1
+    if (index < 0 || swapIndex < 0 || swapIndex >= siblings.length) return
+
+    const otherTask = siblings[swapIndex]
+    const currentOrder = currentTask.order ?? index
+    const otherOrder = otherTask.order ?? swapIndex
+    currentTask.order = otherOrder
+    otherTask.order = currentOrder
+    const currentIndex = tasks.value.findIndex((task) => task.id === currentTask.id)
+    const otherIndex = tasks.value.findIndex((task) => task.id === otherTask.id)
+    const reorderedTasks = [...tasks.value]
+    reorderedTasks[currentIndex] = otherTask
+    reorderedTasks[otherIndex] = currentTask
+    tasks.value = reorderedTasks
+
+    try {
+      await Promise.all([
+        updateDoc(doc(userCollection(), currentTask.id), { order: currentTask.order }),
+        updateDoc(doc(userCollection(), otherTask.id), { order: otherTask.order }),
+      ])
+    } catch (reorderError) {
+      currentTask.order = currentOrder
+      otherTask.order = otherOrder
+      const restoredTasks = [...tasks.value]
+      restoredTasks[currentIndex] = currentTask
+      restoredTasks[otherIndex] = otherTask
+      tasks.value = restoredTasks
+      error.value = reorderError instanceof Error ? reorderError.message : 'Unable to reorder task.'
+    }
+  }
+
   return {
     tasks,
     steps: allSteps,
@@ -404,5 +456,7 @@ export const useTaskStore = defineStore('tasks', () => {
     updateStep,
     deleteStep,
     deleteTask,
+    deleteTasksForLists,
+    reorderTask,
   }
 })
