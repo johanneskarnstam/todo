@@ -2,6 +2,7 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import {
   collection,
+  deleteField,
   doc,
   getDocs,
   serverTimestamp,
@@ -167,6 +168,27 @@ export const useListStore = defineStore('lists', () => {
     }
   }
 
+  const moveList = async (listId: string, folderId: string | null) => {
+    const currentList = lists.value.find((list) => list.id === listId)
+    if (!currentList) return
+
+    const previousList = { ...currentList }
+    if (folderId) {
+      currentList.folderId = folderId
+    } else {
+      delete currentList.folderId
+    }
+
+    try {
+      await updateDoc(doc(userCollection('lists'), listId), {
+        folderId: folderId ?? deleteField(),
+      })
+    } catch (moveError) {
+      lists.value = lists.value.map((list) => (list.id === listId ? previousList : list))
+      error.value = moveError instanceof Error ? moveError.message : 'Unable to move list.'
+    }
+  }
+
   const updateFolder = async (folderId: string, updates: FolderUpdate) => {
     const currentFolder = folders.value.find((folder) => folder.id === folderId)
     if (!currentFolder) return
@@ -201,6 +223,7 @@ export const useListStore = defineStore('lists', () => {
     fetchLists,
     createFolder,
     createList,
+    moveList,
     updateList,
     updateFolder,
     selectList,

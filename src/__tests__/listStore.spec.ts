@@ -112,6 +112,54 @@ describe('useListStore', () => {
     expect(store.error).toBe('update failed')
   })
 
+  it('moves a list between folders optimistically', async () => {
+    const store = useListStore()
+    store.folders.push(
+      { id: 'folder-1', name: 'First', order: 1 },
+      { id: 'folder-2', name: 'Second', order: 2 },
+    )
+    store.lists.push({
+      id: 'list-1',
+      name: 'Nested list',
+      folderId: 'folder-1',
+      icon: '☷',
+      order: 1,
+      createdAt: Timestamp.now(),
+    })
+
+    await store.moveList('list-1', 'folder-2')
+
+    expect(store.foldersWithLists[0].lists).toHaveLength(0)
+    expect(store.foldersWithLists[1].lists.map((list) => list.id)).toEqual(['list-1'])
+    expect(firestoreMocks.updateDoc).toHaveBeenCalledWith(
+      expect.anything(),
+      { folderId: 'folder-2' },
+    )
+  })
+
+  it('moves a list out of a folder and rolls back when Firestore rejects', async () => {
+    const store = useListStore()
+    store.lists.push({
+      id: 'list-1',
+      name: 'Nested list',
+      folderId: 'folder-1',
+      icon: '☷',
+      order: 1,
+      createdAt: Timestamp.now(),
+    })
+    firestoreMocks.updateDoc.mockRejectedValueOnce(new Error('move failed'))
+
+    await store.moveList('list-1', null)
+
+    expect(store.lists[0].folderId).toBe('folder-1')
+    expect(store.ungroupedLists).toHaveLength(0)
+    expect(firestoreMocks.updateDoc).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ folderId: expect.anything() }),
+    )
+    expect(store.error).toBe('move failed')
+  })
+
   it('keeps a newly created list visible when the write is temporarily rejected', async () => {
     firestoreMocks.setDoc.mockRejectedValueOnce(new Error('temporarily unavailable'))
     const store = useListStore()

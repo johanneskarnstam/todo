@@ -21,6 +21,7 @@ interface Emits {
   (event: 'select-smart-view', view: SmartView): void
   (event: 'create-list', name: string): void
   (event: 'create-folder', name: string): void
+  (event: 'move-list', listId: string, folderId: string | null): void
 }
 
 defineProps<Props>()
@@ -40,6 +41,7 @@ const isAddingList = ref(false)
 const newListName = ref('')
 const isAddingFolder = ref(false)
 const newFolderName = ref('')
+const openMoveMenuListId = ref<string | null>(null)
 
 const icons: Record<string, string> = {
   'My day': '☼',
@@ -74,6 +76,15 @@ const submitNewFolder = () => {
 
 const selectSmartView = (view?: SmartView) => {
   if (view) emit('select-smart-view', view)
+}
+
+const toggleMoveMenu = (listId: string) => {
+  openMoveMenuListId.value = openMoveMenuListId.value === listId ? null : listId
+}
+
+const moveList = (listId: string, folderId: string | null) => {
+  emit('move-list', listId, folderId)
+  openMoveMenuListId.value = null
 }
 </script>
 
@@ -146,35 +157,107 @@ const selectSmartView = (view?: SmartView) => {
             <span class="text-base font-normal text-slate-500" aria-hidden="true">{{ collapsedFolders[section.folder.id] ? '›' : '⌄' }}</span>
           </button>
           <div v-if="!collapsedFolders[section.folder.id]" class="border-l-2 border-slate-300 dark:border-slate-600">
-            <button
-              v-for="list in section.lists"
-              :key="list.id"
-              class="group flex h-11 w-full items-center gap-4 border-l-2 border-transparent px-4 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-              :class="{
-                'border-[#2564cf] bg-[#eef5fc] text-slate-900 dark:border-blue-400 dark:bg-slate-800 dark:text-white': activeListId === list.id,
-              }"
-              type="button"
-              @click="emit('select-list', list.id)"
-            >
-              <span class="text-lg text-slate-600 dark:text-slate-300" aria-hidden="true">{{ list.icon }}</span>
-              <span class="flex-1 truncate">{{ list.name }}</span>
-            </button>
+            <div v-for="list in section.lists" :key="list.id" class="group/list relative">
+              <button
+                class="group flex h-11 w-full items-center gap-4 border-l-2 border-transparent px-4 pr-12 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                :class="{
+                  'border-[#2564cf] bg-[#eef5fc] text-slate-900 dark:border-blue-400 dark:bg-slate-800 dark:text-white': activeListId === list.id,
+                }"
+                type="button"
+                @click="emit('select-list', list.id)"
+              >
+                <span class="text-lg text-slate-600 dark:text-slate-300" aria-hidden="true">{{ list.icon }}</span>
+                <span class="flex-1 truncate">{{ list.name }}</span>
+              </button>
+              <button
+                class="absolute right-1 top-1 grid size-9 place-items-center rounded text-lg text-slate-500 opacity-100 transition hover:bg-slate-200 sm:opacity-0 sm:focus:opacity-100 sm:group-hover/list:opacity-100 dark:hover:bg-slate-700"
+                type="button"
+                :aria-label="`Move ${list.name}`"
+                :aria-expanded="openMoveMenuListId === list.id"
+                @click.stop="toggleMoveMenu(list.id)"
+              >
+                ⋯
+              </button>
+              <div
+                v-if="openMoveMenuListId === list.id"
+                class="fixed inset-x-3 bottom-3 z-50 max-h-[70vh] overflow-y-auto rounded border border-slate-200 bg-white p-2 shadow-xl sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-1 sm:top-10 sm:w-56 dark:border-slate-700 dark:bg-slate-800"
+                role="menu"
+                :aria-label="`Move ${list.name} to folder`"
+              >
+                <p class="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Move to</p>
+                <button
+                  class="flex min-h-10 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
+                  :class="{ 'font-semibold text-[#2564cf] dark:text-blue-400': !list.folderId }"
+                  type="button"
+                  role="menuitem"
+                  @click="moveList(list.id, null)"
+                >
+                  Without folder
+                </button>
+                <button
+                  v-for="folderOption in folders"
+                  :key="folderOption.folder.id"
+                  class="flex min-h-10 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
+                  :class="{ 'font-semibold text-[#2564cf] dark:text-blue-400': list.folderId === folderOption.folder.id }"
+                  type="button"
+                  role="menuitem"
+                  @click="moveList(list.id, folderOption.folder.id)"
+                >
+                  {{ folderOption.folder.name }}
+                </button>
+              </div>
+            </div>
           </div>
         </section>
 
         <section v-if="ungroupedLists.length" class="mb-4">
           <div class="border-l-2 border-slate-300 dark:border-slate-600">
-            <button
-              v-for="list in ungroupedLists"
-              :key="list.id"
-              class="group flex h-11 w-full items-center gap-4 border-l-2 border-transparent px-4 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-              :class="{ 'border-[#2564cf] bg-[#eef5fc] text-slate-900 dark:border-blue-400 dark:bg-slate-800 dark:text-white': activeListId === list.id }"
-              type="button"
-              @click="emit('select-list', list.id)"
-            >
-              <span class="text-lg text-slate-600 dark:text-slate-300" aria-hidden="true">{{ list.icon }}</span>
-              <span class="flex-1 truncate">{{ list.name }}</span>
-            </button>
+            <div v-for="list in ungroupedLists" :key="list.id" class="group/list relative">
+              <button
+                class="group flex h-11 w-full items-center gap-4 border-l-2 border-transparent px-4 pr-12 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                :class="{ 'border-[#2564cf] bg-[#eef5fc] text-slate-900 dark:border-blue-400 dark:bg-slate-800 dark:text-white': activeListId === list.id }"
+                type="button"
+                @click="emit('select-list', list.id)"
+              >
+                <span class="text-lg text-slate-600 dark:text-slate-300" aria-hidden="true">{{ list.icon }}</span>
+                <span class="flex-1 truncate">{{ list.name }}</span>
+              </button>
+              <button
+                class="absolute right-1 top-1 grid size-9 place-items-center rounded text-lg text-slate-500 opacity-100 transition hover:bg-slate-200 sm:opacity-0 sm:focus:opacity-100 sm:group-hover/list:opacity-100 dark:hover:bg-slate-700"
+                type="button"
+                :aria-label="`Move ${list.name}`"
+                :aria-expanded="openMoveMenuListId === list.id"
+                @click.stop="toggleMoveMenu(list.id)"
+              >
+                ⋯
+              </button>
+              <div
+                v-if="openMoveMenuListId === list.id"
+                class="fixed inset-x-3 bottom-3 z-50 max-h-[70vh] overflow-y-auto rounded border border-slate-200 bg-white p-2 shadow-xl sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-1 sm:top-10 sm:w-56 dark:border-slate-700 dark:bg-slate-800"
+                role="menu"
+                :aria-label="`Move ${list.name} to folder`"
+              >
+                <p class="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Move to</p>
+                <button
+                  class="flex min-h-10 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
+                  type="button"
+                  role="menuitem"
+                  @click="moveList(list.id, null)"
+                >
+                  Without folder
+                </button>
+                <button
+                  v-for="folderOption in folders"
+                  :key="folderOption.folder.id"
+                  class="flex min-h-10 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
+                  type="button"
+                  role="menuitem"
+                  @click="moveList(list.id, folderOption.folder.id)"
+                >
+                  {{ folderOption.folder.name }}
+                </button>
+              </div>
+            </div>
           </div>
         </section>
       </div>
