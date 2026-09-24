@@ -42,7 +42,7 @@ const currentTitle = computed(() => {
     return 'Min dag'
   }
 
-  return listStore.selectedList?.name ?? 'Min dag'
+  return listStore.selectedList?.name ?? (view?.type === 'list' ? 'Att göra' : 'Min dag')
 })
 
 const canAddTask = computed(() => taskStore.activeView?.type === 'list')

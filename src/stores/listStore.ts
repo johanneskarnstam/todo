@@ -91,6 +91,13 @@ export const useListStore = defineStore('lists', () => {
     return localStorage.getItem(storageKey)
   }
 
+  const selectFallbackList = () => {
+    lists.value = sortByOrder([defaultList, ...lists.value.filter((list) => list.id !== DEFAULT_LIST_ID)])
+    defaultListId.value = null
+    selectedListId.value = DEFAULT_LIST_ID
+    isLoaded.value = true
+  }
+
   const clearState = () => {
     folders.value = []
     lists.value = []
@@ -161,6 +168,7 @@ export const useListStore = defineStore('lists', () => {
         isLoaded.value = true
       } catch {
         error.value = fetchError instanceof Error ? fetchError.message : 'Listorna kunde inte läsas in.'
+        selectFallbackList()
       }
     }
   }

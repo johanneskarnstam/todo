@@ -65,6 +65,25 @@ describe('TaskRow', () => {
     expect(wrapper.emitted('select')).toHaveLength(1)
   })
 
+  it('emits drag events for a draggable task without requiring a browser data payload', async () => {
+    const dataTransfer = {
+      effectAllowed: '',
+      setData: () => undefined,
+    }
+    const wrapper = mount(TaskRow, { props: { task, draggable: true } })
+    const row = wrapper.find('article')
+
+    await row.trigger('dragstart', { dataTransfer })
+    await row.trigger('dragover')
+    await row.trigger('drop')
+    await row.trigger('dragend')
+
+    expect(wrapper.emitted('drag-start')).toHaveLength(1)
+    expect(wrapper.emitted('drag-over')).toHaveLength(1)
+    expect(wrapper.emitted('drop')).toHaveLength(1)
+    expect(wrapper.emitted('drag-end')).toHaveLength(1)
+  })
+
   it('offers every task action from the vertical actions menu', async () => {
     const wrapper = mount(TaskRow, { props: { task } })
     const openMenu = () => wrapper.find('button[aria-label="Uppgiftsåtgärder"]').trigger('click')

@@ -129,6 +129,7 @@ const handleDragStart = (event: DragEvent) => {
   if (!props.draggable) return
   if (event.dataTransfer) {
     event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', props.task.id)
     event.dataTransfer.setData('text/task-id', props.task.id)
   }
   emit('drag-start')

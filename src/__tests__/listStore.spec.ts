@@ -8,6 +8,7 @@ const firestoreMocks = vi.hoisted(() => ({
   deleteDoc: vi.fn(),
   doc: vi.fn(),
   getDocs: vi.fn(),
+  getDocsFromCache: vi.fn(),
   serverTimestamp: vi.fn(() => 'server-timestamp'),
   setDoc: vi.fn(),
   updateDoc: vi.fn(),
@@ -34,6 +35,7 @@ describe('useListStore', () => {
     firestoreMocks.collection.mockImplementation((...path: string[]) => ({ path }))
     firestoreMocks.doc.mockImplementation((...path: string[]) => ({ path }))
     firestoreMocks.getDocs.mockResolvedValue(snapshot([]))
+    firestoreMocks.getDocsFromCache.mockResolvedValue(snapshot([]))
     firestoreMocks.setDoc.mockResolvedValue(undefined)
     firestoreMocks.updateDoc.mockResolvedValue(undefined)
     firestoreMocks.deleteDoc.mockResolvedValue(undefined)
@@ -96,6 +98,19 @@ describe('useListStore', () => {
       expect.anything(),
       expect.objectContaining({ name: 'Weekend jobs' }),
     )
+  })
+
+  it('keeps Att göra available when Firestore and cache are unavailable', async () => {
+    firestoreMocks.getDocs.mockRejectedValue(new Error('offline'))
+    firestoreMocks.getDocsFromCache.mockRejectedValue(new Error('offline'))
+    const store = useListStore()
+
+    await store.fetchLists()
+
+    expect(store.lists.map((list) => list.id)).toEqual(['__default__'])
+    expect(store.selectedListId).toBe('__default__')
+    expect(store.selectedList?.name).toBe('Att göra')
+    expect(store.isLoaded).toBe(true)
   })
 
   it('rolls back an optimistic list update when Firestore rejects', async () => {
