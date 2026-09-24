@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { ChevronDown } from '@lucide/vue'
+import { CalendarDays, ChevronDown, FolderPlus, ListPlus, ListTodo, MoreVertical, Plus, Settings, Star, Sun, Tags, X } from '@lucide/vue'
 import type { Folder, List, SmartView } from '@/types'
 import { DEFAULT_LIST_ID } from '@/stores/listStore'
 
@@ -18,6 +18,7 @@ interface Props {
   folders: FolderSection[]
   ungroupedLists: List[]
   smartViewCounts: Record<SmartView, number>
+  listTaskCounts: Record<string, number>
 }
 
 interface Emits {
@@ -37,10 +38,9 @@ const emit = defineEmits<Emits>()
 const iconUrl = `${import.meta.env.BASE_URL}img/icons/todo-icon.svg`
 
 const smartViews = [
-  { key: 'myDay' as const, view: 'myDay' as SmartView },
-  { key: 'important' as const, view: 'important' as SmartView },
-  { key: 'planned' as const, view: 'planned' as SmartView },
-  { key: 'tasks' as const },
+  { key: 'myDay' as const, view: 'myDay' as SmartView, icon: Sun },
+  { key: 'important' as const, view: 'important' as SmartView, icon: Star },
+  { key: 'planned' as const, view: 'planned' as SmartView, icon: CalendarDays },
 ]
 
 const readCollapsedFolders = (): Record<string, boolean> => {
@@ -66,6 +66,7 @@ const editingFolderName = ref('')
 const isTagsOpen = ref(false)
 let folderLongPressTimer: ReturnType<typeof setTimeout> | null = null
 const suppressFolderClick = ref(false)
+const ungroupedSectionId = '__ungrouped__'
 const defaultList = computed(() => props.ungroupedLists.find((list) => list.id === DEFAULT_LIST_ID))
 const otherUngroupedLists = computed(() => props.ungroupedLists.filter((list) => list.id !== DEFAULT_LIST_ID))
 
@@ -73,18 +74,10 @@ watch(collapsedFolders, (value) => {
   if (typeof localStorage !== 'undefined') localStorage.setItem('todo-collapsed-folders', JSON.stringify(value))
 }, { deep: true })
 
-const icons: Record<string, string> = {
-  myDay: '☼',
-  important: '☆',
-  planned: '▣',
-  tasks: '⌂',
-}
-
 const smartViewLabel = (key: string) => ({
   myDay: 'Min dag',
   important: 'Viktigt',
   planned: 'Planerat',
-  tasks: 'Uppgifter',
 }[key] ?? key)
 
 const toggleFolder = (folderId: string) => {
@@ -187,11 +180,20 @@ const moveList = (listId: string, folderId: string | null) => {
     />
   </Transition>
 
-  <aside
-    class="fixed inset-y-0 left-0 z-[80] flex w-[340px] -translate-x-full flex-col rounded-r-xl border-r border-slate-200 bg-white shadow-xl transition-[width,transform] duration-300 ease-out dark:border-slate-700 dark:bg-slate-900 lg:static lg:z-auto lg:rounded-r-2xl lg:shadow-none"
-    :class="open ? 'translate-x-0 lg:w-[340px]' : '-translate-x-full lg:w-0 lg:overflow-hidden lg:border-transparent lg:px-0'"
-    aria-label="Uppgiftsnavigering"
+  <Transition
+    enter-active-class="transition-transform duration-300 ease-out"
+    enter-from-class="-translate-x-full"
+    enter-to-class="translate-x-0"
+    leave-active-class="transition-transform duration-300 ease-in"
+    leave-from-class="translate-x-0"
+    leave-to-class="-translate-x-full"
   >
+    <aside
+      v-show="open"
+      class="fixed inset-y-0 left-0 z-[80] flex w-[340px] flex-col rounded-r-xl border-r border-slate-200 bg-white shadow-xl transition-[width] duration-300 ease-out dark:border-slate-700 dark:bg-slate-900 lg:static lg:z-auto lg:rounded-r-2xl lg:shadow-none"
+      :class="open ? 'lg:w-[340px]' : 'lg:w-0 lg:overflow-hidden lg:border-transparent lg:px-0'"
+      aria-label="Uppgiftsnavigering"
+    >
     <div class="flex h-full flex-col px-2 py-5">
       <div class="mb-5 flex h-10 items-center justify-between lg:hidden">
         <div class="flex items-center gap-2 px-1">
@@ -204,7 +206,7 @@ const moveList = (listId: string, folderId: string | null) => {
           aria-label="Stäng navigeringsmeny"
           @click="emit('close')"
         >
-          ☰
+          <X :size="20" :stroke-width="1.8" aria-hidden="true" />
         </button>
       </div>
 
@@ -217,13 +219,11 @@ const moveList = (listId: string, folderId: string | null) => {
           type="button"
           @click="selectSmartView(view.view)"
         >
-          <span class="w-4 text-center text-lg leading-none text-slate-600 dark:text-slate-300" aria-hidden="true">{{ icons[view.key] }}</span>
+          <component :is="view.icon" :size="19" :stroke-width="1.8" class="shrink-0 text-slate-600 dark:text-slate-300" aria-hidden="true" />
           <span class="flex-1">{{ smartViewLabel(view.key) }}</span>
           <span v-if="view.view" class="min-w-5 text-right text-xs text-slate-500 dark:text-slate-400">{{ smartViewCounts[view.view] }}</span>
         </button>
       </nav>
-
-      <div class="my-4 border-t border-slate-200 dark:border-slate-700" />
 
       <div class="mb-4">
         <button
@@ -233,7 +233,7 @@ const moveList = (listId: string, folderId: string | null) => {
           :aria-expanded="isTagsOpen"
           @click="isTagsOpen = !isTagsOpen"
         >
-          <span class="w-4 text-center text-lg leading-none text-slate-600 dark:text-slate-300" aria-hidden="true">#</span>
+          <Tags :size="19" :stroke-width="1.8" class="shrink-0 text-slate-600 dark:text-slate-300" aria-hidden="true" />
           <span class="flex-1">Taggar</span>
           <span class="text-base text-slate-500" aria-hidden="true">{{ isTagsOpen ? '⌄' : '›' }}</span>
         </button>
@@ -262,36 +262,37 @@ const moveList = (listId: string, folderId: string | null) => {
         </div>
       </div>
 
-      <div class="min-h-0 flex-1 overflow-y-auto">
-        <div class="mb-3 border-b border-slate-200 pb-2 dark:border-slate-700">
-          <form v-if="isAddingFolder" class="flex gap-2 px-2" @submit.prevent="submitNewFolder">
-            <label class="sr-only" for="new-folder-name">Nytt mappnamn</label>
-            <input
-              id="new-folder-name"
-              v-model="newFolderName"
-              class="min-w-0 flex-1 rounded-lg border border-blue-400 bg-white px-3 py-2 text-base text-slate-800 outline-none ring-2 ring-blue-100 dark:bg-slate-800 dark:text-white dark:ring-blue-900"
-              type="text"
-              placeholder="Mappnamn"
-              autofocus
-            />
-            <button class="text-sm text-[#2564cf] dark:text-blue-400" type="submit">Lägg till</button>
-          </form>
-          <button v-else class="flex h-9 w-full items-center gap-3 rounded-lg px-3 text-sm text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800" type="button" @click="isAddingFolder = true">
-            <span class="text-lg text-[#2564cf] dark:text-blue-400" aria-hidden="true">＋</span>
-            <span>Ny mapp</span>
-          </button>
-        </div>
+      <div class="mb-4 border-t border-slate-200 dark:border-slate-700" />
 
+      <div class="min-h-0 flex-1 overflow-y-auto">
         <section v-if="defaultList" class="mb-5">
-          <div class="ml-3 border-l-2 border-slate-300 dark:border-slate-600">
+          <div class="relative flex min-h-11 items-center px-3">
+            <button
+              class="flex min-w-0 flex-1 items-center text-left text-[15px] font-semibold text-slate-800 dark:text-slate-100"
+              type="button"
+              :aria-expanded="!collapsedFolders[DEFAULT_LIST_ID]"
+              @click="toggleFolder(DEFAULT_LIST_ID)"
+            >
+              <span class="flex-1 truncate">Huvudlista</span>
+              <ChevronDown
+                :size="20"
+                :stroke-width="1.75"
+                class="text-slate-500 transition-transform duration-200 ease-out"
+                :class="{ '-rotate-90': collapsedFolders[DEFAULT_LIST_ID] }"
+                aria-hidden="true"
+              />
+            </button>
+          </div>
+          <div v-if="!collapsedFolders[DEFAULT_LIST_ID]" class="ml-3 border-l-2 border-slate-300 dark:border-slate-600">
             <button
               class="group flex h-[52px] w-full items-center gap-4 border-l-2 border-transparent px-7 text-left text-[15px] text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
               :class="{ 'border-[#2564cf] bg-[#eef5fc] font-semibold text-slate-900 dark:border-blue-400 dark:bg-slate-800 dark:text-white': activeListId === defaultList.id }"
               type="button"
               @click="emit('select-list', defaultList.id)"
             >
-              <span class="w-5 text-center text-xl leading-none text-slate-700 dark:text-slate-300" aria-hidden="true">{{ defaultList.icon }}</span>
+              <ListTodo :size="20" :stroke-width="1.8" class="shrink-0 text-slate-700 dark:text-slate-300" aria-hidden="true" />
               <span class="flex-1 truncate">{{ defaultList.name }}</span>
+              <span v-if="listTaskCounts[defaultList.id]" class="min-w-5 text-right text-sm text-slate-600 dark:text-slate-300">{{ listTaskCounts[defaultList.id] }}</span>
             </button>
           </div>
         </section>
@@ -347,8 +348,9 @@ const moveList = (listId: string, folderId: string | null) => {
                 type="button"
                 @click="emit('select-list', list.id)"
               >
-                <span class="w-5 text-center text-xl leading-none text-slate-700 dark:text-slate-300" aria-hidden="true">{{ list.icon }}</span>
+                <ListTodo :size="20" :stroke-width="1.8" class="shrink-0 text-slate-700 dark:text-slate-300" aria-hidden="true" />
                 <span class="flex-1 truncate">{{ list.name }}</span>
+                <span v-if="listTaskCounts[list.id]" class="min-w-5 text-right text-sm text-slate-600 dark:text-slate-300">{{ listTaskCounts[list.id] }}</span>
               </button>
               <button
                 v-if="list.id !== DEFAULT_LIST_ID"
@@ -358,7 +360,7 @@ const moveList = (listId: string, folderId: string | null) => {
                 :aria-expanded="openMoveMenuListId === list.id"
                 @click.stop="toggleMoveMenu(list.id)"
                 >
-                •••
+                <MoreVertical :size="19" :stroke-width="1.8" aria-hidden="true" />
               </button>
               <div
                 v-if="openMoveMenuListId === list.id"
@@ -395,7 +397,24 @@ const moveList = (listId: string, folderId: string | null) => {
         </section>
 
         <section v-if="otherUngroupedLists.length" class="mb-5">
-          <div class="ml-3 border-l-2 border-slate-300 dark:border-slate-600">
+          <div class="relative flex min-h-11 items-center px-3">
+            <button
+              class="flex min-w-0 flex-1 items-center text-left text-[15px] font-semibold text-slate-800 dark:text-slate-100"
+              type="button"
+              :aria-expanded="!collapsedFolders[ungroupedSectionId]"
+              @click="toggleFolder(ungroupedSectionId)"
+            >
+              <span class="flex-1 truncate">Utan mapp</span>
+              <ChevronDown
+                :size="20"
+                :stroke-width="1.75"
+                class="text-slate-500 transition-transform duration-200 ease-out"
+                :class="{ '-rotate-90': collapsedFolders[ungroupedSectionId] }"
+                aria-hidden="true"
+              />
+            </button>
+          </div>
+          <div v-if="!collapsedFolders[ungroupedSectionId]" class="ml-3 border-l-2 border-slate-300 dark:border-slate-600">
             <div
               v-for="list in otherUngroupedLists"
               :key="list.id"
@@ -407,8 +426,9 @@ const moveList = (listId: string, folderId: string | null) => {
                 type="button"
                 @click="emit('select-list', list.id)"
               >
-                <span class="w-5 text-center text-xl leading-none text-slate-700 dark:text-slate-300" aria-hidden="true">{{ list.icon }}</span>
+                <ListTodo :size="20" :stroke-width="1.8" class="shrink-0 text-slate-700 dark:text-slate-300" aria-hidden="true" />
                 <span class="flex-1 truncate">{{ list.name }}</span>
+                <span v-if="listTaskCounts[list.id]" class="min-w-5 text-right text-sm text-slate-600 dark:text-slate-300">{{ listTaskCounts[list.id] }}</span>
               </button>
               <button
                 v-if="list.id !== DEFAULT_LIST_ID"
@@ -418,7 +438,7 @@ const moveList = (listId: string, folderId: string | null) => {
                 :aria-expanded="openMoveMenuListId === list.id"
                 @click.stop="toggleMoveMenu(list.id)"
                 >
-                •••
+                <MoreVertical :size="19" :stroke-width="1.8" aria-hidden="true" />
               </button>
               <div
                 v-if="openMoveMenuListId === list.id"
@@ -467,19 +487,36 @@ const moveList = (listId: string, folderId: string | null) => {
           <button class="text-sm text-[#2564cf] dark:text-blue-400" type="submit">Lägg till</button>
         </form>
         <button v-else class="flex h-12 w-full items-center gap-4 px-3 text-[15px] text-[#2564cf] transition hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-slate-800" type="button" @click="isAddingList = true">
-          <span class="text-3xl font-light leading-none" aria-hidden="true">＋</span>
+          <Plus :size="24" :stroke-width="1.8" aria-hidden="true" />
           <span class="flex-1 text-left">Ny lista</span>
-          <span class="text-xl" aria-hidden="true">▣</span>
+          <ListPlus :size="20" :stroke-width="1.8" aria-hidden="true" />
+        </button>
+        <form v-if="isAddingFolder" class="mt-2 flex gap-2 px-2" @submit.prevent="submitNewFolder">
+          <label class="sr-only" for="new-folder-name">Nytt mappnamn</label>
+          <input
+            id="new-folder-name"
+            v-model="newFolderName"
+            class="min-w-0 flex-1 rounded-lg border border-blue-400 bg-white px-3 py-2 text-base text-slate-800 outline-none ring-2 ring-blue-100 dark:bg-slate-800 dark:text-white dark:ring-blue-900"
+            type="text"
+            placeholder="Mappnamn"
+            autofocus
+          />
+          <button class="text-sm text-[#2564cf] dark:text-blue-400" type="submit">Lägg till</button>
+        </form>
+        <button v-else class="mt-1 flex h-12 w-full items-center gap-4 rounded-lg px-3 text-[15px] text-[#2564cf] transition hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-slate-800" type="button" @click="isAddingFolder = true">
+          <FolderPlus :size="24" :stroke-width="1.8" aria-hidden="true" />
+          <span class="flex-1 text-left">Ny mapp</span>
         </button>
         <RouterLink
           class="mt-2 flex h-10 w-full items-center gap-4 rounded px-3 text-sm text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
           to="/settings"
           @click="emit('close')"
         >
-          <span class="text-lg" aria-hidden="true">⚙</span>
+          <Settings :size="19" :stroke-width="1.8" aria-hidden="true" />
           <span>Inställningar</span>
         </RouterLink>
       </div>
     </div>
-  </aside>
+    </aside>
+  </Transition>
 </template>

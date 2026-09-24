@@ -29,6 +29,7 @@ describe('TodoSidebar', () => {
         folders: [],
         ungroupedLists: [],
         smartViewCounts: { myDay: 0, important: 0, planned: 0 },
+        listTaskCounts: {},
       },
       global: { stubs: { RouterLink: true } },
     })
@@ -62,6 +63,7 @@ describe('TodoSidebar', () => {
         }],
         ungroupedLists: [],
         smartViewCounts: { myDay: 0, important: 0, planned: 0 },
+        listTaskCounts: {},
       },
       global: { stubs: { RouterLink: true } },
     })
@@ -79,6 +81,43 @@ describe('TodoSidebar', () => {
 
     vi.useRealTimers()
     wrapper.unmount()
+  })
+
+  it('groups the default and ungrouped lists under dedicated headings', async () => {
+    const wrapper = mount(TodoSidebar, {
+      props: {
+        open: true,
+        activeListId: 'project-list',
+        activeSmartView: null,
+        availableTags: [],
+        selectedTag: '',
+        folders: [{
+          folder: { id: 'folder-1', name: 'Semesteridéer', order: 0 },
+          lists: [{ id: 'bali-list', name: 'Bali', folderId: 'folder-1', icon: 'list', order: 0, createdAt: Timestamp.now() }],
+        }],
+        ungroupedLists: [
+          { id: '__default__', name: 'Att göra', icon: 'list', order: 0, createdAt: Timestamp.now() },
+          { id: 'project-list', name: 'Projekt', icon: 'list', order: 1, createdAt: Timestamp.now() },
+        ],
+        smartViewCounts: { myDay: 0, important: 0, planned: 0 },
+        listTaskCounts: { 'project-list': 1 },
+      },
+      global: { stubs: { RouterLink: true } },
+    })
+
+    expect(wrapper.text()).toContain('Huvudlista')
+    expect(wrapper.text()).toContain('Att göra')
+    expect(wrapper.text()).toContain('Utan mapp')
+    expect(wrapper.text()).toContain('Projekt')
+    expect(wrapper.text()).toContain('Semesteridéer')
+    expect(wrapper.text()).toContain('Bali')
+
+    const ungroupedHeading = wrapper.findAll('button').find((button) => button.text().includes('Utan mapp'))
+    expect(ungroupedHeading).toBeTruthy()
+    await ungroupedHeading?.trigger('click')
+    expect(wrapper.text()).not.toContain('Projekt')
+    expect(wrapper.text()).toContain('Att göra')
+    expect(wrapper.text()).toContain('Bali')
   })
 })
 

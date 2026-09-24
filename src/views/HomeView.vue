@@ -369,6 +369,7 @@ const toggleTheme = () => {
         :folders="listStore.foldersWithLists"
         :ungrouped-lists="listStore.ungroupedLists"
         :smart-view-counts="taskStore.smartViewCounts"
+        :list-task-counts="taskStore.listTaskCounts"
         @close="isSidebarOpen = false"
         @select-list="handleSelectList"
         @select-smart-view="handleSelectSmartView"

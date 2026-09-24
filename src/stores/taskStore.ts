@@ -144,6 +144,10 @@ export const useTaskStore = defineStore('tasks', () => {
     important: tasks.value.filter((task) => task.important && !task.completed).length,
     planned: tasks.value.filter((task) => Boolean(task.dueDate) && !task.completed).length,
   }))
+  const listTaskCounts = computed<Record<string, number>>(() => tasks.value.reduce<Record<string, number>>((counts, task) => {
+    if (!task.completed) counts[task.listId] = (counts[task.listId] ?? 0) + 1
+    return counts
+  }, {}))
 
   const clearState = () => {
     tasks.value = []
@@ -539,6 +543,7 @@ export const useTaskStore = defineStore('tasks', () => {
     activeSteps,
     taskStepCounts,
     smartViewCounts,
+    listTaskCounts,
     activeView,
     visibleTasks,
     activeTasks,
