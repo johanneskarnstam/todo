@@ -42,7 +42,7 @@ const handleRegister = async () => {
     <section class="w-full max-w-md rounded-2xl border border-white/80 bg-white/95 p-7 shadow-[0_24px_80px_rgba(15,46,88,0.14)] dark:border-slate-800 dark:bg-slate-900 sm:p-10" aria-labelledby="register-title">
       <div class="flex items-center gap-3">
         <span class="grid size-10 place-items-center rounded-xl bg-[#2564cf] text-lg font-bold text-white" aria-hidden="true">✓</span>
-        <span class="text-lg font-semibold tracking-tight">Att göra</span>
+        <span class="text-lg font-semibold tracking-tight">To Do</span>
       </div>
 
       <p class="mt-10 text-sm font-semibold uppercase tracking-[0.18em] text-[#2564cf] dark:text-blue-400">Kom igång</p>

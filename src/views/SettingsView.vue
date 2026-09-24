@@ -28,7 +28,7 @@ const handleLogout = async () => {
   <main class="min-h-screen bg-[#faf9f8] px-4 py-8 text-slate-800 dark:bg-slate-950 dark:text-slate-100 sm:px-8 lg:px-12">
     <div class="mx-auto max-w-2xl">
       <RouterLink class="mb-8 inline-flex min-h-10 items-center rounded px-3 text-sm text-[#2564cf] hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-slate-800" to="/">
-        ← Att göra
+        ← To Do
       </RouterLink>
       <h1 class="text-3xl font-semibold text-[#2564cf] dark:text-blue-400">Inställningar</h1>
 

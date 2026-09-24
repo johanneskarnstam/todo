@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { nextTick } from 'vue'
 import { Timestamp } from 'firebase/firestore'
 import TaskDetailsPanel from '@/components/TaskDetailsPanel.vue'
 import TaskRow from '@/components/TaskRow.vue'
@@ -27,12 +28,18 @@ describe('TaskRow', () => {
     expect(wrapper.emitted('select')).toHaveLength(1)
 
     await wrapper.find('button[aria-label="Uppgiftsåtgärder"]').trigger('click')
-    await wrapper.findAll('button').find((button) => button.text() === 'Stjärnmarkera')?.trigger('click')
+    await nextTick()
+    const starButton = Array.from(document.body.querySelectorAll('button')).find((button) => button.textContent === 'Stjärnmarkera')
+    expect(starButton).toBeTruthy()
+    starButton?.click()
     expect(wrapper.emitted('toggle-important')).toHaveLength(1)
     expect(wrapper.emitted('select')).toHaveLength(1)
 
     await wrapper.find('button[aria-label="Uppgiftsåtgärder"]').trigger('click')
-    await wrapper.findAll('button').find((button) => button.text() === 'Lägg till i Min dag')?.trigger('click')
+    await nextTick()
+    const myDayButton = Array.from(document.body.querySelectorAll('button')).find((button) => button.textContent === 'Lägg till i Min dag')
+    expect(myDayButton).toBeTruthy()
+    myDayButton?.click()
     expect(wrapper.emitted('toggle-my-day')).toHaveLength(1)
   })
 
@@ -63,12 +70,46 @@ describe('TaskRow', () => {
     const openMenu = () => wrapper.find('button[aria-label="Uppgiftsåtgärder"]').trigger('click')
 
     await openMenu()
-    await wrapper.findAll('button').find((button) => button.text() === 'Visa detaljer')?.trigger('click')
+    await nextTick()
+    const detailsButton = Array.from(document.body.querySelectorAll('button')).find((button) => button.textContent === 'Visa detaljer')
+    expect(detailsButton).toBeTruthy()
+    detailsButton?.click()
     expect(wrapper.emitted('select')).toHaveLength(1)
 
     await openMenu()
-    await wrapper.findAll('button').find((button) => button.text() === 'Markera som slutförd')?.trigger('click')
+    await nextTick()
+    const completeButton = Array.from(document.body.querySelectorAll('button')).find((button) => button.textContent === 'Markera som slutförd')
+    expect(completeButton).toBeTruthy()
+    completeButton?.click()
     expect(wrapper.emitted('toggle-completed')).toHaveLength(1)
+  })
+
+  it('keeps swipe and dropdown interaction exclusive to one row', async () => {
+    document.querySelectorAll('[data-task-menu-id]').forEach((menu) => menu.remove())
+    const secondTask = { ...task, id: 'task-2', title: 'Paint the ceiling' }
+    const firstWrapper = mount(TaskRow, { props: { task }, attachTo: document.body })
+    const secondWrapper = mount(TaskRow, { props: { task: secondTask }, attachTo: document.body })
+
+    await firstWrapper.find('button[aria-label="Uppgiftsåtgärder"]').trigger('click')
+    await nextTick()
+    expect(document.body.querySelector('[data-task-menu-id="task-1"]')).toBeTruthy()
+
+    const startSecondTouch = new Event('touchstart', { bubbles: true })
+    Object.defineProperty(startSecondTouch, 'touches', { value: [{ clientX: 100 }] })
+    secondWrapper.element.dispatchEvent(startSecondTouch)
+    await nextTick()
+    expect(document.body.querySelector('[data-task-menu-id="task-1"]')).toBeNull()
+
+    await firstWrapper.find('article').trigger('touchstart', { touches: [{ clientX: 100 }] })
+    await firstWrapper.find('article').trigger('touchmove', { touches: [{ clientX: 20 }] })
+    await firstWrapper.find('article').trigger('touchend')
+    expect(firstWrapper.find('div.relative.flex').attributes('style')).toContain('translateX(-96px)')
+
+    await secondWrapper.find('article').trigger('touchstart', { touches: [{ clientX: 100 }] })
+    expect(firstWrapper.find('div.relative.flex').attributes('style')).toContain('translateX(0px)')
+
+    firstWrapper.unmount()
+    secondWrapper.unmount()
   })
 })
 

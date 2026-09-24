@@ -149,14 +149,14 @@ const handleLogout = async () => {
   >
     <div
       v-if="open"
-      class="fixed inset-0 z-30 bg-slate-950/30 lg:hidden"
+      class="fixed inset-0 z-[70] bg-slate-950/30 lg:hidden"
       aria-hidden="true"
       @click="emit('close')"
     />
   </Transition>
 
   <aside
-    class="fixed inset-y-0 left-0 z-40 flex w-[292px] -translate-x-full flex-col rounded-r-xl border-r border-slate-200 bg-white shadow-xl transition-[width,transform] duration-300 ease-out dark:border-slate-700 dark:bg-slate-900 lg:static lg:z-auto lg:rounded-r-2xl lg:shadow-none"
+    class="fixed inset-y-0 left-0 z-[80] flex w-[292px] -translate-x-full flex-col rounded-r-xl border-r border-slate-200 bg-white shadow-xl transition-[width,transform] duration-300 ease-out dark:border-slate-700 dark:bg-slate-900 lg:static lg:z-auto lg:rounded-r-2xl lg:shadow-none"
     :class="open ? 'translate-x-0 lg:w-[292px]' : '-translate-x-full lg:w-0 lg:overflow-hidden lg:border-transparent lg:px-0'"
     aria-label="Uppgiftsnavigering"
   >
@@ -164,7 +164,7 @@ const handleLogout = async () => {
       <div class="mb-5 flex h-10 items-center justify-between lg:hidden">
         <div class="flex items-center gap-2 px-1">
           <img class="size-8 rounded-lg shadow-sm" :src="iconUrl" alt="" aria-hidden="true" />
-          <span class="text-lg font-semibold tracking-tight text-slate-800 dark:text-slate-100">Att göra</span>
+          <span class="text-lg font-semibold tracking-tight text-slate-800 dark:text-slate-100">To Do</span>
         </div>
         <button
           class="grid size-9 place-items-center rounded-lg text-xl text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"

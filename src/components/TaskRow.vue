@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { CalendarPlus, CheckCircle2, ListTodo, MoreVertical, Star, Trash2 } from '@lucide/vue'
 import type { StepCount, Task } from '@/types'
 
-let activeSwipeReset: (() => void) | null = null
+const rowInteractionResets = new Set<() => void>()
 
 interface Props {
   task: Task
@@ -26,25 +26,73 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 const isMenuOpen = ref(false)
-const menuPlacement = ref<'above' | 'below'>('below')
+const actionsButton = ref<HTMLButtonElement | null>(null)
+const actionsMenu = ref<HTMLDivElement | null>(null)
+const menuStyle = ref<Record<string, string>>({})
 const swipeOffset = ref(0)
 const swipeStartX = ref<number | null>(null)
 const suppressClick = ref(false)
 
-const updateMenuPlacement = (event: MouseEvent) => {
-  const target = event.currentTarget as HTMLElement
-  const spaceBelow = window.innerHeight - target.getBoundingClientRect().bottom
-  menuPlacement.value = spaceBelow < 180 ? 'above' : 'below'
+const resetRowInteraction = () => {
+  isMenuOpen.value = false
+  menuStyle.value = {}
+  swipeOffset.value = 0
+  swipeStartX.value = null
+  suppressClick.value = false
+}
+
+rowInteractionResets.add(resetRowInteraction)
+
+const positionMenu = () => {
+  const trigger = actionsButton.value
+  const menu = actionsMenu.value
+  if (!trigger || !menu) return
+
+  const triggerRect = trigger.getBoundingClientRect()
+  const menuRect = menu.getBoundingClientRect()
+  const gap = 8
+  const horizontalPadding = 12
+  const left = Math.min(
+    Math.max(horizontalPadding, triggerRect.right - menuRect.width),
+    window.innerWidth - menuRect.width - horizontalPadding,
+  )
+  const opensAbove = triggerRect.bottom + menuRect.height + gap > window.innerHeight && triggerRect.top - menuRect.height - gap >= horizontalPadding
+  const top = opensAbove ? triggerRect.top - menuRect.height - gap : triggerRect.bottom + gap
+
+  menuStyle.value = {
+    left: `${left}px`,
+    top: `${Math.max(horizontalPadding, top)}px`,
+  }
+}
+
+const updateMenuPlacement = () => {
+  rowInteractionResets.forEach((reset) => {
+    if (reset !== resetRowInteraction) reset()
+  })
   isMenuOpen.value = !isMenuOpen.value
+  if (isMenuOpen.value) void nextTick(positionMenu)
 }
 
 const closeMenu = () => {
   isMenuOpen.value = false
+  menuStyle.value = {}
+}
+
+const handleWindowKeydown = (event: KeyboardEvent) => {
+  if (event.key === 'Escape') closeMenu()
+}
+
+const handleGlobalTouchStart = (event: TouchEvent) => {
+  const target = event.target as HTMLElement | null
+  if (target?.closest('[data-task-menu-id]')) return
+  rowInteractionResets.forEach((reset) => reset())
 }
 
 const handleTouchStart = (event: TouchEvent) => {
-  if (activeSwipeReset && activeSwipeReset !== resetSwipe) activeSwipeReset()
-  activeSwipeReset = resetSwipe
+  rowInteractionResets.forEach((reset) => {
+    if (reset !== resetRowInteraction) reset()
+  })
+  closeMenu()
   swipeStartX.value = event.touches[0]?.clientX ?? null
 }
 
@@ -67,12 +115,6 @@ const handleTouchEnd = () => {
   swipeStartX.value = null
 }
 
-const resetSwipe = () => {
-  swipeOffset.value = 0
-  swipeStartX.value = null
-  suppressClick.value = false
-}
-
 const handleRowClick = () => {
   if (suppressClick.value) {
     suppressClick.value = false
@@ -88,10 +130,20 @@ const handleDragStart = (event: DragEvent) => {
   emit('drag-start')
 }
 
-onMounted(() => window.addEventListener('click', closeMenu))
+onMounted(() => {
+  window.addEventListener('click', closeMenu)
+  window.addEventListener('keydown', handleWindowKeydown)
+  window.addEventListener('touchstart', handleGlobalTouchStart, true)
+  window.addEventListener('resize', positionMenu)
+  window.addEventListener('scroll', positionMenu, true)
+})
 onUnmounted(() => {
   window.removeEventListener('click', closeMenu)
-  if (activeSwipeReset === resetSwipe) activeSwipeReset = null
+  window.removeEventListener('keydown', handleWindowKeydown)
+  window.removeEventListener('touchstart', handleGlobalTouchStart, true)
+  window.removeEventListener('resize', positionMenu)
+  window.removeEventListener('scroll', positionMenu, true)
+  rowInteractionResets.delete(resetRowInteraction)
 })
 
 const handleKeydown = (event: KeyboardEvent) => {
@@ -123,10 +175,10 @@ const handleKeydown = (event: KeyboardEvent) => {
     @touchend="handleTouchEnd"
   >
     <div class="absolute inset-0 flex items-stretch justify-between overflow-hidden rounded-lg text-white">
-      <button class="grid w-24 place-items-center bg-red-600" type="button" aria-label="Ta bort uppgift" title="Ta bort uppgift" @click.stop="emit('delete'); resetSwipe()">
+      <button class="grid w-24 place-items-center bg-red-600" type="button" aria-label="Ta bort uppgift" title="Ta bort uppgift" @click.stop="emit('delete'); resetRowInteraction()">
         <Trash2 :size="20" aria-hidden="true" />
       </button>
-      <button class="grid w-24 place-items-center bg-[#2564cf]" type="button" :aria-label="task.important ? 'Ta bort stjärnmarkering' : 'Stjärnmarkera uppgift'" :title="task.important ? 'Ta bort stjärnmarkering' : 'Stjärnmarkera uppgift'" @click.stop="emit('toggle-important'); resetSwipe()">
+      <button class="grid w-24 place-items-center bg-[#2564cf]" type="button" :aria-label="task.important ? 'Ta bort stjärnmarkering' : 'Stjärnmarkera uppgift'" :title="task.important ? 'Ta bort stjärnmarkering' : 'Stjärnmarkera uppgift'" @click.stop="emit('toggle-important'); resetRowInteraction()">
         <Star :size="20" :fill="task.important ? 'currentColor' : 'none'" aria-hidden="true" />
       </button>
     </div>
@@ -149,17 +201,20 @@ const handleKeydown = (event: KeyboardEvent) => {
       </span>
 
       <div class="relative shrink-0">
-        <button class="grid size-9 place-items-center rounded-full text-slate-500 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700" type="button" aria-label="Uppgiftsåtgärder" :aria-expanded="isMenuOpen" @click.stop="updateMenuPlacement">
+        <button ref="actionsButton" class="grid size-9 place-items-center rounded-full text-slate-500 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700" type="button" aria-label="Uppgiftsåtgärder" :aria-expanded="isMenuOpen" @click.stop="updateMenuPlacement">
           <MoreVertical :size="20" aria-hidden="true" />
         </button>
-        <div v-if="isMenuOpen" class="absolute right-0 z-30 w-44 rounded-xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-800" :class="menuPlacement === 'above' ? 'bottom-full mb-2' : 'top-full mt-2'" @click.stop>
-          <button class="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="emit('select'); closeMenu()"><ListTodo :size="17" aria-hidden="true" />Visa detaljer</button>
-          <button class="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="emit('toggle-completed'); closeMenu()"><CheckCircle2 :size="17" aria-hidden="true" />{{ task.completed ? 'Markera som aktiv' : 'Markera som slutförd' }}</button>
-          <button class="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="emit('toggle-important'); closeMenu()"><Star :size="17" :fill="task.important ? 'currentColor' : 'none'" aria-hidden="true" />{{ task.important ? 'Ta bort stjärnmarkering' : 'Stjärnmarkera' }}</button>
-          <button class="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="emit('toggle-my-day'); closeMenu()"><CalendarPlus :size="17" aria-hidden="true" />{{ task.myDay ? 'Ta bort från Min dag' : 'Lägg till i Min dag' }}</button>
-          <button class="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950" type="button" @click="emit('delete'); closeMenu()"><Trash2 :size="17" aria-hidden="true" />Ta bort uppgift</button>
-        </div>
       </div>
     </div>
+
+    <Teleport to="body">
+      <div v-if="isMenuOpen" ref="actionsMenu" class="fixed z-[75] w-56 rounded-xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-800" :data-task-menu-id="task.id" :style="menuStyle" @click.stop>
+        <button class="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="emit('select'); closeMenu()"><ListTodo :size="17" aria-hidden="true" />Visa detaljer</button>
+        <button class="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="emit('toggle-completed'); closeMenu()"><CheckCircle2 :size="17" aria-hidden="true" />{{ task.completed ? 'Markera som aktiv' : 'Markera som slutförd' }}</button>
+        <button class="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="emit('toggle-important'); closeMenu()"><Star :size="17" :fill="task.important ? 'currentColor' : 'none'" aria-hidden="true" />{{ task.important ? 'Ta bort stjärnmarkering' : 'Stjärnmarkera' }}</button>
+        <button class="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="emit('toggle-my-day'); closeMenu()"><CalendarPlus :size="17" aria-hidden="true" />{{ task.myDay ? 'Ta bort från Min dag' : 'Lägg till i Min dag' }}</button>
+        <button class="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950" type="button" @click="emit('delete'); closeMenu()"><Trash2 :size="17" aria-hidden="true" />Ta bort uppgift</button>
+      </div>
+    </Teleport>
   </article>
 </template>

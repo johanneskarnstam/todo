@@ -41,12 +41,23 @@ export const useTaskStore = defineStore('tasks', () => {
   const activeView = ref<TaskView | null>(null)
   const isLoaded = ref(false)
   const error = ref<string | null>(null)
+  const pendingWriteCount = ref(0)
+  const isSaving = computed(() => pendingWriteCount.value > 0)
   const toastStore = useToastStore()
 
   const reportWriteError = (writeError: unknown, fallback: string) => {
     const message = writeError instanceof Error ? writeError.message : fallback
     error.value = message
     toastStore.show(message)
+  }
+
+  const trackWrite = async <T>(write: () => Promise<T>): Promise<T> => {
+    pendingWriteCount.value += 1
+    try {
+      return await write()
+    } finally {
+      pendingWriteCount.value -= 1
+    }
   }
 
   const visibleTasks = computed(() => {
@@ -221,7 +232,7 @@ export const useTaskStore = defineStore('tasks', () => {
     error.value = null
 
     try {
-      const taskReference = await addDoc(userCollection(), {
+      const taskReference = await trackWrite(() => addDoc(userCollection(), {
         listId: optimisticTask.listId,
         title: optimisticTask.title,
         completed: optimisticTask.completed,
@@ -229,7 +240,7 @@ export const useTaskStore = defineStore('tasks', () => {
         myDay: optimisticTask.myDay,
         order: optimisticTask.order,
         createdAt: serverTimestamp(),
-      })
+      }))
       tasks.value = tasks.value.map((task) =>
         task.id === optimisticId ? { ...optimisticTask, id: taskReference.id } : task,
       )
@@ -252,7 +263,7 @@ export const useTaskStore = defineStore('tasks', () => {
     error.value = null
 
     try {
-      await updateDoc(doc(userCollection(), taskId), updates)
+      await trackWrite(() => updateDoc(doc(userCollection(), taskId), updates))
     } catch (updateError) {
       tasks.value = tasks.value.map((task) => (task.id === taskId ? previousTask : task))
       reportWriteError(updateError, 'Uppgiften kunde inte uppdateras.')
@@ -287,7 +298,7 @@ export const useTaskStore = defineStore('tasks', () => {
     delete task.dueDate
     error.value = null
 
-    void updateDoc(doc(userCollection(), taskId), { dueDate: deleteField() }).catch((clearError: unknown) => {
+    void trackWrite(() => updateDoc(doc(userCollection(), taskId), { dueDate: deleteField() })).catch((clearError: unknown) => {
       if (previousDueDate) task.dueDate = previousDueDate
       reportWriteError(clearError, 'Förfallodatumet kunde inte tas bort.')
     })
@@ -314,12 +325,12 @@ export const useTaskStore = defineStore('tasks', () => {
     error.value = null
 
     try {
-      const stepReference = await addDoc(taskStepsCollection(input.taskId), {
+      const stepReference = await trackWrite(() => addDoc(taskStepsCollection(input.taskId), {
         taskId: optimisticStep.taskId,
         title: optimisticStep.title,
         completed: optimisticStep.completed,
         createdAt: serverTimestamp(),
-      })
+      }))
       allSteps.value = allSteps.value.map((step) =>
         step.id === optimisticId ? { ...optimisticStep, id: stepReference.id } : step,
       )
@@ -332,15 +343,16 @@ export const useTaskStore = defineStore('tasks', () => {
 
   const toggleStep = (stepId: string) => {
     const step = allSteps.value.find((item) => item.id === stepId)
-    if (!step || !activeTaskId.value) return
+    const taskId = activeTaskId.value
+    if (!step || !taskId) return
 
     const previousCompleted = step.completed
     step.completed = !step.completed
     error.value = null
 
-    void updateDoc(doc(taskStepsCollection(activeTaskId.value), stepId), {
+    void trackWrite(() => updateDoc(doc(taskStepsCollection(taskId), stepId), {
       completed: step.completed,
-    }).catch((toggleError: unknown) => {
+    })).catch((toggleError: unknown) => {
       step.completed = previousCompleted
       reportWriteError(toggleError, 'Delsteget kunde inte uppdateras.')
     })
@@ -348,7 +360,8 @@ export const useTaskStore = defineStore('tasks', () => {
 
   const updateStep = async (stepId: string, title: string) => {
     const step = allSteps.value.find((item) => item.id === stepId)
-    if (!step || !activeTaskId.value) return
+    const taskId = activeTaskId.value
+    if (!step || !taskId) return
 
     const nextTitle = title.trim()
     if (!nextTitle || nextTitle === step.title) return
@@ -358,7 +371,7 @@ export const useTaskStore = defineStore('tasks', () => {
     error.value = null
 
     try {
-      await updateDoc(doc(taskStepsCollection(activeTaskId.value), stepId), { title: nextTitle })
+      await trackWrite(() => updateDoc(doc(taskStepsCollection(taskId), stepId), { title: nextTitle }))
     } catch (updateError) {
       step.title = previousTitle
       reportWriteError(updateError, 'Delsteget kunde inte uppdateras.')
@@ -367,13 +380,14 @@ export const useTaskStore = defineStore('tasks', () => {
 
   const deleteStep = async (stepId: string) => {
     const stepIndex = allSteps.value.findIndex((item) => item.id === stepId)
-    if (stepIndex < 0 || !activeTaskId.value) return
+    const taskId = activeTaskId.value
+    if (stepIndex < 0 || !taskId) return
 
     const [deletedStep] = allSteps.value.splice(stepIndex, 1)
     error.value = null
 
     try {
-      await deleteDoc(doc(taskStepsCollection(activeTaskId.value), stepId))
+      await trackWrite(() => deleteDoc(doc(taskStepsCollection(taskId), stepId)))
     } catch (deleteError) {
       allSteps.value.splice(stepIndex, 0, deletedStep)
       reportWriteError(deleteError, 'Delsteget kunde inte tas bort.')
@@ -388,7 +402,7 @@ export const useTaskStore = defineStore('tasks', () => {
     error.value = null
 
     try {
-      await deleteDoc(doc(userCollection(), taskId))
+      await trackWrite(() => deleteDoc(doc(userCollection(), taskId)))
       allSteps.value = allSteps.value.filter((step) => step.taskId !== taskId)
       if (activeTaskId.value === taskId) setActiveTask(null)
     } catch (deleteError) {
@@ -427,10 +441,10 @@ export const useTaskStore = defineStore('tasks', () => {
     tasks.value = reorderedTasks
 
     try {
-      await Promise.all([
+      await trackWrite(() => Promise.all([
         updateDoc(doc(userCollection(), currentTask.id), { order: currentTask.order }),
         updateDoc(doc(userCollection(), otherTask.id), { order: otherTask.order }),
-      ])
+      ]))
     } catch (reorderError) {
       currentTask.order = currentOrder
       otherTask.order = otherOrder
@@ -467,9 +481,9 @@ export const useTaskStore = defineStore('tasks', () => {
     error.value = null
 
     try {
-      await Promise.all(
+      await trackWrite(() => Promise.all(
         siblings.map((task) => updateDoc(doc(userCollection(), task.id), { order: updatedOrders.get(task.id) })),
-      )
+      ))
     } catch (reorderError) {
       tasks.value = previousTasks
       reportWriteError(reorderError, 'Uppgiften kunde inte ordnas om.')
@@ -490,6 +504,7 @@ export const useTaskStore = defineStore('tasks', () => {
     activeTasks,
     completedTasks,
     isLoaded,
+    isSaving,
     error,
     clearState,
     fetchTasks,

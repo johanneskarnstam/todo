@@ -271,6 +271,7 @@ const toggleTheme = () => {
     <TodoHeader
       :is-dark="isDark"
       :is-sidebar-open="isSidebarOpen"
+      :is-saving="taskStore.isSaving || listStore.isSaving"
       @toggle-menu="isSidebarOpen = !isSidebarOpen"
       @toggle-theme="toggleTheme"
     />
@@ -416,7 +417,7 @@ const toggleTheme = () => {
         @delete-task="handleDeleteActiveTask"
       />
 
-      <div v-if="pendingDeleteTaskId" class="fixed inset-0 z-[60] grid place-items-center bg-slate-950/40 px-4" role="presentation" @click.self="cancelDeleteTask">
+      <div v-if="pendingDeleteTaskId" class="fixed inset-0 z-[100] grid place-items-center bg-slate-950/40 px-4" role="presentation" @click.self="cancelDeleteTask">
         <section class="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900" role="dialog" aria-modal="true" aria-labelledby="delete-task-title">
           <h2 id="delete-task-title" class="text-lg font-semibold text-slate-800 dark:text-slate-100">Ta bort uppgiften?</h2>
           <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">Är du säker på att du vill ta bort den här uppgiften? Den går inte att återställa.</p>
@@ -427,7 +428,7 @@ const toggleTheme = () => {
         </section>
       </div>
 
-      <div v-if="pendingDeleteListId" class="fixed inset-0 z-[60] grid place-items-center bg-slate-950/40 px-4" role="presentation" @click.self="pendingDeleteListId = null">
+      <div v-if="pendingDeleteListId" class="fixed inset-0 z-[100] grid place-items-center bg-slate-950/40 px-4" role="presentation" @click.self="pendingDeleteListId = null">
         <section class="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900" role="dialog" aria-modal="true" aria-labelledby="delete-list-title">
           <h2 id="delete-list-title" class="text-lg font-semibold text-slate-800 dark:text-slate-100">Ta bort lista?</h2>
           <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">Välj om uppgifterna också ska tas bort eller behållas utan lista.</p>

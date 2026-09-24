@@ -39,6 +39,8 @@ export const useListStore = defineStore('lists', () => {
   const defaultListId = ref<string | null>(null)
   const isLoaded = ref(false)
   const error = ref<string | null>(null)
+  const pendingWriteCount = ref(0)
+  const isSaving = computed(() => pendingWriteCount.value > 0)
   const pendingListIds = new Set<string>()
   const pendingFolderIds = new Set<string>()
   const toastStore = useToastStore()
@@ -47,6 +49,15 @@ export const useListStore = defineStore('lists', () => {
     const message = writeError instanceof Error ? writeError.message : fallback
     error.value = message
     toastStore.show(message)
+  }
+
+  const trackWrite = async <T>(write: () => Promise<T>): Promise<T> => {
+    pendingWriteCount.value += 1
+    try {
+      return await write()
+    } finally {
+      pendingWriteCount.value -= 1
+    }
   }
 
   const foldersWithLists = computed(() =>
@@ -172,13 +183,13 @@ export const useListStore = defineStore('lists', () => {
     error.value = null
 
     try {
-      await setDoc(listReference, {
+      await trackWrite(() => setDoc(listReference, {
         name: optimisticList.name,
         ...(optimisticList.folderId ? { folderId: optimisticList.folderId } : {}),
         icon: optimisticList.icon,
         order: optimisticList.order,
         createdAt: serverTimestamp(),
-      })
+      }))
       return optimisticList
     } catch (createError) {
       reportWriteError(createError, 'Listan kunde inte skapas.')
@@ -203,10 +214,10 @@ export const useListStore = defineStore('lists', () => {
     error.value = null
 
     try {
-      await setDoc(folderReference, {
+      await trackWrite(() => setDoc(folderReference, {
         name: optimisticFolder.name,
         order: optimisticFolder.order,
-      })
+      }))
       return optimisticFolder
     } catch (createError) {
       reportWriteError(createError, 'Mappen kunde inte skapas.')
@@ -223,7 +234,7 @@ export const useListStore = defineStore('lists', () => {
     lists.value = sortByOrder(lists.value)
 
     try {
-      await updateDoc(doc(userCollection('lists'), listId), updates)
+      await trackWrite(() => updateDoc(doc(userCollection('lists'), listId), updates))
     } catch (updateError) {
       lists.value = lists.value.map((list) => (list.id === listId ? previousList : list))
       reportWriteError(updateError, 'Listan kunde inte uppdateras.')
@@ -242,9 +253,9 @@ export const useListStore = defineStore('lists', () => {
     }
 
     try {
-      await updateDoc(doc(userCollection('lists'), listId), {
+      await trackWrite(() => updateDoc(doc(userCollection('lists'), listId), {
         folderId: folderId ?? deleteField(),
-      })
+      }))
     } catch (moveError) {
       lists.value = lists.value.map((list) => (list.id === listId ? previousList : list))
       reportWriteError(moveError, 'Listan kunde inte flyttas.')
@@ -263,7 +274,7 @@ export const useListStore = defineStore('lists', () => {
     if (selectedListId.value === listId) selectedListId.value = lists.value[0]?.id ?? null
 
     try {
-      await deleteDoc(doc(userCollection('lists'), listId))
+      await trackWrite(() => deleteDoc(doc(userCollection('lists'), listId)))
       return true
     } catch (deleteError) {
       lists.value = sortByOrder([...lists.value, deletedList])
@@ -294,14 +305,16 @@ export const useListStore = defineStore('lists', () => {
     folders.value = folders.value.filter((folder) => folder.id !== folderId)
 
     try {
-      await deleteDoc(doc(userCollection('folders'), folderId))
-      await Promise.all(
+      await trackWrite(async () => {
+        await deleteDoc(doc(userCollection('folders'), folderId))
+        await Promise.all(
         containedLists.map((list) =>
           deleteContainedLists
             ? deleteDoc(doc(userCollection('lists'), list.id))
             : updateDoc(doc(userCollection('lists'), list.id), { folderId: deleteField() }),
         ),
-      )
+        )
+      })
       return removedListIds
     } catch (deleteError) {
       lists.value = previousLists
@@ -329,10 +342,10 @@ export const useListStore = defineStore('lists', () => {
     lists.value = sortByOrder(lists.value)
 
     try {
-      await Promise.all([
+      await trackWrite(() => Promise.all([
         updateDoc(doc(userCollection('lists'), currentList.id), { order: currentList.order }),
         updateDoc(doc(userCollection('lists'), otherList.id), { order: otherList.order }),
-      ])
+      ]))
     } catch (reorderError) {
       currentList.order = otherList.order
       otherList.order = currentOrder
@@ -350,7 +363,7 @@ export const useListStore = defineStore('lists', () => {
     folders.value = sortByOrder(folders.value)
 
     try {
-      await updateDoc(doc(userCollection('folders'), folderId), updates)
+      await trackWrite(() => updateDoc(doc(userCollection('folders'), folderId), updates))
     } catch (updateError) {
       folders.value = folders.value.map((folder) => (folder.id === folderId ? previousFolder : folder))
       reportWriteError(updateError, 'Mappen kunde inte uppdateras.')
@@ -372,6 +385,7 @@ export const useListStore = defineStore('lists', () => {
     selectedListId,
     defaultListId,
     isLoaded,
+    isSaving,
     error,
     clearState,
     fetchLists,

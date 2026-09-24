@@ -55,7 +55,7 @@ const handleEmailLogin = async () => {
         <div>
           <div class="flex items-center gap-3">
             <span class="grid size-11 place-items-center rounded-xl bg-white text-xl font-bold text-[#2564cf] shadow-lg" aria-hidden="true">✓</span>
-            <span class="text-lg font-semibold tracking-tight">Att göra</span>
+            <span class="text-lg font-semibold tracking-tight">To Do</span>
           </div>
           <div class="mt-24 max-w-sm">
             <p class="text-sm font-semibold uppercase tracking-[0.2em] text-blue-100">Din dag, i fokus</p>
@@ -70,13 +70,13 @@ const handleEmailLogin = async () => {
         <div class="mb-10 sm:hidden">
           <div class="flex items-center gap-3">
             <span class="grid size-10 place-items-center rounded-xl bg-[#2564cf] text-lg font-bold text-white shadow-md" aria-hidden="true">✓</span>
-            <span class="text-lg font-semibold tracking-tight">Att göra</span>
+            <span class="text-lg font-semibold tracking-tight">To Do</span>
           </div>
         </div>
 
         <div class="max-w-sm">
           <p class="text-sm font-semibold uppercase tracking-[0.18em] text-[#2564cf] dark:text-blue-400">Välkommen tillbaka</p>
-          <h1 id="login-title" class="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">Logga in på Att göra</h1>
+          <h1 id="login-title" class="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">Logga in på To Do</h1>
           <p class="mt-4 text-sm leading-6 text-slate-500 dark:text-slate-400">Dina listor och uppgifter väntar på dig.</p>
 
           <p v-if="loginError" class="mt-6 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm leading-5 text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300" role="alert">
@@ -110,11 +110,11 @@ const handleEmailLogin = async () => {
           </form>
 
           <p class="mt-6 text-center text-sm text-slate-500 dark:text-slate-400">
-            Ny på Att göra?
+            Ny på To Do?
             <RouterLink class="font-semibold text-[#2564cf] hover:underline dark:text-blue-400" to="/register">Skapa ett konto</RouterLink>
           </p>
 
-          <p class="mt-8 text-center text-xs leading-5 text-slate-400 dark:text-slate-500">Genom att fortsätta godkänner du att använda Att göra för din personliga uppgiftsplanering.</p>
+          <p class="mt-8 text-center text-xs leading-5 text-slate-400 dark:text-slate-500">Genom att fortsätta godkänner du att använda To Do för din personliga uppgiftsplanering.</p>
         </div>
       </div>
     </section>
