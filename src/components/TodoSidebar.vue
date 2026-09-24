@@ -43,6 +43,15 @@ const smartViews = [
   { key: 'planned' as const, view: 'planned' as SmartView, icon: CalendarDays },
 ]
 
+const tagTones = [
+  'border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-300 dark:hover:bg-sky-900/60',
+  'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/60',
+  'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/60',
+  'border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-900/60',
+  'border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-300 dark:hover:bg-violet-900/60',
+  'border-cyan-200 bg-cyan-50 text-cyan-700 hover:bg-cyan-100 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-300 dark:hover:bg-cyan-900/60',
+]
+
 const readCollapsedFolders = (): Record<string, boolean> => {
   if (typeof localStorage === 'undefined') return {}
 
@@ -79,6 +88,11 @@ const smartViewLabel = (key: string) => ({
   important: 'Viktigt',
   planned: 'Planerat',
 }[key] ?? key)
+
+const tagTone = (tag: string) => {
+  const hash = [...tag].reduce((total, character) => total + character.charCodeAt(0), 0)
+  return tagTones[hash % tagTones.length]
+}
 
 const toggleFolder = (folderId: string) => {
   if (suppressFolderClick.value) {
@@ -243,10 +257,10 @@ const moveList = (listId: string, folderId: string | null) => {
             aria-hidden="true"
           />
         </button>
-        <div v-if="isTagsOpen" id="sidebar-tags-menu" class="mt-1 border-l-2 border-slate-300 pl-2 dark:border-slate-600" role="menu" aria-label="Välj tagg">
+        <div v-if="isTagsOpen" id="sidebar-tags-menu" class="mt-2 flex flex-wrap gap-2 pl-1" role="menu" aria-label="Välj tagg">
           <button
-            class="flex min-h-10 w-full items-center rounded-lg px-3 text-left text-sm text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-            :class="{ 'bg-[#eef5fc] font-semibold text-slate-900 dark:bg-slate-800 dark:text-white': !selectedTag }"
+            class="inline-flex min-h-8 items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+            :class="{ 'font-semibold ring-2 ring-[#2564cf] ring-offset-1 dark:ring-blue-400 dark:ring-offset-slate-900': !selectedTag }"
             type="button"
             role="menuitem"
             @click="selectTag('')"
@@ -256,8 +270,8 @@ const moveList = (listId: string, folderId: string | null) => {
           <button
             v-for="tag in availableTags"
             :key="tag"
-            class="flex min-h-10 w-full items-center rounded-lg px-3 text-left text-sm text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-            :class="{ 'bg-[#eef5fc] font-semibold text-slate-900 dark:bg-slate-800 dark:text-white': selectedTag === tag }"
+            class="inline-flex min-h-8 items-center rounded-full border px-3 py-1 text-xs font-medium transition"
+            :class="[tagTone(tag), { 'font-semibold ring-2 ring-[#2564cf] ring-offset-1 dark:ring-blue-400 dark:ring-offset-slate-900': selectedTag === tag }]"
             type="button"
             role="menuitem"
             @click="selectTag(tag)"
