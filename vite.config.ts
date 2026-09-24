@@ -39,6 +39,18 @@ export default defineConfig({
     }),
   ],
   base: '/todo/',
+  build: {
+    chunkSizeWarningLimit: 550,
+    rolldownOptions: {
+      output: {
+        manualChunks(id) {
+          const firebasePackage = id.match(/node_modules\/((?:@firebase|firebase)\/[^/]+)/)?.[1]
+          if (firebasePackage) return firebasePackage.replaceAll('/', '-')
+          return undefined
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

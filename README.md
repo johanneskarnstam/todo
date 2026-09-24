@@ -171,6 +171,16 @@ npm run preview
 npm run test:unit
 ```
 
+### Mät kodtäckning
+
+Coverage körs med V8 och har minimikrav för statements, branches, functions och lines. Körningen misslyckas om täckningen sjunker under kraven.
+
+```sh
+npm run test:coverage
+```
+
+HTML-rapporten skapas i `coverage/`.
+
 ### Kör E2E-tester
 
 E2E-testerna använder lokalt mock-auth och demo-data. Ingen Firebase-inloggning krävs.

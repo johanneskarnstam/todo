@@ -1,6 +1,4 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
-import HomeView from '../views/HomeView.vue'
-import SettingsView from '../views/SettingsView.vue'
 import { useAuthStore } from '@/stores/authStore'
 
 const router = createRouter({
@@ -9,30 +7,30 @@ const router = createRouter({
     {
       path: '/',
       name: 'home',
-      component: HomeView,
+      component: () => import('../views/HomeView.vue'),
     },
     {
       path: '/my-day',
       name: 'my-day',
-      component: HomeView,
+      component: () => import('../views/HomeView.vue'),
       meta: { smartView: 'myDay' },
     },
     {
       path: '/important',
       name: 'important',
-      component: HomeView,
+      component: () => import('../views/HomeView.vue'),
       meta: { smartView: 'important' },
     },
     {
       path: '/planned',
       name: 'planned',
-      component: HomeView,
+      component: () => import('../views/HomeView.vue'),
       meta: { smartView: 'planned' },
     },
     {
       path: '/tag/:tag',
       name: 'tag',
-      component: HomeView,
+      component: () => import('../views/HomeView.vue'),
     },
     {
       path: '/login',
@@ -47,7 +45,7 @@ const router = createRouter({
     {
       path: '/settings',
       name: 'settings',
-      component: SettingsView,
+      component: () => import('../views/SettingsView.vue'),
     },
   ],
 })
