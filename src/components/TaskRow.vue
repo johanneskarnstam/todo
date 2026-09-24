@@ -147,6 +147,11 @@ const handleDrop = (event: DragEvent) => {
   emit('drop')
 }
 
+const handleDragEnd = () => {
+  if (!props.draggable) return
+  emit('drag-end')
+}
+
 onMounted(() => {
   window.addEventListener('click', closeMenu)
   window.addEventListener('keydown', handleWindowKeydown)
@@ -189,7 +194,7 @@ const handleKeydown = (event: KeyboardEvent) => {
     @dragenter="handleDragOver"
     @dragover="handleDragOver"
     @drop="handleDrop"
-    @dragend="draggable && emit('drag-end')"
+    @dragend="handleDragEnd"
     @touchstart="handleTouchStart"
     @touchmove="handleTouchMove"
     @touchend="handleTouchEnd"

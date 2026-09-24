@@ -120,6 +120,7 @@ export const useListStore = defineStore('lists', () => {
 
   const fetchLists = async () => {
     error.value = null
+    if (!selectedListId.value) selectedListId.value = DEFAULT_LIST_ID
 
     try {
       const [folderSnapshot, listSnapshot] = await Promise.all([
