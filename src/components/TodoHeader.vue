@@ -38,7 +38,7 @@ onUnmounted(() => {
   <header class="flex h-14 shrink-0 items-center bg-[#2564cf] px-3 text-white shadow-sm dark:bg-slate-900 sm:px-4">
     <div class="flex min-w-0 flex-1 items-center gap-2 sm:w-52 sm:flex-none sm:gap-3">
       <button
-        class="grid size-8 place-items-center rounded-sm text-white/90 transition hover:bg-white/15"
+        class="grid size-8 place-items-center rounded-lg text-white/90 transition hover:bg-white/15"
         type="button"
         :aria-label="isSidebarOpen ? 'Close navigation menu' : 'Open navigation menu'"
         @click="emit('toggle-menu')"
@@ -46,15 +46,15 @@ onUnmounted(() => {
         <span class="text-xl leading-none">☰</span>
       </button>
       <div class="flex items-center gap-2">
-        <img class="size-8 rounded-lg shadow-sm" :src="iconUrl" alt="" aria-hidden="true" />
+        <img class="size-8 rounded-full shadow-sm" :src="iconUrl" alt="" aria-hidden="true" />
         <span class="text-lg font-semibold tracking-tight">{{ t('appName') }}</span>
       </div>
     </div>
 
     <div class="flex shrink-0 items-center justify-end gap-2 sm:flex-1">
-      <span v-if="!isOnline" class="rounded bg-white/15 px-2 py-1 text-xs font-medium text-white" role="status">Offline</span>
+      <span v-if="!isOnline" class="rounded-lg bg-white/15 px-2 py-1 text-xs font-medium text-white" role="status">Offline</span>
       <button
-        class="grid size-9 place-items-center rounded-sm text-lg text-white/90 transition hover:bg-white/15"
+        class="grid size-9 place-items-center rounded-lg text-lg text-white/90 transition hover:bg-white/15"
         type="button"
         :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
         @click="emit('toggle-theme')"

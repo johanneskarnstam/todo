@@ -285,23 +285,23 @@ const toggleTheme = () => {
         @reorder-list="listStore.reorderList"
       />
 
-      <main class="min-w-0 flex-1 overflow-y-auto bg-[#faf9f8] dark:bg-slate-950">
+      <main class="min-w-0 flex-1 overflow-y-auto rounded-t-2xl bg-[#faf9f8] dark:bg-slate-950 sm:rounded-t-none">
         <div class="mx-auto w-full max-w-5xl px-4 pb-12 pt-7 sm:px-8 lg:px-12">
           <div class="flex items-center gap-4">
             <h1 class="min-w-0 flex-1 truncate text-2xl font-semibold tracking-tight sm:text-3xl" :style="{ color: activeListColor }">
               {{ currentTitle }}
             </h1>
             <div v-if="activeList" class="relative">
-              <button class="grid size-9 place-items-center rounded text-xl text-slate-500 transition hover:bg-slate-200 dark:hover:bg-slate-800" type="button" aria-label="More list options" :aria-expanded="isListOptionsOpen" @click="isListOptionsOpen = !isListOptionsOpen">⋯</button>
-              <div v-if="isListOptionsOpen" class="absolute right-0 top-10 z-20 w-64 rounded border border-slate-200 bg-white p-3 shadow-xl dark:border-slate-700 dark:bg-slate-800">
-                <button class="flex min-h-9 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="startRenameList">Rename list</button>
+              <button class="grid size-9 place-items-center rounded-lg text-xl text-slate-500 transition hover:bg-slate-200 dark:hover:bg-slate-800" type="button" aria-label="More list options" :aria-expanded="isListOptionsOpen" @click="isListOptionsOpen = !isListOptionsOpen">⋯</button>
+              <div v-if="isListOptionsOpen" class="absolute right-0 top-10 z-20 w-64 rounded-xl border border-slate-200 bg-white p-3 shadow-xl dark:border-slate-700 dark:bg-slate-800">
+                <button class="flex min-h-9 w-full items-center rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="startRenameList">Rename list</button>
                 <div class="mt-2 border-t border-slate-200 pt-2 dark:border-slate-700">
                   <p class="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">List color</p>
                   <div class="flex gap-2 px-3 py-2">
                     <button v-for="color in themeColors" :key="color" class="size-6 rounded-full border-2 border-white ring-1 ring-slate-300" :style="{ backgroundColor: color }" type="button" :aria-label="`Use list color ${color}`" @click="selectListTheme(color)" />
                   </div>
                 </div>
-                <button class="mt-2 flex min-h-9 w-full items-center rounded px-3 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950" type="button" @click="requestDeleteList">Delete list</button>
+                <button class="mt-2 flex min-h-9 w-full items-center rounded-lg px-3 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950" type="button" @click="requestDeleteList">Delete list</button>
               </div>
             </div>
             <div v-else class="size-9" aria-hidden="true" />
@@ -311,15 +311,15 @@ const toggleTheme = () => {
 
           <form v-if="listRenameTitle" class="mt-3 flex gap-2" @submit.prevent="saveListRename">
             <label class="sr-only" for="rename-list-title">Rename list</label>
-            <input id="rename-list-title" v-model="listRenameTitle" class="min-w-0 flex-1 rounded border border-blue-400 bg-white px-3 py-2 text-sm outline-none dark:bg-slate-900" type="text" autofocus />
-            <button class="rounded bg-[#2564cf] px-3 text-sm text-white" type="submit">Save</button>
+            <input id="rename-list-title" v-model="listRenameTitle" class="min-w-0 flex-1 rounded-lg border border-blue-400 bg-white px-3 py-2 text-sm outline-none dark:bg-slate-900" type="text" autofocus />
+            <button class="rounded-lg bg-[#2564cf] px-3 text-sm text-white" type="submit">Save</button>
           </form>
 
           <p v-if="listStore.error" class="mt-3 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200" role="alert">
             {{ listStore.error }}
           </p>
 
-          <form v-if="canAddTask" class="mt-7 flex h-14 w-full items-center gap-4 rounded border border-slate-200 bg-white px-5 text-left text-sm text-[#2564cf] shadow-sm transition focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-200 dark:border-slate-700 dark:bg-slate-900 dark:text-blue-400 dark:focus-within:ring-blue-900" @submit.prevent="handleAddTask">
+          <form v-if="canAddTask" class="mt-7 flex h-14 w-full items-center gap-4 rounded-xl border border-slate-200 bg-white px-5 text-left text-sm text-[#2564cf] shadow-sm transition focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-200 dark:border-slate-700 dark:bg-slate-900 dark:text-blue-400 dark:focus-within:ring-blue-900" @submit.prevent="handleAddTask">
             <span class="text-2xl font-light leading-none" aria-hidden="true">＋</span>
             <label class="sr-only" for="new-task-title">Add a task</label>
             <input id="new-task-title" v-model="taskTitle" class="min-w-0 flex-1 bg-transparent text-sm text-slate-800 outline-none placeholder:text-[#2564cf] dark:text-slate-100 dark:placeholder:text-blue-400" type="text" :placeholder="t('addTask')" />
@@ -328,7 +328,7 @@ const toggleTheme = () => {
           <template v-if="isPlannedView">
             <section v-for="group in plannedGroups" :key="group.key" class="mt-6" :aria-labelledby="`${group.key}-tasks-heading`">
               <h2 :id="`${group.key}-tasks-heading`" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ t(group.key) }}</h2>
-              <div class="overflow-hidden rounded border border-slate-200 shadow-sm dark:border-slate-700">
+              <div class="overflow-hidden rounded-xl border border-slate-200 shadow-sm dark:border-slate-700">
                 <TaskRow
                   v-for="task in group.tasks"
                   :key="task.id"
@@ -349,7 +349,7 @@ const toggleTheme = () => {
 
           <section v-else-if="taskStore.activeTasks.length" class="mt-6" aria-labelledby="active-tasks-heading">
             <h2 id="active-tasks-heading" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ t('tasks') }}</h2>
-            <div class="overflow-hidden rounded border border-slate-200 shadow-sm dark:border-slate-700">
+            <div class="overflow-hidden rounded-xl border border-slate-200 shadow-sm dark:border-slate-700">
               <TaskRow
                 v-for="task in taskStore.activeTasks"
                 :key="task.id"
@@ -371,7 +371,7 @@ const toggleTheme = () => {
 
           <section v-if="!isPlannedView && taskStore.completedTasks.length" class="mt-7" aria-labelledby="completed-tasks-heading">
             <h2 id="completed-tasks-heading" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Completed</h2>
-            <div class="overflow-hidden rounded border border-slate-200 shadow-sm dark:border-slate-700">
+            <div class="overflow-hidden rounded-xl border border-slate-200 shadow-sm dark:border-slate-700">
               <TaskRow
                 v-for="task in taskStore.completedTasks"
                 :key="task.id"
@@ -412,18 +412,18 @@ const toggleTheme = () => {
       />
 
       <div v-if="pendingDeleteTaskId" class="fixed inset-0 z-[60] grid place-items-center bg-slate-950/40 px-4" role="presentation" @click.self="cancelDeleteTask">
-        <section class="w-full max-w-md rounded border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900" role="dialog" aria-modal="true" aria-labelledby="delete-task-title">
+        <section class="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900" role="dialog" aria-modal="true" aria-labelledby="delete-task-title">
           <h2 id="delete-task-title" class="text-lg font-semibold text-slate-800 dark:text-slate-100">{{ t('confirmDeleteTask') }}</h2>
           <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">{{ t('deleteTaskDescription') }}</p>
           <div class="mt-6 flex justify-end gap-3">
-            <button class="min-h-10 rounded px-4 text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800" type="button" @click="cancelDeleteTask">{{ t('cancel') }}</button>
-            <button class="min-h-10 rounded bg-red-600 px-4 text-sm text-white hover:bg-red-700" type="button" @click="confirmDeleteTask">{{ t('confirm') }}</button>
+            <button class="min-h-10 rounded-lg px-4 text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800" type="button" @click="cancelDeleteTask">{{ t('cancel') }}</button>
+            <button class="min-h-10 rounded-lg bg-red-600 px-4 text-sm text-white hover:bg-red-700" type="button" @click="confirmDeleteTask">{{ t('confirm') }}</button>
           </div>
         </section>
       </div>
 
       <div v-if="pendingDeleteListId" class="fixed inset-0 z-[60] grid place-items-center bg-slate-950/40 px-4" role="presentation" @click.self="pendingDeleteListId = null">
-        <section class="w-full max-w-md rounded border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900" role="dialog" aria-modal="true" aria-labelledby="delete-list-title">
+        <section class="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900" role="dialog" aria-modal="true" aria-labelledby="delete-list-title">
           <h2 id="delete-list-title" class="text-lg font-semibold text-slate-800 dark:text-slate-100">Delete list?</h2>
           <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">Choose whether tasks should also be deleted or kept without a list.</p>
           <label class="mt-4 flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
@@ -431,8 +431,8 @@ const toggleTheme = () => {
             Delete contained tasks
           </label>
           <div class="mt-6 flex justify-end gap-3">
-            <button class="min-h-10 rounded px-4 text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800" type="button" @click="pendingDeleteListId = null">Cancel</button>
-            <button class="min-h-10 rounded bg-red-600 px-4 text-sm text-white hover:bg-red-700" type="button" @click="confirmDeleteList">Delete list</button>
+            <button class="min-h-10 rounded-lg px-4 text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800" type="button" @click="pendingDeleteListId = null">Cancel</button>
+            <button class="min-h-10 rounded-lg bg-red-600 px-4 text-sm text-white hover:bg-red-700" type="button" @click="confirmDeleteList">Delete list</button>
           </div>
         </section>
       </div>

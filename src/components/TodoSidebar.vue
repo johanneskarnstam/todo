@@ -151,7 +151,7 @@ const handleLogout = async () => {
   </Transition>
 
   <aside
-    class="fixed inset-y-0 left-0 z-40 flex w-[292px] -translate-x-full flex-col border-r border-slate-200 bg-white shadow-xl transition-[width,transform] duration-300 ease-out dark:border-slate-700 dark:bg-slate-900 lg:static lg:z-auto lg:shadow-none"
+    class="fixed inset-y-0 left-0 z-40 flex w-[292px] -translate-x-full flex-col rounded-r-xl border-r border-slate-200 bg-white shadow-xl transition-[width,transform] duration-300 ease-out dark:border-slate-700 dark:bg-slate-900 lg:static lg:z-auto lg:rounded-r-2xl lg:shadow-none"
     :class="open ? 'translate-x-0 lg:w-[292px]' : '-translate-x-full lg:w-0 lg:overflow-hidden lg:border-transparent lg:px-0'"
     aria-label="Task navigation"
   >
@@ -162,7 +162,7 @@ const handleLogout = async () => {
           <span class="text-lg font-semibold tracking-tight text-slate-800 dark:text-slate-100">{{ t('appName') }}</span>
         </div>
         <button
-          class="grid size-9 place-items-center rounded text-xl text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+          class="grid size-9 place-items-center rounded-lg text-xl text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
           type="button"
           aria-label="Close navigation menu"
           @click="emit('close')"
@@ -175,7 +175,7 @@ const handleLogout = async () => {
         <button
           v-for="view in smartViews"
           :key="view.key"
-          class="flex h-11 w-full items-center gap-4 rounded px-3 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+          class="flex h-11 w-full items-center gap-4 rounded-lg px-3 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
           :class="{ 'bg-[#eef5fc] text-slate-900 dark:bg-slate-800 dark:text-white': activeSmartView === view.view }"
           type="button"
           @click="selectSmartView(view.view)"
@@ -195,14 +195,14 @@ const handleLogout = async () => {
             <input
               id="new-folder-name"
               v-model="newFolderName"
-              class="min-w-0 flex-1 rounded border border-blue-400 bg-white px-2 text-sm text-slate-800 outline-none ring-2 ring-blue-100 dark:bg-slate-800 dark:text-white dark:ring-blue-900"
+              class="min-w-0 flex-1 rounded-lg border border-blue-400 bg-white px-2 text-sm text-slate-800 outline-none ring-2 ring-blue-100 dark:bg-slate-800 dark:text-white dark:ring-blue-900"
               type="text"
               placeholder="Folder name"
               autofocus
             />
             <button class="text-sm text-[#2564cf] dark:text-blue-400" type="submit">Add</button>
           </form>
-          <button v-else class="flex h-9 w-full items-center gap-3 px-3 text-sm text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800" type="button" @click="isAddingFolder = true">
+          <button v-else class="flex h-9 w-full items-center gap-3 rounded-lg px-3 text-sm text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800" type="button" @click="isAddingFolder = true">
             <span class="text-lg text-[#2564cf] dark:text-blue-400" aria-hidden="true">＋</span>
             <span>{{ t('newFolder') }}</span>
           </button>

@@ -9,7 +9,7 @@ const toastStore = useToastStore()
     <div
       v-for="toast in toastStore.toasts"
       :key="toast.id"
-      class="pointer-events-auto flex w-full items-start gap-3 rounded border border-red-200 bg-white px-4 py-3 text-sm text-red-700 shadow-lg dark:border-red-900 dark:bg-slate-900 dark:text-red-300"
+      class="pointer-events-auto flex w-full items-start gap-3 rounded-xl border border-red-200 bg-white px-4 py-3 text-sm text-red-700 shadow-lg dark:border-red-900 dark:bg-slate-900 dark:text-red-300"
       role="alert"
     >
       <span class="min-w-0 flex-1">{{ toast.message }}</span>

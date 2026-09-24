@@ -81,10 +81,10 @@ const saveStepTitle = () => {
 </script>
 
 <template>
-  <aside class="fixed inset-0 z-50 flex flex-col bg-white shadow-2xl dark:bg-slate-900 lg:static lg:z-auto lg:w-80 lg:shrink-0 lg:border-l lg:border-slate-200 lg:shadow-none dark:lg:border-slate-700" role="dialog" aria-modal="true" aria-labelledby="task-details-heading">
+  <aside class="fixed inset-0 z-50 flex flex-col bg-white shadow-2xl dark:bg-slate-900 lg:static lg:z-auto lg:w-80 lg:shrink-0 lg:rounded-l-xl lg:border-l lg:border-slate-200 lg:shadow-none dark:lg:border-slate-700" role="dialog" aria-modal="true" aria-labelledby="task-details-heading">
     <div class="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 px-4 dark:border-slate-700">
       <span id="task-details-heading" class="text-sm font-semibold text-slate-700 dark:text-slate-200">{{ t('taskDetails') }}</span>
-      <button class="grid size-8 place-items-center rounded text-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800" type="button" :aria-label="t('close')" @click="emit('close')">×</button>
+      <button class="grid size-8 place-items-center rounded-lg text-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800" type="button" :aria-label="t('close')" @click="emit('close')">×</button>
     </div>
 
     <div class="min-h-0 flex-1 overflow-y-auto p-4">
@@ -101,7 +101,7 @@ const saveStepTitle = () => {
       <section class="mt-6" aria-labelledby="steps-heading">
         <h2 id="steps-heading" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ t('steps') }}</h2>
         <div class="space-y-1">
-          <label v-for="step in steps" :key="step.id" class="flex min-h-10 items-center gap-3 rounded px-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800">
+          <label v-for="step in steps" :key="step.id" class="flex min-h-10 items-center gap-3 rounded-lg px-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800">
             <input
               class="size-4 accent-[#2564cf]"
               type="checkbox"
@@ -130,7 +130,7 @@ const saveStepTitle = () => {
               {{ step.title }}
             </button>
             <button
-              class="grid size-8 shrink-0 place-items-center rounded text-base text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950 dark:hover:text-red-400"
+              class="grid size-8 shrink-0 place-items-center rounded-full text-base text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950 dark:hover:text-red-400"
               type="button"
               :aria-label="`${t('deleteStep')} ${step.title}`"
               @click="emit('delete-step', step.id)"
@@ -147,13 +147,13 @@ const saveStepTitle = () => {
       </section>
 
       <div class="mt-5 space-y-2">
-        <button class="flex min-h-11 w-full items-center gap-3 rounded px-2 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800" type="button" @click="emit('toggle-my-day')">
+        <button class="flex min-h-11 w-full items-center gap-3 rounded-lg px-2 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800" type="button" @click="emit('toggle-my-day')">
           <span class="text-xl" :class="task.myDay ? 'text-[#2564cf] dark:text-blue-400' : 'text-slate-500'" aria-hidden="true">☼</span>
           <span class="flex-1">{{ task.myDay ? t('removeFromMyDay') : t('addToMyDay') }}</span>
           <span v-if="task.myDay" class="text-xs text-[#2564cf] dark:text-blue-400">Added</span>
         </button>
 
-        <label class="flex min-h-11 items-center gap-3 rounded px-2 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800">
+        <label class="flex min-h-11 items-center gap-3 rounded-lg px-2 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800">
           <span class="text-lg text-slate-500" aria-hidden="true">▣</span>
           <span class="flex-1">{{ t('dueDate') }}</span>
           <input class="w-32 bg-transparent text-right text-sm text-slate-600 outline-none dark:text-slate-300" type="date" :value="dueDate" aria-label="Task due date" @change="emit('set-due-date', ($event.target as HTMLInputElement).value)" />
@@ -162,12 +162,12 @@ const saveStepTitle = () => {
 
       <label class="mt-6 block" for="task-note">
         <span class="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ t('notes') }}</span>
-        <textarea id="task-note" v-model="note" class="min-h-28 w-full resize-y rounded border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 outline-none transition focus:border-[#2564cf] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200" :placeholder="t('addNote')" @blur="saveNote" />
+        <textarea id="task-note" v-model="note" class="min-h-28 w-full resize-y rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 outline-none transition focus:border-[#2564cf] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200" :placeholder="t('addNote')" @blur="saveNote" />
       </label>
     </div>
 
     <div class="shrink-0 border-t border-slate-200 p-3 dark:border-slate-700">
-      <button class="flex min-h-10 w-full items-center justify-center gap-2 rounded text-sm text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950" type="button" @click="emit('delete-task')">
+      <button class="flex min-h-10 w-full items-center justify-center gap-2 rounded-lg text-sm text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950" type="button" @click="emit('delete-task')">
         <span aria-hidden="true">♲</span>
         <span>{{ t('deleteTask') }}</span>
       </button>
