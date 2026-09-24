@@ -91,6 +91,12 @@ const handleSelectList = (listId: string) => {
   isSidebarOpen.value = false
 }
 
+const handleGoHome = () => {
+  taskStore.setActiveTask(null)
+  if (listStore.selectedListId) taskStore.setListView(listStore.selectedListId)
+  void router.push({ name: 'home' })
+}
+
 const startRenameList = () => {
   listRenameTitle.value = activeList.value?.name ?? ''
   isListOptionsOpen.value = false
@@ -244,7 +250,12 @@ onUnmounted(() => {
 })
 
 watch(routeSmartView, (view) => {
-  if (view) taskStore.setSmartView(view)
+  taskStore.setActiveTask(null)
+  if (view) {
+    taskStore.setSmartView(view)
+  } else if (listStore.selectedListId) {
+    taskStore.setListView(listStore.selectedListId)
+  }
 })
 
 watch(
@@ -274,6 +285,7 @@ const toggleTheme = () => {
       :is-saving="taskStore.isSaving || listStore.isSaving"
       @toggle-menu="isSidebarOpen = !isSidebarOpen"
       @toggle-theme="toggleTheme"
+      @go-home="handleGoHome"
     />
 
     <div class="flex min-h-0 flex-1">

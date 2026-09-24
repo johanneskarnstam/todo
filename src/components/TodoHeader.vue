@@ -12,6 +12,7 @@ interface Props {
 interface Emits {
   (event: 'toggle-menu'): void
   (event: 'toggle-theme'): void
+  (event: 'go-home'): void
 }
 
 const props = defineProps<Props>()
@@ -59,7 +60,7 @@ onUnmounted(() => {
       >
         <span class="text-xl leading-none">☰</span>
       </button>
-      <RouterLink :to="{ name: 'home' }" class="flex items-center gap-2 cursor-pointer pointer-events-auto" aria-label="Till startsidan">
+      <RouterLink :to="{ name: 'home' }" class="flex items-center gap-2 cursor-pointer pointer-events-auto" aria-label="Till startsidan" @click.prevent="emit('go-home')">
         <img class="size-8 rounded-full shadow-sm" :src="iconUrl" alt="" aria-hidden="true" />
         <span class="text-lg font-semibold tracking-tight">To Do</span>
       </RouterLink>
