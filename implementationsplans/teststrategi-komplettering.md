@@ -12,27 +12,29 @@ Planen skiljer på tre nivåer:
 
 ## Nuläge
 
-- 5 Vitest-filer.
-- 39 godkända unit-/komponenttester.
-- 2 Playwright-filer.
-- 7 godkända E2E-tester.
+- 6 Vitest-filer.
+- 56 godkända unit-/komponenttester.
+- 4 Playwright-filer.
+- 19 godkända E2E-tester.
 - `npm run validate` kör lint, type-check, coverage, E2E och produktionsbuild.
 - Coverage-gate är införd med följande globala minimikrav:
   - Statements: 70 %
   - Branches: 55 %
   - Functions: 65 %
   - Lines: 75 %
-- Senaste baslinje:
-  - Statements: 71,95 %
-  - Branches: 59,25 %
-  - Functions: 67,79 %
-  - Lines: 77,19 %
+- Senaste baslinje efter P0/P1:
+  - Statements: 77,47 %
+  - Branches: 66,78 %
+  - Functions: 74,10 %
+  - Lines: 82,51 %
 
 Coverage-gaten är ett skydd mot att täckningen sjunker, men den bevisar inte att rätt beteende testas. Nya tester ska därför fokusera på användarsynliga kontrakt och felvägar, inte bara på att öka procenttalet.
 
 ## Prioritet
 
 ### P0: Kritisk funktionalitet
+
+**Status:** Genomförd för mock-auth och kärnflöden. Privat auth-gating utan mock-auth är kvar som separat integrations-/auth-test.
 
 Ska implementeras först och köras vid varje pull request.
 
@@ -43,6 +45,8 @@ Ska implementeras först och köras vid varje pull request.
 - Optimistiska writes och rollback vid fel.
 
 ### P1: Viktiga användarflöden
+
+**Status:** Genomförd för listor, mappar, taggar, delsteg, teman, settings och responsiva vyer. Kontrollerade E2E-write-fel är kvar.
 
 Ska implementeras efter P0 och ingå i den normala valideringen.
 
@@ -75,6 +79,8 @@ Körs separat eller vid release.
 
 ### 1.2 Gemensamma testhelpers
 
+**Status:** Inte införd som separat helperstruktur ännu. Nuvarande suite använder stabila roller och labels direkt; helpers införs när testmängden börjar duplicera flöden.
+
 Skapa följande filer:
 
 ```text
@@ -105,6 +111,8 @@ Helpers ska:
 
 ### 2.1 Task store
 
+**Status:** Genomförd för P0 state-växlingar, optimistic create/update/delete, cache-fallback, taskfält och delstegs-rollback.
+
 Fil: `src/__tests__/taskStore.spec.ts`
 
 Lägg till tester för:
@@ -121,6 +129,8 @@ Lägg till tester för:
 - felmeddelande och `isSaving` återställs efter lyckad och misslyckad write.
 
 ### 2.2 List store
+
+**Status:** Genomförd för list-/mappskapande, sortering, flytt, färg, delete/fallback och rollback.
 
 Fil: `src/__tests__/listStore.spec.ts`
 
@@ -139,6 +149,8 @@ Lägg till tester för:
 
 ### 2.3 Auth store
 
+**Status:** Genomförd för authenticated/unauthenticated init, login/register-fel och state-rensning vid user change.
+
 Fil: `src/__tests__/authStore.spec.ts`
 
 Lägg till tester för:
@@ -150,6 +162,8 @@ Lägg till tester för:
 - auth callback som ändras från användare till `null` rensar app-state.
 
 ### 2.4 Komponenter
+
+**Status:** Genomförd för sidomeny, taggar, list-/mappformulär, flyttmeny, taskrader, delsteg, prop-byte och keyboard-interaktion.
 
 Fil: `src/__tests__/taskComponents.spec.ts`
 
@@ -170,12 +184,14 @@ Lägg till tester för:
 
 ## Steg 3: P0 E2E-flöden
 
+**Status:** Genomförd för mock-auth, smart views, task create/details/completion/important/My day/delete, taggflöde, settings och release-modal. Privat route utan mock-auth återstår.
+
 Filer:
 
 ```text
 e2e/auth.spec.ts
 e2e/tasks.spec.ts
-e2e/navigation.spec.ts
+e2e/responsive.spec.ts
 ```
 
 Implementera:
@@ -196,6 +212,8 @@ Implementera:
 Alla tester ska använda `getByRole`, `getByLabel` eller stabil text där det är möjligt.
 
 ## Steg 4: Responsiva E2E-tester
+
+**Status:** Genomförd för mobil `390x844`, tablet `768x1024` och desktop `1440x900`, inklusive sidomeny, detaljpanel, mörkt läge och overflow.
 
 Skapa `e2e/responsive.spec.ts` med separata test cases för:
 
@@ -218,7 +236,9 @@ Testa funktionell synlighet och overflow. Använd screenshots endast för stabil
 
 ## Steg 5: Listor, mappar och taggar i E2E
 
-Skapa `e2e/lists.spec.ts` och komplettera `e2e/tasks.spec.ts` med:
+**Status:** Genomförd för skapa, rename, färg, skapa/rename/flytta mapp, delete-lista, taggval och settings-navigation.
+
+Skapade `e2e/lists.spec.ts` och kompletterade `e2e/tasks.spec.ts` med:
 
 - skapa lista.
 - byta namn på lista.
@@ -233,6 +253,8 @@ Skapa `e2e/lists.spec.ts` och komplettera `e2e/tasks.spec.ts` med:
 - vald tagg får korrekt route och innehåll.
 
 ## Steg 6: Fel, offline och rollback
+
+**Status:** Unit-/storedelen är genomförd för task/list/delsteg med explicit Firestore-reject. Kontrollerade E2E-write-fel och cache-fallback i browser återstår.
 
 ### Unitnivå
 

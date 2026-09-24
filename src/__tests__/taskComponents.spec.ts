@@ -64,7 +64,8 @@ describe('TodoSidebar', () => {
       global: { stubs: { RouterLink: true } },
     })
 
-    await wrapper.get('button').trigger('click')
+    const addListButton = wrapper.findAll('button').find((button) => button.text().includes('Ny lista'))
+    await addListButton?.trigger('click')
     await wrapper.get('input[placeholder="Listnamn"]').setValue('  Weekend  ')
     await wrapper.get('form').trigger('submit')
     expect(wrapper.emitted('create-list')).toEqual([['Weekend']])
@@ -72,7 +73,8 @@ describe('TodoSidebar', () => {
     const addFolderButton = wrapper.findAll('button').find((button) => button.text().includes('Ny mapp'))
     await addFolderButton?.trigger('click')
     await wrapper.get('input[placeholder="Mappnamn"]').setValue('  Resor  ')
-    await wrapper.get('form').filter((form) => form.find('input[placeholder="Mappnamn"]').exists()).trigger('submit')
+    const folderForm = wrapper.findAll('form').find((form) => form.find('input[placeholder="Mappnamn"]').exists())
+    await folderForm?.trigger('submit')
     expect(wrapper.emitted('create-folder')).toEqual([['Resor']])
   })
 
@@ -93,7 +95,8 @@ describe('TodoSidebar', () => {
     })
 
     await wrapper.get('button[aria-label="Flytta Arbete"]').trigger('click')
-    await wrapper.get('[role="menu"][aria-label="Flytta Arbete till mapp"] [role="menuitem"]', { exact: false }).filter((button) => button.text() === 'Projekt').trigger('click')
+    const folderOption = wrapper.findAll('[role="menu"][aria-label="Flytta Arbete till mapp"] [role="menuitem"]').find((button) => button.text() === 'Projekt')
+    await folderOption?.trigger('click')
 
     expect(wrapper.emitted('move-list')).toEqual([['list-1', 'folder-1']])
   })
@@ -361,8 +364,8 @@ describe('TaskDetailsPanel', () => {
 
     await wrapper.setProps({ task: { ...task, id: 'task-2', title: 'New task', note: 'New note' } })
 
-    expect(wrapper.get('input[aria-label="Uppgiftens titel"]').element).toHaveValue('New task')
-    expect(wrapper.get('textarea').element).toHaveValue('New note')
+    expect((wrapper.get('input[aria-label="Uppgiftens titel"]').element as HTMLInputElement).value).toBe('New task')
+    expect((wrapper.get('textarea').element as HTMLTextAreaElement).value).toBe('New note')
   })
 
   it('adds tags and emits quick due-date changes', async () => {

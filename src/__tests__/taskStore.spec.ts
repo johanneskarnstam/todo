@@ -401,4 +401,24 @@ describe('useTaskStore', () => {
     expect(store.taskStepCounts.has('task-1')).toBe(false)
     expect(firestoreMocks.deleteDoc).toHaveBeenCalledWith(expect.anything())
   })
+
+  it('rolls back a subtask completion when Firestore rejects', async () => {
+    const store = useTaskStore()
+    store.activeTaskId = 'task-1'
+    store.allSteps.push({
+      id: 'step-1',
+      taskId: 'task-1',
+      title: 'Measure wall',
+      completed: false,
+      createdAt: Timestamp.now(),
+    })
+    firestoreMocks.updateDoc.mockRejectedValueOnce(new Error('step update failed'))
+
+    store.toggleStep('step-1')
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(store.activeSteps[0].completed).toBe(false)
+    expect(store.error).toBe('step update failed')
+  })
 })

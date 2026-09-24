@@ -29,3 +29,39 @@ test('opens and closes task details as a mobile panel', async ({ page }) => {
   await details.getByRole('button', { name: 'Stäng' }).click()
   await expect(details).toHaveCount(0)
 })
+
+test.describe('tablet layout', () => {
+  test.use({ viewport: { width: 768, height: 1024 } })
+
+  test('keeps the primary task view inside the viewport', async ({ page }) => {
+    await page.goto('/')
+    await page.getByRole('button', { name: 'Jag har sett detta' }).click()
+
+    const dimensions = await page.evaluate(() => ({
+      documentWidth: document.documentElement.scrollWidth,
+      viewportWidth: window.innerWidth,
+    }))
+    expect(dimensions.documentWidth).toBeLessThanOrEqual(dimensions.viewportWidth)
+    await expect(page.getByRole('heading', { name: 'Att göra' })).toBeVisible()
+  })
+})
+
+test.describe('desktop layout', () => {
+  test.use({ viewport: { width: 1440, height: 900 } })
+
+  test('shows the sidebar and supports dark mode without overflow', async ({ page }) => {
+    await page.goto('/')
+    await page.getByRole('button', { name: 'Jag har sett detta' }).click()
+
+    await expect(page.getByRole('complementary', { name: 'Uppgiftsnavigering' })).toBeVisible()
+    await page.getByRole('button', { name: 'Byt till mörkt läge' }).click()
+    await expect(page.locator('.dark')).toBeVisible()
+
+    await page.getByRole('button', { name: 'Taggar' }).click()
+    const dimensions = await page.evaluate(() => ({
+      documentWidth: document.documentElement.scrollWidth,
+      viewportWidth: window.innerWidth,
+    }))
+    expect(dimensions.documentWidth).toBeLessThanOrEqual(dimensions.viewportWidth)
+  })
+})

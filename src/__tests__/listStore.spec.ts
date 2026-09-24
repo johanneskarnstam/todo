@@ -299,6 +299,21 @@ describe('useListStore', () => {
     expect(firestoreMocks.deleteDoc).toHaveBeenCalledTimes(2)
   })
 
+  it('rolls back folder deletion when Firestore rejects', async () => {
+    const store = useListStore()
+    store.folders.push({ id: 'folder-1', name: 'Projects', order: 1 })
+    store.lists.push({ id: 'list-1', name: 'Work', folderId: 'folder-1', order: 1, icon: 'list', createdAt: Timestamp.now() })
+    firestoreMocks.deleteDoc.mockRejectedValueOnce(new Error('folder delete failed'))
+
+    const result = await store.deleteFolder('folder-1', true)
+
+    expect(result).toBeNull()
+    expect(store.folders).toHaveLength(1)
+    expect(store.lists).toHaveLength(1)
+    expect(store.lists[0].folderId).toBe('folder-1')
+    expect(store.error).toBe('folder delete failed')
+  })
+
   it('clears all user data and selection on logout', () => {
     const store = useListStore()
     store.folders.push({ id: 'folder-1', name: 'Projects', order: 1 })
