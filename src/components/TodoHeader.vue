@@ -21,7 +21,9 @@ interface Emits {
   (event: 'update-search', value: string): void
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  showMenu: true,
+})
 const emit = defineEmits<Emits>()
 const iconUrl = `${import.meta.env.BASE_URL}img/icons/todo-icon.svg`
 const isOnline = ref(true)

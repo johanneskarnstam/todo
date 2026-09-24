@@ -13,6 +13,7 @@ import type { SmartView, TaskReminder } from '@/types'
 
 const isSidebarOpen = ref(typeof window === 'undefined' ? true : window.innerWidth >= 1024)
 const isDark = ref(false)
+const isSearchOpen = ref(false)
 const taskTitle = ref('')
 const pendingDeleteTaskId = ref<string | null>(null)
 const pendingDeleteListId = ref<string | null>(null)
@@ -146,6 +147,18 @@ const handleGoHome = () => {
   taskStore.setActiveTask(null)
   taskStore.setListView(DEFAULT_LIST_ID)
   void router.push({ name: 'home' })
+}
+
+const openSearch = () => {
+  isSearchOpen.value = true
+}
+
+const updateSearch = (value: string) => {
+  void router.push({ name: 'search', query: value ? { q: value } : {} })
+}
+
+const closeSearch = () => {
+  isSearchOpen.value = false
 }
 
 const startRenameList = () => {
@@ -354,9 +367,13 @@ const toggleTheme = () => {
       :is-dark="isDark"
       :is-sidebar-open="isSidebarOpen"
       :is-saving="taskStore.isSaving || listStore.isSaving"
+      :search-open="isSearchOpen"
       @toggle-menu="isSidebarOpen = !isSidebarOpen"
       @toggle-theme="toggleTheme"
       @go-home="handleGoHome"
+      @open-search="openSearch"
+      @close-search="closeSearch"
+      @update-search="updateSearch"
     />
 
     <div class="flex min-h-0 flex-1">
