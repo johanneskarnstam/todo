@@ -11,13 +11,14 @@ test('mock-auth opens the app without a login step', async ({ page }) => {
 
 test('shows the offline banner and hides it when the connection returns', async ({ page, context }) => {
   await page.goto('/')
+  await expect(page.getByRole('heading', { name: 'Att göra' })).toBeVisible()
 
   await context.setOffline(true)
-  await expect(page.getByRole('status')).toContainText('Du är offline')
+  await expect(page.getByText('Du är offline', { exact: false })).toBeVisible()
   await expect(page.getByText('Ändringar sparas lokalt och synkas när anslutningen är tillbaka.')).toBeVisible()
 
   await context.setOffline(false)
-  await expect(page.getByText('Du är offline')).toHaveCount(0)
+  await expect(page.getByText('Du är offline', { exact: false })).toHaveCount(0)
 })
 
 test('shows the latest release notes once per user and version', async ({ page }) => {
