@@ -1,18 +1,24 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
-import { Cloud } from '@lucide/vue'
+import { Cloud, Search, X } from '@lucide/vue'
 
 interface Props {
   isDark: boolean
   isSidebarOpen: boolean
   isSaving: boolean
+  searchOpen?: boolean
+  searchQuery?: string
+  showMenu?: boolean
 }
 
 interface Emits {
   (event: 'toggle-menu'): void
   (event: 'toggle-theme'): void
   (event: 'go-home'): void
+  (event: 'open-search'): void
+  (event: 'close-search'): void
+  (event: 'update-search', value: string): void
 }
 
 const props = defineProps<Props>()
@@ -51,8 +57,9 @@ onUnmounted(() => {
 
 <template>
   <header class="flex h-14 shrink-0 items-center bg-[#2564cf] px-3 text-white shadow-sm dark:bg-slate-900 sm:px-4">
-    <div class="flex min-w-0 flex-1 items-center gap-2 sm:w-52 sm:flex-none sm:gap-3">
+    <div class="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
       <button
+      v-if="props.showMenu !== false"
         class="grid size-8 place-items-center rounded-lg text-white/90 transition hover:bg-white/15 pointer-events-auto"
         type="button"
         :aria-label="isSidebarOpen ? 'Stäng navigeringsmeny' : 'Öppna navigeringsmeny'"
@@ -64,6 +71,31 @@ onUnmounted(() => {
         <img class="size-8 rounded-full shadow-sm" :src="iconUrl" alt="" aria-hidden="true" />
         <span class="text-lg font-semibold tracking-tight">To Do</span>
       </RouterLink>
+      <div v-if="props.searchOpen" class="flex min-w-0 flex-1 items-center gap-2 sm:max-w-xl">
+        <Search :size="18" :stroke-width="2" aria-hidden="true" />
+        <input
+          class="min-w-0 flex-1 border-b border-white/50 bg-transparent px-1 py-1 text-sm text-white outline-none placeholder:text-white/70"
+          type="search"
+          placeholder="Sök uppgifter, taggar eller listor"
+          aria-label="Sök uppgifter, taggar eller listor"
+          :value="props.searchQuery ?? ''"
+          autofocus
+          @input="emit('update-search', ($event.target as HTMLInputElement).value)"
+          @keydown.escape="emit('close-search')"
+        />
+        <button class="grid size-8 shrink-0 place-items-center rounded-lg text-white/90 transition hover:bg-white/15" type="button" aria-label="Stäng sök" @click="emit('close-search')">
+          <X :size="18" aria-hidden="true" />
+        </button>
+      </div>
+      <button
+        v-else
+        class="grid size-8 shrink-0 place-items-center rounded-lg text-white/90 transition hover:bg-white/15"
+        type="button"
+        aria-label="Öppna sök"
+        @click="emit('open-search')"
+      >
+        <Search :size="19" :stroke-width="2" aria-hidden="true" />
+      </button>
     </div>
 
     <div class="flex shrink-0 items-center justify-end gap-2 sm:flex-1">
