@@ -235,7 +235,13 @@ const moveList = (listId: string, folderId: string | null) => {
         >
           <Tags :size="19" :stroke-width="1.8" class="shrink-0 text-slate-600 dark:text-slate-300" aria-hidden="true" />
           <span class="flex-1">Taggar</span>
-          <span class="text-base text-slate-500" aria-hidden="true">{{ isTagsOpen ? '⌄' : '›' }}</span>
+          <ChevronDown
+            :size="20"
+            :stroke-width="1.75"
+            class="text-slate-500 transition-transform duration-200 ease-out"
+            :class="{ '-rotate-90': !isTagsOpen }"
+            aria-hidden="true"
+          />
         </button>
         <div v-if="isTagsOpen" id="sidebar-tags-menu" class="mt-1 border-l-2 border-slate-300 pl-2 dark:border-slate-600" role="menu" aria-label="Välj tagg">
           <button
