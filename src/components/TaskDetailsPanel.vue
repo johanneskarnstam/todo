@@ -17,6 +17,7 @@ interface Emits {
   (event: 'toggle-my-day'): void
   (event: 'set-due-date', dueDate: string): void
   (event: 'save-note', note: string): void
+  (event: 'save-tags', tags: string[]): void
   (event: 'delete-task'): void
 }
 
@@ -25,6 +26,7 @@ const emit = defineEmits<Emits>()
 
 const title = ref(props.task.title)
 const note = ref(props.task.note ?? '')
+const tagTitle = ref('')
 const stepTitle = ref('')
 const editingStepId = ref<string | null>(null)
 const editingStepTitle = ref('')
@@ -40,6 +42,7 @@ watch(
   () => {
     title.value = props.task.title
     note.value = props.task.note ?? ''
+    tags.value = [...(props.task.tags ?? [])]
   },
 )
 
@@ -61,8 +64,44 @@ const addStep = () => {
   stepTitle.value = ''
 }
 
+const tags = ref<string[]>([...(props.task.tags ?? [])])
+
+const saveTags = (nextTags: string[]) => {
+  tags.value = [...new Set(nextTags.map((tag) => tag.trim().toLowerCase()).filter(Boolean))]
+  emit('save-tags', tags.value)
+}
+
+const addTag = () => {
+  const nextTag = tagTitle.value.trim()
+  if (!nextTag) return
+  saveTags([...tags.value, nextTag])
+  tagTitle.value = ''
+}
+
+const removeTag = (tag: string) => {
+  saveTags(tags.value.filter((item) => item !== tag))
+}
+
 const saveNote = () => {
   if (note.value !== (props.task.note ?? '')) emit('save-note', note.value)
+}
+
+const formatDate = (date: Date) => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const selectQuickDate = (daysFromToday: number | null) => {
+  if (daysFromToday === null) {
+    emit('set-due-date', '')
+    return
+  }
+  const date = new Date()
+  date.setHours(0, 0, 0, 0)
+  date.setDate(date.getDate() + daysFromToday)
+  emit('set-due-date', formatDate(date))
 }
 
 const startEditingStep = (step: Step) => {
@@ -95,6 +134,21 @@ const saveStepTitle = () => {
         @blur="saveTitle"
         @keydown.enter.prevent="saveTitle"
       />
+
+      <section class="mt-5" aria-labelledby="tags-heading">
+        <h2 id="tags-heading" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Taggar</h2>
+        <div class="flex flex-wrap gap-2">
+          <span v-for="tag in tags" :key="tag" class="inline-flex items-center gap-1 rounded-full bg-blue-50 px-3 py-1 text-xs text-[#2564cf] dark:bg-blue-950/40 dark:text-blue-300">
+            #{{ tag }}
+            <button type="button" :aria-label="`Ta bort taggen ${tag}`" @click="removeTag(tag)">×</button>
+          </span>
+        </div>
+        <form class="mt-2 flex gap-2" @submit.prevent="addTag">
+          <label class="sr-only" for="new-task-tag">Ny tagg</label>
+          <input id="new-task-tag" v-model="tagTitle" class="min-w-0 flex-1 rounded-lg border border-slate-200 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#2564cf] dark:border-slate-700" type="text" placeholder="Lägg till tagg" />
+          <button class="rounded-lg bg-[#2564cf] px-3 text-sm text-white" type="submit">Lägg till</button>
+        </form>
+      </section>
 
       <section class="mt-6" aria-labelledby="steps-heading">
         <h2 id="steps-heading" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Delsteg</h2>
@@ -156,6 +210,12 @@ const saveStepTitle = () => {
           <span class="flex-1">Förfallodatum</span>
           <input class="w-32 bg-transparent text-right text-sm text-slate-600 outline-none dark:text-slate-300" type="date" :value="dueDate" aria-label="Uppgiftens förfallodatum" @change="emit('set-due-date', ($event.target as HTMLInputElement).value)" />
         </label>
+        <div class="flex flex-wrap gap-2 px-2" aria-label="Snabbval för förfallodatum">
+          <button class="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 hover:border-[#2564cf] hover:text-[#2564cf] dark:border-slate-700 dark:text-slate-300" type="button" @click="selectQuickDate(0)">Idag</button>
+          <button class="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 hover:border-[#2564cf] hover:text-[#2564cf] dark:border-slate-700 dark:text-slate-300" type="button" @click="selectQuickDate(1)">Imorgon</button>
+          <button class="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 hover:border-[#2564cf] hover:text-[#2564cf] dark:border-slate-700 dark:text-slate-300" type="button" @click="selectQuickDate(7)">Nästa vecka</button>
+          <button class="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 hover:border-[#2564cf] hover:text-[#2564cf] dark:border-slate-700 dark:text-slate-300" type="button" @click="selectQuickDate(null)">Rensa</button>
+        </div>
       </div>
 
       <label class="mt-6 block" for="task-note">

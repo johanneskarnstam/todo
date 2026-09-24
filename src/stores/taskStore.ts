@@ -9,6 +9,7 @@ import {
   getDocs,
   getDocsFromCache,
   serverTimestamp,
+  setDoc,
   Timestamp,
   updateDoc,
 } from 'firebase/firestore'
@@ -278,7 +279,7 @@ export const useTaskStore = defineStore('tasks', () => {
 
   const updateTask = async (
     taskId: string,
-    updates: Partial<Pick<Task, 'completed' | 'important' | 'myDay' | 'title' | 'dueDate' | 'note'>>,
+    updates: Partial<Pick<Task, 'completed' | 'important' | 'myDay' | 'title' | 'dueDate' | 'note' | 'tags'>>,
   ) => {
     const currentTask = tasks.value.find((task) => task.id === taskId)
     if (!currentTask) return
@@ -417,9 +418,47 @@ export const useTaskStore = defineStore('tasks', () => {
 
     try {
       await trackWrite(() => deleteDoc(doc(taskStepsCollection(taskId), stepId)))
+      toastStore.showAction('Delsteg borttaget', 'Ångra', () => {
+        allSteps.value.splice(Math.min(stepIndex, allSteps.value.length), 0, deletedStep)
+        if (!isMockAuthEnabled) {
+          void trackWrite(() => setDoc(doc(taskStepsCollection(taskId), deletedStep.id), {
+            taskId: deletedStep.taskId,
+            title: deletedStep.title,
+            completed: deletedStep.completed,
+            ...(deletedStep.order !== undefined ? { order: deletedStep.order } : {}),
+            createdAt: deletedStep.createdAt,
+          }))
+        }
+      })
     } catch (deleteError) {
       allSteps.value.splice(stepIndex, 0, deletedStep)
       reportWriteError(deleteError, 'Delsteget kunde inte tas bort.')
+    }
+  }
+
+  const restoreTask = async (task: Task, index: number) => {
+    if (tasks.value.some((item) => item.id === task.id)) return
+    tasks.value.splice(Math.min(index, tasks.value.length), 0, task)
+    tasks.value = sortTasks(tasks.value)
+
+    try {
+      if (!isMockAuthEnabled) {
+        await trackWrite(() => setDoc(doc(userCollection(), task.id), {
+          listId: task.listId,
+          title: task.title,
+          completed: task.completed,
+          important: task.important,
+          myDay: task.myDay,
+          ...(task.dueDate ? { dueDate: task.dueDate } : {}),
+          ...(task.note ? { note: task.note } : {}),
+          ...(task.tags?.length ? { tags: task.tags } : {}),
+          order: task.order,
+          createdAt: task.createdAt,
+        }))
+      }
+    } catch (restoreError) {
+      tasks.value = tasks.value.filter((item) => item.id !== task.id)
+      reportWriteError(restoreError, 'Uppgiften kunde inte återställas.')
     }
   }
 
@@ -434,6 +473,7 @@ export const useTaskStore = defineStore('tasks', () => {
       await trackWrite(() => deleteDoc(doc(userCollection(), taskId)))
       allSteps.value = allSteps.value.filter((step) => step.taskId !== taskId)
       if (activeTaskId.value === taskId) setActiveTask(null)
+      toastStore.showAction('Uppgift borttagen', 'Ångra', () => void restoreTask(deletedTask, taskIndex))
     } catch (deleteError) {
       tasks.value = sortTasks([...tasks.value, deletedTask])
       reportWriteError(deleteError, 'Uppgiften kunde inte tas bort.')

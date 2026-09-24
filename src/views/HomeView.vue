@@ -18,6 +18,7 @@ const pendingDeleteListId = ref<string | null>(null)
 const deleteListTasks = ref(false)
 const isListOptionsOpen = ref(false)
 const listRenameTitle = ref('')
+const selectedTag = ref('')
 const listStore = useListStore()
 const taskStore = useTaskStore()
 const { requestPermission, scheduleTaskReminder, cancelTaskReminder } = useReminderNotifications()
@@ -25,7 +26,7 @@ const route = useRoute()
 const router = useRouter()
 
 interface PlannedGroup {
-  key: 'overdue' | 'today' | 'tomorrow' | 'later'
+  key: 'overdue' | 'today' | 'tomorrow' | 'thisWeek' | 'nextWeek' | 'later'
   tasks: typeof taskStore.visibleTasks
 }
 
@@ -48,8 +49,12 @@ const activeList = computed(() => taskStore.activeView?.type === 'list' ? listSt
 const activeListColor = computed(() => activeList.value?.themeColor ?? '#2564cf')
 const themeColors = ['#2564cf', '#107c10', '#d83b01', '#8764b8', '#038387', '#ca5010']
 
-const taskListName = (listId: string) => listStore.lists.find((list) => list.id === listId)?.name ?? null
-
+const availableTags = computed(() => [...new Set(taskStore.tasks.flatMap((task) => task.tags ?? []))].sort())
+const filteredVisibleTasks = computed(() => selectedTag.value
+  ? taskStore.visibleTasks.filter((task) => task.tags?.includes(selectedTag.value))
+  : taskStore.visibleTasks)
+const filteredActiveTasks = computed(() => taskStore.activeTasks.filter((task) => filteredVisibleTasks.value.some((visibleTask) => visibleTask.id === task.id)))
+const filteredCompletedTasks = computed(() => taskStore.completedTasks.filter((task) => filteredVisibleTasks.value.some((visibleTask) => visibleTask.id === task.id)))
 const dueDateKey = (task: (typeof taskStore.tasks)[number]) => {
   if (!task.dueDate) return ''
   if (typeof task.dueDate === 'string') return task.dueDate
@@ -57,25 +62,70 @@ const dueDateKey = (task: (typeof taskStore.tasks)[number]) => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
+const taskListName = (listId: string) => listStore.lists.find((list) => list.id === listId)?.name ?? null
+
 const plannedGroups = computed<PlannedGroup[]>(() => {
   const now = new Date()
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const tomorrow = new Date(today)
   tomorrow.setDate(today.getDate() + 1)
+
+  const dayOfWeek = today.getDay()
+  const daysUntilSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek
+  const thisWeekEnd = new Date(today)
+  thisWeekEnd.setDate(today.getDate() + daysUntilSunday)
+
+  const nextWeekStart = new Date(thisWeekEnd)
+  nextWeekStart.setDate(thisWeekEnd.getDate() + 1)
+  const nextWeekEnd = new Date(nextWeekStart)
+  nextWeekEnd.setDate(nextWeekStart.getDate() + 6)
+
   const formatDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
   const todayKey = formatDate(today)
   const tomorrowKey = formatDate(tomorrow)
+  const thisWeekEndKey = formatDate(thisWeekEnd)
+  const nextWeekStartKey = formatDate(nextWeekStart)
+  const nextWeekEndKey = formatDate(nextWeekEnd)
+
   const groups: Record<PlannedGroup['key'], PlannedGroup['tasks']> = {
     overdue: [],
     today: [],
     tomorrow: [],
+    thisWeek: [],
+    nextWeek: [],
     later: [],
   }
 
-  for (const task of taskStore.visibleTasks) {
+  for (const task of filteredVisibleTasks.value) {
     const key = dueDateKey(task)
-    const group = key < todayKey ? 'overdue' : key === todayKey ? 'today' : key === tomorrowKey ? 'tomorrow' : 'later'
-    groups[group].push(task)
+    if (!key) continue
+
+    if (key < todayKey) {
+      groups.overdue.push(task)
+      continue
+    }
+
+    if (key === todayKey) {
+      groups.today.push(task)
+      continue
+    }
+
+    if (key === tomorrowKey) {
+      groups.tomorrow.push(task)
+      continue
+    }
+
+    if (key > tomorrowKey && key <= thisWeekEndKey) {
+      groups.thisWeek.push(task)
+      continue
+    }
+
+    if (key >= nextWeekStartKey && key <= nextWeekEndKey) {
+      groups.nextWeek.push(task)
+      continue
+    }
+
+    groups.later.push(task)
   }
 
   return (Object.keys(groups) as PlannedGroup['key'][])
@@ -324,6 +374,14 @@ const toggleTheme = () => {
             <button class="hidden size-9 place-items-center rounded text-lg text-[#2564cf] transition hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-slate-800 sm:grid" type="button" aria-label="Sortera uppgifter">☷</button>
           </div>
 
+          <div v-if="availableTags.length" class="mt-4 flex items-center gap-2">
+            <label class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400" for="task-tag-filter">Tagg</label>
+            <select id="task-tag-filter" v-model="selectedTag" class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+              <option value="">Alla taggar</option>
+              <option v-for="tag in availableTags" :key="tag" :value="tag">#{{ tag }}</option>
+            </select>
+          </div>
+
           <form v-if="listRenameTitle" class="mt-3 flex gap-2" @submit.prevent="saveListRename">
             <label class="sr-only" for="rename-list-title">Byt namn på lista</label>
             <input id="rename-list-title" v-model="listRenameTitle" class="min-w-0 flex-1 rounded-lg border border-blue-400 bg-white px-3 py-2 text-sm outline-none dark:bg-slate-900" type="text" autofocus />
@@ -342,7 +400,7 @@ const toggleTheme = () => {
 
           <template v-if="isPlannedView">
             <section v-for="group in plannedGroups" :key="group.key" class="mt-6" :aria-labelledby="`${group.key}-tasks-heading`">
-              <h2 :id="`${group.key}-tasks-heading`" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ { overdue: 'Försenat', today: 'Idag', tomorrow: 'Imorgon', later: 'Senare' }[group.key] }}</h2>
+              <h2 :id="`${group.key}-tasks-heading`" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ { overdue: 'Försenat', today: 'Idag', tomorrow: 'Imorgon', thisWeek: 'Denna veckan', nextWeek: 'Nästa vecka', later: 'Senare' }[group.key] }}</h2>
               <div class="overflow-hidden rounded-xl border border-slate-200 shadow-sm dark:border-slate-700">
                 <TaskRow
                   v-for="task in group.tasks"
@@ -350,6 +408,7 @@ const toggleTheme = () => {
                   :task="task"
                   :step-count="taskStore.taskStepCounts.get(task.id) ?? null"
                   :list-name="taskListName(task.listId)"
+                  :show-due-date="true"
                   @select="taskStore.setActiveTask(task.id)"
                   @toggle-completed="taskStore.toggleCompleted(task.id)"
                   @toggle-important="taskStore.toggleImportant(task.id)"
@@ -360,11 +419,11 @@ const toggleTheme = () => {
             </section>
           </template>
 
-          <section v-else-if="taskStore.activeTasks.length" class="mt-6" aria-labelledby="active-tasks-heading">
+          <section v-else-if="filteredActiveTasks.length" class="mt-6" aria-labelledby="active-tasks-heading">
             <h2 id="active-tasks-heading" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Uppgifter</h2>
             <div class="overflow-hidden rounded-xl border border-slate-200 shadow-sm dark:border-slate-700">
               <TaskRow
-                  v-for="task in taskStore.activeTasks"
+                  v-for="task in filteredActiveTasks"
                 :key="task.id"
                 :task="task"
                 :step-count="taskStore.taskStepCounts.get(task.id) ?? null"
@@ -378,11 +437,11 @@ const toggleTheme = () => {
             </div>
           </section>
 
-          <section v-if="!isPlannedView && taskStore.completedTasks.length" class="mt-7" aria-labelledby="completed-tasks-heading">
+          <section v-if="!isPlannedView && filteredCompletedTasks.length" class="mt-7" aria-labelledby="completed-tasks-heading">
             <h2 id="completed-tasks-heading" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Slutförda</h2>
             <div class="overflow-hidden rounded-xl border border-slate-200 shadow-sm dark:border-slate-700">
               <TaskRow
-                  v-for="task in taskStore.completedTasks"
+                  v-for="task in filteredCompletedTasks"
                 :key="task.id"
                 :task="task"
                 :step-count="taskStore.taskStepCounts.get(task.id) ?? null"
@@ -396,7 +455,7 @@ const toggleTheme = () => {
             </div>
           </section>
 
-          <p v-if="taskStore.isLoaded && !taskStore.visibleTasks.length" class="mt-16 text-center text-sm text-slate-500 dark:text-slate-400">Inga uppgifter ännu</p>
+          <p v-if="taskStore.isLoaded && !filteredVisibleTasks.length" class="mt-16 text-center text-sm text-slate-500 dark:text-slate-400">Inga uppgifter ännu</p>
         </div>
       </main>
 
@@ -413,6 +472,7 @@ const toggleTheme = () => {
         @toggle-my-day="taskStore.toggleMyDay(taskStore.activeTaskId!)"
         @set-due-date="handleSetDueDate(taskStore.activeTaskId!, $event)"
         @save-note="taskStore.saveNote(taskStore.activeTaskId!, $event)"
+        @save-tags="taskStore.updateTask(taskStore.activeTaskId!, { tags: $event })"
         @delete-task="handleDeleteActiveTask"
       />
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { nextTick, onMounted, onUnmounted, ref } from 'vue'
-import { CalendarPlus, CheckCircle2, ListTodo, MoreVertical, Star, Trash2 } from '@lucide/vue'
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { CalendarDays, CalendarPlus, CheckCircle2, ListTodo, MoreVertical, Star, Trash2 } from '@lucide/vue'
 import type { StepCount, Task } from '@/types'
 
 const rowInteractionResets = new Set<() => void>()
@@ -9,6 +9,7 @@ interface Props {
   task: Task
   stepCount?: StepCount | null
   listName?: string | null
+  showDueDate?: boolean
 }
 
 interface Emits {
@@ -19,7 +20,7 @@ interface Emits {
   (event: 'delete'): void
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 const isMenuOpen = ref(false)
 const actionsButton = ref<HTMLButtonElement | null>(null)
@@ -144,6 +145,20 @@ const handleKeydown = (event: KeyboardEvent) => {
     emit('toggle-completed')
   }
 }
+
+const dueDateText = computed(() => {
+  if (!props.task.dueDate) return ''
+
+  const dueDate = typeof props.task.dueDate === 'string'
+    ? new Date(`${props.task.dueDate}T00:00:00`)
+    : props.task.dueDate.toDate()
+
+  return dueDate.toLocaleDateString('sv-SE', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+})
 </script>
 
 <template>
@@ -183,12 +198,22 @@ const handleKeydown = (event: KeyboardEvent) => {
         {{ task.title }}
         <span v-if="stepCount && stepCount.total > 0" class="ml-2 text-xs text-slate-500 dark:text-slate-400" :aria-label="`${stepCount.completed} av ${stepCount.total} delsteg klara`">({{ stepCount.completed }}/{{ stepCount.total }})</span>
         <span v-if="listName" class="ml-2 text-xs text-slate-500 dark:text-slate-400">{{ listName }}</span>
+        <span v-if="task.tags?.length" class="ml-2 text-xs text-[#2564cf] dark:text-blue-300">#{{ task.tags.join(' #') }}</span>
+        <span v-if="showDueDate && dueDateText" class="ml-2 inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-slate-700 dark:text-slate-200">
+          <CalendarDays :size="12" aria-hidden="true" />
+          {{ dueDateText }}
+        </span>
       </span>
 
-      <div class="relative shrink-0">
-        <button ref="actionsButton" class="grid size-9 place-items-center rounded-full text-slate-500 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700" type="button" aria-label="Uppgiftsåtgärder" :aria-expanded="isMenuOpen" @click.stop="updateMenuPlacement">
-          <MoreVertical :size="20" aria-hidden="true" />
-        </button>
+      <div class="flex items-center gap-2">
+        <div v-if="task.dueDate && !showDueDate" class="grid size-6 place-items-center rounded-full bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-200" aria-label="Uppgiften har ett planerat datum">
+          <CalendarDays :size="14" aria-hidden="true" />
+        </div>
+        <div class="relative shrink-0">
+          <button ref="actionsButton" class="grid size-9 place-items-center rounded-full text-slate-500 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700" type="button" aria-label="Uppgiftsåtgärder" :aria-expanded="isMenuOpen" @click.stop="updateMenuPlacement">
+            <MoreVertical :size="20" aria-hidden="true" />
+          </button>
+        </div>
       </div>
     </div>
 

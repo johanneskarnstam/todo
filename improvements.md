@@ -42,6 +42,8 @@ Lägg till global sökning efter titel, anteckning och delsteg. När antalet lis
 
 ### 4. Bättre datumhantering och kalenderöversikt
 
+**Status:** Implementerad
+
 **Nytta:** Hög
 
 Gör det enklare att välja datum och förstå vad som behöver göras över tid. Den befintliga vyn Planerat är en bra grund för detta.
@@ -53,6 +55,8 @@ Gör det enklare att välja datum och förstå vad som behöver göras över tid
 - Stöd för att flytta ett förfallodatum direkt från kalendern.
 
 ### 5. Ångra och återställning
+
+**Status:** Implementerad för uppgifter, delsteg och listor
 
 **Nytta:** Hög
 
@@ -72,6 +76,8 @@ Visa en ångra-åtgärd efter att användaren har tagit bort eller ändrat en up
 Utöka den befintliga sorteringen så att en uppgift kan flyttas från en lista till en annan utan att öppna detaljpanelen. Det gör omorganisering snabbare, särskilt vid planering.
 
 ### 7. Taggar eller etiketter
+
+**Status:** Implementerad
 
 **Nytta:** Hög
 

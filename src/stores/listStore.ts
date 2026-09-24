@@ -287,6 +287,21 @@ export const useListStore = defineStore('lists', () => {
 
     try {
       await trackWrite(() => deleteDoc(doc(userCollection('lists'), listId)))
+      toastStore.showAction('Lista borttagen', 'Ångra', () => {
+        lists.value.splice(Math.min(listIndex, lists.value.length), 0, deletedList)
+        lists.value = sortByOrder(lists.value)
+        selectedListId.value = deletedList.id
+        if (!isMockAuthEnabled) {
+          void trackWrite(() => setDoc(doc(userCollection('lists'), deletedList.id), {
+            name: deletedList.name,
+            ...(deletedList.folderId ? { folderId: deletedList.folderId } : {}),
+            icon: deletedList.icon,
+            order: deletedList.order,
+            ...(deletedList.themeColor ? { themeColor: deletedList.themeColor } : {}),
+            createdAt: deletedList.createdAt,
+          }))
+        }
+      })
       return true
     } catch (deleteError) {
       lists.value = sortByOrder([...lists.value, deletedList])

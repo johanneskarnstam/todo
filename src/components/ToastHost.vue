@@ -13,6 +13,7 @@ const toastStore = useToastStore()
       role="alert"
     >
       <span class="min-w-0 flex-1">{{ toast.message }}</span>
+      <button v-if="toast.action && toast.actionLabel" class="shrink-0 font-semibold text-red-600 hover:text-red-800 dark:text-red-300 dark:hover:text-red-100" type="button" @click="toast.action(); toastStore.dismiss(toast.id)">{{ toast.actionLabel }}</button>
       <button class="shrink-0 text-lg leading-none text-red-500 hover:text-red-700" type="button" aria-label="Stäng meddelande" @click="toastStore.dismiss(toast.id)">×</button>
     </div>
   </div>

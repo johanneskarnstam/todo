@@ -43,6 +43,22 @@ describe('TaskRow', () => {
     expect(wrapper.emitted('toggle-my-day')).toHaveLength(1)
   })
 
+  it('shows a due date in planned view while keeping the normal list view compact', () => {
+    const plannedRow = mount(TaskRow, {
+      props: { task: { ...task, dueDate: '2026-09-24' }, showDueDate: true },
+    })
+    const expectedDate = new Date('2026-09-24T00:00:00').toLocaleDateString('sv-SE', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    })
+
+    expect(plannedRow.text()).toContain(expectedDate)
+
+    const standardRow = mount(TaskRow, { props: { task } })
+    expect(standardRow.text()).not.toContain(expectedDate)
+  })
+
   it('shows a subtask count only when steps exist', () => {
     const withSteps = mount(TaskRow, {
       props: { task, stepCount: { completed: 2, total: 3 } },
@@ -143,7 +159,7 @@ describe('TaskDetailsPanel', () => {
 
     const stepInput = wrapper.find('input[placeholder="Lägg till delsteg"]')
     await stepInput.setValue('Protect floor')
-    await wrapper.find('form').trigger('submit')
+    await wrapper.find('form:has(input[placeholder="Lägg till delsteg"])').trigger('submit')
     expect(wrapper.emitted('add-step')).toEqual([['Protect floor']])
 
     await wrapper.find('input[type="checkbox"]').trigger('change')
@@ -183,6 +199,17 @@ describe('TaskDetailsPanel', () => {
     await editInput.trigger('keydown.enter')
 
     expect(wrapper.emitted('save-step-title')).toEqual([['step-1', 'Buy green paint']])
+  })
+
+  it('adds tags and emits quick due-date changes', async () => {
+    const wrapper = mount(TaskDetailsPanel, { props: { task, steps } })
+
+    await wrapper.find('input[placeholder="Lägg till tagg"]').setValue(' Work ')
+    await wrapper.find('form:has(input[placeholder="Lägg till tagg"])').trigger('submit')
+    await wrapper.findAll('button').find((button) => button.text() === 'Imorgon')?.trigger('click')
+
+    expect(wrapper.emitted('save-tags')).toEqual([[['work']]])
+    expect(wrapper.emitted('set-due-date')?.[0]?.[0]).toMatch(/^\d{4}-\d{2}-\d{2}$/)
   })
 
 })

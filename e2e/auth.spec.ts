@@ -16,3 +16,11 @@ test('smart views are reachable from their routes', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Viktigt' })).toBeVisible()
   await expect(page.getByText('Testa dra och släppa uppgifter')).toBeVisible()
 })
+
+test('planned view exposes the seven-day calendar overview', async ({ page }) => {
+  await page.goto('#/planned')
+
+  await expect(page.getByRole('heading', { name: 'Planerat' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Kommande 7 dagar' })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Idag/ })).toBeVisible()
+})

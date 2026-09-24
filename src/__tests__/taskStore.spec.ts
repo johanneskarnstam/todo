@@ -308,11 +308,13 @@ describe('useTaskStore', () => {
     store.toggleMyDay('task-1')
     store.setDueDate('task-1', '2026-09-30')
     store.saveNote('task-1', 'Use the blue paint.')
+    await store.updateTask('task-1', { tags: ['jobb', 'hem'] })
 
     expect(store.activeTask).toMatchObject({
       myDay: true,
       dueDate: '2026-09-30',
       note: 'Use the blue paint.',
+      tags: ['jobb', 'hem'],
     })
 
     await store.deleteTask('task-1')

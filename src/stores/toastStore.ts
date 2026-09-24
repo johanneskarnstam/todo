@@ -4,6 +4,8 @@ import { defineStore } from 'pinia'
 export interface Toast {
   id: number
   message: string
+  actionLabel?: string
+  action?: () => void
 }
 
 export const useToastStore = defineStore('toasts', () => {
@@ -16,9 +18,15 @@ export const useToastStore = defineStore('toasts', () => {
     window.setTimeout(() => dismiss(id), 5000)
   }
 
+  const showAction = (message: string, actionLabel: string, action: () => void) => {
+    const id = nextId++
+    toasts.value.push({ id, message, actionLabel, action })
+    window.setTimeout(() => dismiss(id), 5000)
+  }
+
   const dismiss = (id: number) => {
     toasts.value = toasts.value.filter((toast) => toast.id !== id)
   }
 
-  return { toasts, show, dismiss }
+  return { toasts, show, showAction, dismiss }
 })

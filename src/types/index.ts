@@ -25,6 +25,7 @@ export interface Task {
   myDay: boolean
   dueDate?: string | Timestamp
   note?: string
+  tags?: string[]
   createdAt: Timestamp
   order?: number
 }
