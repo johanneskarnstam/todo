@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import { useListStore } from '@/stores/listStore'
+import { DEFAULT_LIST_ID, useListStore } from '@/stores/listStore'
 import { useRouter } from 'vue-router'
 
 const authStore = useAuthStore()
@@ -37,8 +37,7 @@ const handleLogout = async () => {
         <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Välj vilken lista som ska öppnas automatiskt när appen laddas.</p>
         <label class="mt-5 block" for="default-list">
           <span class="sr-only">Standardlista</span>
-          <select id="default-list" class="min-h-12 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-[#2564cf] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200" :value="listStore.defaultListId ?? ''" @change="selectDefaultList">
-            <option value="">Första listan</option>
+          <select id="default-list" class="min-h-12 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-[#2564cf] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200" :value="listStore.defaultListId ?? DEFAULT_LIST_ID" @change="selectDefaultList">
             <option v-for="list in listStore.lists" :key="list.id" :value="list.id">{{ list.name }}</option>
           </select>
         </label>

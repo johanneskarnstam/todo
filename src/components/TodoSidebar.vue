@@ -3,6 +3,7 @@ import { ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import type { Folder, List, SmartView } from '@/types'
 import { useAuthStore } from '@/stores/authStore'
+import { DEFAULT_LIST_ID } from '@/stores/listStore'
 
 interface FolderSection {
   folder: Folder
@@ -245,6 +246,7 @@ const handleLogout = async () => {
                 <span class="flex-1 truncate">{{ list.name }}</span>
               </button>
               <button
+                v-if="list.id !== DEFAULT_LIST_ID"
                 class="absolute right-1 top-1 grid size-9 place-items-center rounded text-lg text-slate-500 opacity-100 transition hover:bg-slate-200 sm:opacity-0 sm:focus:opacity-100 sm:group-hover/list:opacity-100 dark:hover:bg-slate-700"
                 type="button"
                  :aria-label="`Flytta ${list.name}`"

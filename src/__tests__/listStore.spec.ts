@@ -64,10 +64,10 @@ describe('useListStore', () => {
     await store.fetchLists()
 
     expect(store.folders.map((folder) => folder.id)).toEqual(['folder-1', 'folder-2'])
-    expect(store.lists.map((list) => list.id)).toEqual(['list-1', 'list-2'])
+    expect(store.lists.map((list) => list.id)).toEqual(['__default__', 'list-1', 'list-2'])
     expect(store.foldersWithLists[0].lists.map((list) => list.id)).toEqual(['list-1'])
-    expect(store.ungroupedLists.map((list) => list.id)).toEqual(['list-2'])
-    expect(store.selectedListId).toBe('list-1')
+    expect(store.ungroupedLists.map((list) => list.id)).toEqual(['__default__', 'list-2'])
+    expect(store.selectedListId).toBe('__default__')
   })
 
   it('keeps a new list visible across a concurrent fetch and persists its stable id', async () => {
@@ -78,8 +78,9 @@ describe('useListStore', () => {
     const store = useListStore()
 
     const creation = store.createList({ name: '  Weekend jobs  ' })
-    const optimisticId = store.lists[0].id
-    expect(store.lists[0]).toMatchObject({
+    const optimisticId = store.lists.find((list) => list.name === 'Weekend jobs')?.id
+    expect(optimisticId).toBeTruthy()
+    expect(store.lists.find((list) => list.id === optimisticId)).toMatchObject({
       id: optimisticId,
       name: 'Weekend jobs',
     })
@@ -89,7 +90,7 @@ describe('useListStore', () => {
 
     resolveAdd()
     await creation
-    expect(store.lists[0].id).toBe(optimisticId)
+    expect(store.lists.find((list) => list.id === optimisticId)?.id).toBe(optimisticId)
     expect(store.selectedListId).toBe(optimisticId)
     expect(firestoreMocks.setDoc).toHaveBeenCalledWith(
       expect.anything(),

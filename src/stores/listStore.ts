@@ -29,6 +29,16 @@ interface NewFolderInput {
 type ListUpdate = Partial<Pick<List, 'name' | 'folderId' | 'icon' | 'order' | 'themeColor'>>
 type FolderUpdate = Partial<Pick<Folder, 'name' | 'order'>>
 
+export const DEFAULT_LIST_ID = '__default__'
+
+const defaultList: List = {
+  id: DEFAULT_LIST_ID,
+  name: 'Att göra',
+  icon: '⌂',
+  order: 0,
+  createdAt: Timestamp.fromMillis(0),
+}
+
 const sortByOrder = <T extends { order: number }>(items: T[]): T[] =>
   [...items].sort((first, second) => first.order - second.order)
 
@@ -123,12 +133,15 @@ export const useListStore = defineStore('lists', () => {
         ...pendingFolders.filter((folder) => !fetchedFolders.some((item) => item.id === folder.id)),
       ])
       lists.value = sortByOrder([
+        defaultList,
         ...fetchedLists,
         ...pendingLists.filter((list) => !fetchedLists.some((item) => item.id === list.id)),
       ])
       const storedDefaultListId = readDefaultListId()
       defaultListId.value = storedDefaultListId && lists.value.some((list) => list.id === storedDefaultListId) ? storedDefaultListId : null
-      selectedListId.value = defaultListId.value ?? lists.value[0]?.id ?? null
+      selectedListId.value = lists.value.some((list) => list.id === selectedListId.value)
+        ? selectedListId.value
+        : defaultListId.value ?? DEFAULT_LIST_ID
       isLoaded.value = true
     } catch (fetchError) {
       try {
@@ -139,10 +152,12 @@ export const useListStore = defineStore('lists', () => {
         const cachedFolders = folderSnapshot.docs.map((folder) => ({ id: folder.id, ...folder.data() }) as Folder)
         const cachedLists = listSnapshot.docs.map((list) => ({ id: list.id, ...list.data() }) as List)
         folders.value = sortByOrder(cachedFolders)
-        lists.value = sortByOrder(cachedLists)
+        lists.value = sortByOrder([defaultList, ...cachedLists])
         const storedDefaultListId = readDefaultListId()
         defaultListId.value = storedDefaultListId && lists.value.some((list) => list.id === storedDefaultListId) ? storedDefaultListId : null
-        selectedListId.value = defaultListId.value ?? lists.value[0]?.id ?? null
+        selectedListId.value = lists.value.some((list) => list.id === selectedListId.value)
+          ? selectedListId.value
+          : defaultListId.value ?? DEFAULT_LIST_ID
         isLoaded.value = true
       } catch {
         error.value = fetchError instanceof Error ? fetchError.message : 'Listorna kunde inte läsas in.'
@@ -154,7 +169,7 @@ export const useListStore = defineStore('lists', () => {
     const storageKey = defaultListStorageKey()
     if (!storageKey || typeof localStorage === 'undefined') return
 
-    defaultListId.value = listId && lists.value.some((list) => list.id === listId) ? listId : null
+    defaultListId.value = listId && listId !== DEFAULT_LIST_ID && lists.value.some((list) => list.id === listId) ? listId : null
     if (defaultListId.value) {
       localStorage.setItem(storageKey, defaultListId.value)
     } else {
@@ -226,6 +241,8 @@ export const useListStore = defineStore('lists', () => {
   }
 
   const updateList = async (listId: string, updates: ListUpdate) => {
+    if (listId === DEFAULT_LIST_ID) return
+
     const currentList = lists.value.find((list) => list.id === listId)
     if (!currentList) return
 
@@ -242,6 +259,8 @@ export const useListStore = defineStore('lists', () => {
   }
 
   const moveList = async (listId: string, folderId: string | null) => {
+    if (listId === DEFAULT_LIST_ID) return
+
     const currentList = lists.value.find((list) => list.id === listId)
     if (!currentList) return
 
@@ -267,6 +286,8 @@ export const useListStore = defineStore('lists', () => {
   }
 
   const deleteList = async (listId: string) => {
+    if (listId === DEFAULT_LIST_ID) return false
+
     const listIndex = lists.value.findIndex((list) => list.id === listId)
     if (listIndex < 0) return false
 
@@ -325,6 +346,8 @@ export const useListStore = defineStore('lists', () => {
   }
 
   const reorderList = async (listId: string, direction: 'up' | 'down') => {
+    if (listId === DEFAULT_LIST_ID) return
+
     const currentList = lists.value.find((list) => list.id === listId)
     if (!currentList) return
 
