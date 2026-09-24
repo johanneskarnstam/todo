@@ -336,71 +336,6 @@ export const useListStore = defineStore('lists', () => {
     }
   }
 
-  const reorderList = async (listId: string, direction: 'up' | 'down') => {
-    if (listId === DEFAULT_LIST_ID) return
-
-    const currentList = lists.value.find((list) => list.id === listId)
-    if (!currentList) return
-
-    const siblings = lists.value
-      .filter((list) => list.folderId === currentList.folderId)
-      .sort((first, second) => first.order - second.order)
-    const index = siblings.findIndex((list) => list.id === listId)
-    const swapIndex = direction === 'up' ? index - 1 : index + 1
-    if (index < 0 || swapIndex < 0 || swapIndex >= siblings.length) return
-
-    const otherList = siblings[swapIndex]
-    const currentOrder = currentList.order
-    currentList.order = otherList.order
-    otherList.order = currentOrder
-    lists.value = sortByOrder(lists.value)
-
-    try {
-      await trackWrite(() => Promise.all([
-        updateDoc(doc(userCollection('lists'), currentList.id), { order: currentList.order }),
-        updateDoc(doc(userCollection('lists'), otherList.id), { order: otherList.order }),
-      ]))
-    } catch (reorderError) {
-      currentList.order = otherList.order
-      otherList.order = currentOrder
-      lists.value = sortByOrder(lists.value)
-      reportWriteError(reorderError, 'Listan kunde inte ordnas om.')
-    }
-  }
-
-  const reorderListBefore = async (listId: string, targetListId: string) => {
-    if (listId === DEFAULT_LIST_ID || listId === targetListId) return
-
-    const currentList = lists.value.find((list) => list.id === listId)
-    const targetList = lists.value.find((list) => list.id === targetListId)
-    if (!currentList || !targetList || currentList.folderId !== targetList.folderId) return
-
-    const siblings = lists.value
-      .filter((list) => list.folderId === currentList.folderId)
-      .sort((first, second) => first.order - second.order)
-    const sourceIndex = siblings.findIndex((list) => list.id === listId)
-    const targetIndex = siblings.findIndex((list) => list.id === targetListId)
-    if (sourceIndex < 0 || targetIndex < 0) return
-
-    const previousOrders = new Map(siblings.map((list) => [list.id, list.order]))
-    const [movedList] = siblings.splice(sourceIndex, 1)
-    siblings.splice(siblings.findIndex((list) => list.id === targetListId), 0, movedList)
-    siblings.forEach((list, index) => { list.order = index })
-    lists.value = sortByOrder(lists.value)
-
-    try {
-      await trackWrite(() => Promise.all(
-        siblings
-          .filter((list) => previousOrders.get(list.id) !== list.order)
-          .map((list) => updateDoc(doc(userCollection('lists'), list.id), { order: list.order })),
-      ))
-    } catch (reorderError) {
-      siblings.forEach((list) => { list.order = previousOrders.get(list.id) ?? list.order })
-      lists.value = sortByOrder(lists.value)
-      reportWriteError(reorderError, 'Listan kunde inte ordnas om.')
-    }
-  }
-
   const updateFolder = async (folderId: string, updates: FolderUpdate) => {
     const currentFolder = folders.value.find((folder) => folder.id === folderId)
     if (!currentFolder) return
@@ -441,8 +376,6 @@ export const useListStore = defineStore('lists', () => {
     deleteList,
     deleteFolder,
     moveList,
-    reorderList,
-    reorderListBefore,
     updateList,
     updateFolder,
     selectList,

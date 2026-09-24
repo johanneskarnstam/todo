@@ -35,6 +35,7 @@ export interface Step {
   title: string
   completed: boolean
   createdAt: Timestamp
+  order?: number
 }
 
 export interface StepCount {

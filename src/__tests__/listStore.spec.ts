@@ -222,7 +222,7 @@ describe('useListStore', () => {
     )
   })
 
-  it('renames, reorders, and deletes a folder while keeping lists unassigned', async () => {
+  it('renames and deletes a folder while keeping lists unassigned', async () => {
     const store = useListStore()
     store.folders.push({ id: 'folder-1', name: 'Old name', order: 1 })
     store.lists.push(
@@ -232,7 +232,6 @@ describe('useListStore', () => {
     store.selectedListId = 'list-1'
 
     await store.updateFolder('folder-1', { name: 'Renamed' })
-    await store.reorderList('list-2', 'up')
     const removedLists = await store.deleteFolder('folder-1', false)
 
     expect(store.folders).toHaveLength(0)
@@ -240,22 +239,6 @@ describe('useListStore', () => {
     expect(removedLists).toEqual([])
     expect(store.foldersWithLists).toHaveLength(0)
     expect(firestoreMocks.deleteDoc).toHaveBeenCalled()
-  })
-
-  it('moves a list directly before another list in the same group', async () => {
-    const store = useListStore()
-    store.lists.push(
-      { id: 'list-1', name: 'First', order: 0, icon: '☷', createdAt: Timestamp.now() },
-      { id: 'list-2', name: 'Second', order: 1, icon: '☷', createdAt: Timestamp.now() },
-      { id: 'list-3', name: 'Third', order: 2, icon: '☷', createdAt: Timestamp.now() },
-      { id: 'other-list', name: 'Other group', folderId: 'folder-1', order: 0, icon: '☷', createdAt: Timestamp.now() },
-    )
-
-    await store.reorderListBefore('list-3', 'list-1')
-
-    expect(store.ungroupedLists.map((list) => list.id)).toEqual(['list-3', 'list-1', 'list-2'])
-    expect(store.lists.find((list) => list.id === 'other-list')?.order).toBe(0)
-    expect(firestoreMocks.updateDoc).toHaveBeenCalledTimes(3)
   })
 
   it('deletes a folder and returns the contained list ids', async () => {

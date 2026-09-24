@@ -26,8 +26,6 @@ interface Emits {
   (event: 'move-list', listId: string, folderId: string | null): void
   (event: 'rename-folder', folderId: string, name: string): void
   (event: 'delete-folder', folderId: string, deleteLists: boolean): void
-  (event: 'reorder-list', listId: string, direction: 'up' | 'down'): void
-  (event: 'reorder-list-before', listId: string, targetListId: string): void
 }
 
 defineProps<Props>()
@@ -61,7 +59,6 @@ const openMoveMenuListId = ref<string | null>(null)
 const openFolderMenuId = ref<string | null>(null)
 const editingFolderId = ref<string | null>(null)
 const editingFolderName = ref('')
-const draggedListId = ref<string | null>(null)
 
 watch(collapsedFolders, (value) => {
   if (typeof localStorage !== 'undefined') localStorage.setItem('todo-collapsed-folders', JSON.stringify(value))
@@ -129,25 +126,6 @@ const toggleMoveMenu = (listId: string) => {
 const moveList = (listId: string, folderId: string | null) => {
   emit('move-list', listId, folderId)
   openMoveMenuListId.value = null
-}
-
-const startListDrag = (listId: string, event: DragEvent) => {
-  draggedListId.value = listId
-  event.dataTransfer?.setData('text/plain', listId)
-  if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'
-}
-
-const finishListDrag = () => {
-  draggedListId.value = null
-}
-
-const dropList = (targetListId: string, event: DragEvent) => {
-  event.preventDefault()
-  const sourceListId = draggedListId.value ?? event.dataTransfer?.getData('text/plain')
-  if (!sourceListId || sourceListId === targetListId) return
-
-  emit('reorder-list-before', sourceListId, targetListId)
-  finishListDrag()
 }
 
 </script>
@@ -250,12 +228,6 @@ const dropList = (targetListId: string, event: DragEvent) => {
               v-for="list in section.lists"
               :key="list.id"
               class="group/list relative"
-              :class="{ 'opacity-50': draggedListId === list.id }"
-              draggable="true"
-              @dragstart="startListDrag(list.id, $event)"
-              @dragend="finishListDrag"
-              @dragover.prevent
-              @drop="dropList(list.id, $event)"
             >
               <button
                 class="group flex h-11 w-full items-center gap-4 border-l-2 border-transparent px-4 pr-12 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
@@ -306,8 +278,6 @@ const dropList = (targetListId: string, event: DragEvent) => {
                   {{ folderOption.folder.name }}
                 </button>
                 <div class="mt-2 border-t border-slate-200 pt-2 dark:border-slate-700">
-                  <button class="flex min-h-9 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" role="menuitem" @click="emit('reorder-list', list.id, 'up'); openMoveMenuListId = null">Flytta lista upp</button>
-                  <button class="flex min-h-9 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" role="menuitem" @click="emit('reorder-list', list.id, 'down'); openMoveMenuListId = null">Flytta lista ner</button>
                 </div>
               </div>
             </div>
@@ -320,12 +290,6 @@ const dropList = (targetListId: string, event: DragEvent) => {
               v-for="list in ungroupedLists"
               :key="list.id"
               class="group/list relative"
-              :class="{ 'opacity-50': draggedListId === list.id }"
-              draggable="true"
-              @dragstart="startListDrag(list.id, $event)"
-              @dragend="finishListDrag"
-              @dragover.prevent
-              @drop="dropList(list.id, $event)"
             >
               <button
                 class="group flex h-11 w-full items-center gap-4 border-l-2 border-transparent px-4 pr-12 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
@@ -372,8 +336,6 @@ const dropList = (targetListId: string, event: DragEvent) => {
                   {{ folderOption.folder.name }}
                 </button>
                 <div class="mt-2 border-t border-slate-200 pt-2 dark:border-slate-700">
-                  <button class="flex min-h-9 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" role="menuitem" @click="emit('reorder-list', list.id, 'up'); openMoveMenuListId = null">Move list up</button>
-                  <button class="flex min-h-9 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" role="menuitem" @click="emit('reorder-list', list.id, 'down'); openMoveMenuListId = null">Move list down</button>
                 </div>
               </div>
             </div>

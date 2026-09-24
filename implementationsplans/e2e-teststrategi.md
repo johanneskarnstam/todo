@@ -2,6 +2,8 @@
 
 ## Sammanfattning
 
+> Status: Drag-and-drop för tasks och listor är tillfälligt avstängt. Swipe är den enda aktiva gestbaserade interaktionen tills dragfunktionen återinförs.
+
 Ja, E2E-tester skulle skapa tydligt mervärde i det här projektet. De viktigaste riskerna ligger i beteenden som unit-testerna inte kan verifiera fullt ut:
 
 - navigation och auth-gating i riktig browser
@@ -74,21 +76,11 @@ Dessa tester bör implementeras först eftersom alla andra flöden kräver att a
 - En task kan tas bort via bekräftelsedialog.
 - En ny task kan skapas från listvyn.
 
-### P0: Drag-and-drop
+### P0: Drag-and-drop (pausad)
 
-Detta är den viktigaste browser-specifika sviten eftersom problemet hittills inte har kunnat fångas av enbart unit-tester.
+Drag-and-drop ska inte testas i den aktuella implementationen eftersom funktionen är avstängd. Testfallen och browserprojekten för dragning har tagits bort. När funktionen återinförs ska den läggas tillbaka som en separat P0-leverans.
 
-- Starta drag på en task med mus/pointer.
-- Flytta pekaren över en annan task och verifiera synlig drop-indikator.
-- Släpp före mål-task och verifiera den nya ordningen.
-- Släpp efter mål-task och verifiera den nya ordningen.
-- Dra en task till sig själv och verifiera att ordningen inte ändras.
-- Kontrollera att dragning av en completed task inte blandas med aktiva tasks.
-- Kontrollera att dragning inte triggar taskens detaljvy eller knappar.
-- Verifiera att dragning fungerar i en listvy men inte i smarta vyer där sortering inte stöds.
-- Verifiera dragning med en mobil viewport och touch/pointer-event där Playwright-miljön stödjer det.
-
-Testet ska kontrollera användarsynlig ordning, inte bara interna store-värden.
+När dragfunktionen återinförs ska testet kontrollera användarsynlig ordning, pointer/touch-interaktion och att task-detaljer inte öppnas av misstag.
 
 ### P1: Listor och mappar
 
@@ -97,7 +89,7 @@ Testet ska kontrollera användarsynlig ordning, inte bara interna store-värden.
 - Ändra listfärg.
 - Skapa en mapp.
 - Flytta en lista till en mapp.
-- Ändra ordningen på listor i sidomenyn.
+- Ordna listor via swipe när den funktionen är specificerad och implementerad.
 - Ta bort en mapp utan tasks.
 - Ta bort en lista och verifiera bekräftelsedialogen.
 - Kontrollera att vald lista och aktiv vy uppdateras efter ändringar.

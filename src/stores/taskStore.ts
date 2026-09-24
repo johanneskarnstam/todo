@@ -37,6 +37,14 @@ const sortTasks = (tasks: Task[]): Task[] =>
     return first.createdAt.toMillis() - second.createdAt.toMillis()
   })
 
+const sortSteps = (steps: Step[]): Step[] =>
+  [...steps].sort((first, second) => {
+    const firstOrder = first.order ?? Number.MAX_SAFE_INTEGER
+    const secondOrder = second.order ?? Number.MAX_SAFE_INTEGER
+    if (firstOrder !== secondOrder) return firstOrder - secondOrder
+    return first.createdAt.toMillis() - second.createdAt.toMillis()
+  })
+
 export const useTaskStore = defineStore('tasks', () => {
   const tasks = ref<Task[]>([])
   const allSteps = ref<Step[]>([])
@@ -86,7 +94,7 @@ export const useTaskStore = defineStore('tasks', () => {
   const activeTasks = computed(() => sortTasks(visibleTasks.value.filter((task) => !task.completed)))
   const completedTasks = computed(() => sortTasks(visibleTasks.value.filter((task) => task.completed)))
   const activeTask = computed(() => tasks.value.find((task) => task.id === activeTaskId.value) ?? null)
-  const activeSteps = computed(() => allSteps.value.filter((step) => step.taskId === activeTaskId.value))
+  const activeSteps = computed(() => sortSteps(allSteps.value.filter((step) => step.taskId === activeTaskId.value)))
   const taskStepCounts = computed(() => {
     const counts = new Map<string, StepCount>()
 
@@ -150,7 +158,7 @@ export const useTaskStore = defineStore('tasks', () => {
       (step) => step.taskId === taskId && step.id.startsWith('optimistic-'),
     )
     const otherSteps = allSteps.value.filter((step) => step.taskId !== taskId)
-    allSteps.value = [...otherSteps, ...fetchedSteps, ...optimisticSteps]
+    allSteps.value = [...otherSteps, ...sortSteps(fetchedSteps), ...optimisticSteps]
   }
 
   const fetchSteps = async (taskId: string) => {
@@ -336,10 +344,13 @@ export const useTaskStore = defineStore('tasks', () => {
       title,
       completed: false,
       createdAt: Timestamp.now(),
+      order: allSteps.value.filter((step) => step.taskId === input.taskId).length,
     }
 
     allSteps.value = [...allSteps.value, optimisticStep]
     error.value = null
+
+    if (isMockAuthEnabled) return optimisticStep
 
     try {
       const stepReference = await trackWrite(() => addDoc(taskStepsCollection(input.taskId), {
@@ -347,6 +358,7 @@ export const useTaskStore = defineStore('tasks', () => {
         title: optimisticStep.title,
         completed: optimisticStep.completed,
         createdAt: serverTimestamp(),
+        order: optimisticStep.order,
       }))
       allSteps.value = allSteps.value.map((step) =>
         step.id === optimisticId ? { ...optimisticStep, id: stepReference.id } : step,
@@ -434,60 +446,6 @@ export const useTaskStore = defineStore('tasks', () => {
     }
   }
 
-  const moveTask = async (
-    taskId: string,
-    targetTaskId: string,
-    position: 'before' | 'after' = 'before',
-  ) => {
-    if (taskId === targetTaskId) return
-
-    const currentTask = tasks.value.find((task) => task.id === taskId)
-    const targetTask = tasks.value.find((task) => task.id === targetTaskId)
-    if (
-      !currentTask
-      || !targetTask
-      || currentTask.listId !== targetTask.listId
-      || currentTask.completed !== targetTask.completed
-    ) return
-
-    const previousTasks = tasks.value.map((task) => ({ ...task }))
-    const siblings = sortTasks(
-      tasks.value.filter((task) => task.listId === currentTask.listId && task.completed === currentTask.completed),
-    )
-    const sourceIndex = siblings.findIndex((task) => task.id === taskId)
-    if (sourceIndex < 0) return
-
-    const [movedTask] = siblings.splice(sourceIndex, 1)
-    let insertIndex = siblings.findIndex((task) => task.id === targetTaskId)
-    if (insertIndex < 0) return
-    if (position === 'after') insertIndex += 1
-    siblings.splice(insertIndex, 0, movedTask)
-
-    const previousOrders = new Map(siblings.map((task) => {
-      const original = previousTasks.find((item) => item.id === task.id)
-      return [task.id, original?.order]
-    }))
-    siblings.forEach((task, index) => {
-      task.order = index
-    })
-    tasks.value = sortTasks(tasks.value.map((task) => {
-      const sibling = siblings.find((item) => item.id === task.id)
-      return sibling ?? task
-    }))
-    error.value = null
-
-    try {
-      await trackWrite(() => Promise.all(
-        siblings
-          .filter((task) => previousOrders.get(task.id) !== task.order)
-          .map((task) => updateDoc(doc(userCollection(), task.id), { order: task.order })),
-      ))
-    } catch (reorderError) {
-      tasks.value = previousTasks
-      reportWriteError(reorderError, 'Uppgiften kunde inte ordnas om.')
-    }
-  }
-
   return {
     tasks,
     steps: allSteps,
@@ -522,6 +480,5 @@ export const useTaskStore = defineStore('tasks', () => {
     deleteStep,
     deleteTask,
     deleteTasksForLists,
-    moveTask,
   }
 })

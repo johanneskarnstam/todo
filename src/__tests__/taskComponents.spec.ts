@@ -54,6 +54,15 @@ describe('TaskRow', () => {
     expect(withoutSteps.text()).not.toContain('(/')
   })
 
+  it('uses dark text for active tasks and muted text for completed tasks', () => {
+    const activeWrapper = mount(TaskRow, { props: { task } })
+    const completedWrapper = mount(TaskRow, { props: { task: { ...task, completed: true } } })
+
+    expect(activeWrapper.find('span.min-w-0.flex-1').classes()).toContain('text-black')
+    expect(completedWrapper.find('span.min-w-0.flex-1').classes()).toContain('text-slate-400')
+    expect(completedWrapper.find('span.min-w-0.flex-1').classes()).toContain('line-through')
+  })
+
   it('toggles completion with Space and opens details with Enter', async () => {
     const wrapper = mount(TaskRow, { props: { task } })
     const row = wrapper.find('article')
@@ -63,25 +72,6 @@ describe('TaskRow', () => {
 
     expect(wrapper.emitted('toggle-completed')).toHaveLength(1)
     expect(wrapper.emitted('select')).toHaveLength(1)
-  })
-
-  it('emits pointer drag events from the task row', async () => {
-    const wrapper = mount(TaskRow, { props: { task, draggable: true } })
-    const row = wrapper.find('article')
-    const dispatchPointerEvent = (type: string, values: Record<string, number>) => {
-      const event = new Event(type, { bubbles: true, cancelable: true })
-      for (const [key, value] of Object.entries(values)) Object.defineProperty(event, key, { value })
-      row.element.dispatchEvent(event)
-    }
-
-    dispatchPointerEvent('pointerdown', { pointerId: 1, button: 0, clientX: 10, clientY: 10 })
-    dispatchPointerEvent('pointermove', { pointerId: 1, clientX: 10, clientY: 30 })
-    dispatchPointerEvent('pointerup', { pointerId: 1, clientX: 10, clientY: 30 })
-
-    expect(wrapper.emitted('drag-start')).toHaveLength(1)
-    expect(wrapper.emitted('drag-move')).toHaveLength(1)
-    expect(wrapper.emitted('drag-end')).toHaveLength(1)
-    expect(wrapper.find('svg').exists()).toBe(true)
   })
 
   it('offers every task action from the vertical actions menu', async () => {
@@ -194,4 +184,5 @@ describe('TaskDetailsPanel', () => {
 
     expect(wrapper.emitted('save-step-title')).toEqual([['step-1', 'Buy green paint']])
   })
+
 })

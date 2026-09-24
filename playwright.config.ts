@@ -21,13 +21,7 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      testIgnore: '**/touch-drag-drop.spec.ts',
       use: { ...devices['Desktop Chrome'] },
-    },
-    {
-      name: 'mobile-chrome',
-      testMatch: '**/touch-drag-drop.spec.ts',
-      use: { ...devices['Pixel 5'] },
     },
   ],
   webServer: {

@@ -14,9 +14,6 @@ const isSidebarOpen = ref(typeof window === 'undefined' ? true : window.innerWid
 const isDark = ref(false)
 const taskTitle = ref('')
 const pendingDeleteTaskId = ref<string | null>(null)
-const draggedTaskId = ref<string | null>(null)
-const dropTargetTaskId = ref<string | null>(null)
-const dropPosition = ref<'before' | 'after' | null>(null)
 const pendingDeleteListId = ref<string | null>(null)
 const deleteListTasks = ref(false)
 const isListOptionsOpen = ref(false)
@@ -185,39 +182,6 @@ const requestDeleteTask = (taskId: string) => {
   pendingDeleteTaskId.value = taskId
 }
 
-const handleTaskDragStart = (taskId: string) => {
-  draggedTaskId.value = taskId
-  dropTargetTaskId.value = null
-  dropPosition.value = null
-}
-
-const handleTaskDragMove = (event: PointerEvent) => {
-  if (!draggedTaskId.value) return
-
-  const element = document.elementFromPoint(event.clientX, event.clientY)
-  const target = element instanceof HTMLElement ? element.closest<HTMLElement>('[data-task-id]') : null
-  const targetTaskId = target?.dataset.taskId
-  if (!targetTaskId || targetTaskId === draggedTaskId.value) {
-    dropTargetTaskId.value = null
-    dropPosition.value = null
-    return
-  }
-
-  const rect = target.getBoundingClientRect()
-  dropTargetTaskId.value = targetTaskId
-  dropPosition.value = event.clientY < rect.top + rect.height / 2 ? 'before' : 'after'
-}
-
-const handleTaskDragEnd = () => {
-  const sourceTaskId = draggedTaskId.value
-  const targetTaskId = dropTargetTaskId.value
-  const position = dropPosition.value
-  draggedTaskId.value = null
-  dropTargetTaskId.value = null
-  dropPosition.value = null
-  if (sourceTaskId && targetTaskId && position) void taskStore.moveTask(sourceTaskId, targetTaskId, position)
-}
-
 const cancelDeleteTask = () => {
   pendingDeleteTaskId.value = null
 }
@@ -334,8 +298,6 @@ const toggleTheme = () => {
         @move-list="handleMoveList"
         @rename-folder="handleRenameFolder"
         @delete-folder="handleDeleteFolder"
-        @reorder-list="listStore.reorderList"
-        @reorder-list-before="listStore.reorderListBefore"
       />
 
       <main class="min-w-0 flex-1 overflow-y-auto rounded-t-2xl bg-[#faf9f8] dark:bg-slate-950 sm:rounded-t-none">
@@ -388,7 +350,6 @@ const toggleTheme = () => {
                   :task="task"
                   :step-count="taskStore.taskStepCounts.get(task.id) ?? null"
                   :list-name="taskListName(task.listId)"
-                  :draggable="false"
                   @select="taskStore.setActiveTask(task.id)"
                   @toggle-completed="taskStore.toggleCompleted(task.id)"
                   @toggle-important="taskStore.toggleImportant(task.id)"
@@ -403,22 +364,15 @@ const toggleTheme = () => {
             <h2 id="active-tasks-heading" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Uppgifter</h2>
             <div class="overflow-hidden rounded-xl border border-slate-200 shadow-sm dark:border-slate-700">
               <TaskRow
-                v-for="task in taskStore.activeTasks"
+                  v-for="task in taskStore.activeTasks"
                 :key="task.id"
                 :task="task"
                 :step-count="taskStore.taskStepCounts.get(task.id) ?? null"
                 :list-name="taskStore.activeView?.type === 'smart' && taskStore.activeView.smartView === 'important' ? taskListName(task.listId) : null"
-                :draggable="taskStore.activeView?.type === 'list'"
-                :is-dragging="draggedTaskId === task.id"
-                :is-drop-target="dropTargetTaskId === task.id"
-                :drop-position="dropTargetTaskId === task.id ? dropPosition : null"
                 @select="taskStore.setActiveTask(task.id)"
                 @toggle-completed="taskStore.toggleCompleted(task.id)"
                 @toggle-important="taskStore.toggleImportant(task.id)"
                 @toggle-my-day="taskStore.toggleMyDay(task.id)"
-                @drag-start="handleTaskDragStart(task.id)"
-                @drag-move="handleTaskDragMove"
-                @drag-end="handleTaskDragEnd"
                 @delete="requestDeleteTask(task.id)"
               />
             </div>
@@ -428,22 +382,15 @@ const toggleTheme = () => {
             <h2 id="completed-tasks-heading" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Slutförda</h2>
             <div class="overflow-hidden rounded-xl border border-slate-200 shadow-sm dark:border-slate-700">
               <TaskRow
-                v-for="task in taskStore.completedTasks"
+                  v-for="task in taskStore.completedTasks"
                 :key="task.id"
                 :task="task"
                 :step-count="taskStore.taskStepCounts.get(task.id) ?? null"
                 :list-name="taskStore.activeView?.type === 'smart' && taskStore.activeView.smartView === 'important' ? taskListName(task.listId) : null"
-                :draggable="taskStore.activeView?.type === 'list'"
-                :is-dragging="draggedTaskId === task.id"
-                :is-drop-target="dropTargetTaskId === task.id"
-                :drop-position="dropTargetTaskId === task.id ? dropPosition : null"
                 @select="taskStore.setActiveTask(task.id)"
                 @toggle-completed="taskStore.toggleCompleted(task.id)"
                 @toggle-important="taskStore.toggleImportant(task.id)"
                 @toggle-my-day="taskStore.toggleMyDay(task.id)"
-                @drag-start="handleTaskDragStart(task.id)"
-                @drag-move="handleTaskDragMove"
-                @drag-end="handleTaskDragEnd"
                 @delete="requestDeleteTask(task.id)"
               />
             </div>
