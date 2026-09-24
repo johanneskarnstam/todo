@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test'
 
 test('creates a task in the active list', async ({ page }) => {
   await page.goto('/')
+  await page.getByRole('button', { name: 'Jag har sett detta' }).click()
 
   const title = `E2E-task-${Date.now()}`
   await page.getByPlaceholder('Lägg till en uppgift').fill(title)
@@ -12,6 +13,7 @@ test('creates a task in the active list', async ({ page }) => {
 
 test('opens task details from a task row', async ({ page }) => {
   await page.goto('/')
+  await page.getByRole('button', { name: 'Jag har sett detta' }).click()
 
   await page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' }).click()
 
@@ -20,6 +22,7 @@ test('opens task details from a task row', async ({ page }) => {
 
 test('adds a tag and uses a quick due-date preset', async ({ page }) => {
   await page.goto('/')
+  await page.getByRole('button', { name: 'Jag har sett detta' }).click()
   await page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' }).click()
 
   const details = page.getByRole('dialog', { name: 'Uppgiftsdetaljer' })
@@ -49,6 +52,7 @@ test('adds a tag and uses a quick due-date preset', async ({ page }) => {
 
 test('can undo deleting a task', async ({ page }) => {
   await page.goto('/')
+  await page.getByRole('button', { name: 'Jag har sett detta' }).click()
   await page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' }).click()
   await page.getByRole('dialog', { name: 'Uppgiftsdetaljer' }).getByRole('button', { name: 'Ta bort uppgift' }).click()
 
