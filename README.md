@@ -81,6 +81,7 @@ En modern, responsiv och offline-first att-göra-app inspirerad av Microsoft To 
 ### Routing, Testning & Övrigt
 - **Vue Router v5**: Klient-sida routing med navigation guards
 - **Vitest**: Enhetstestning
+- **Playwright**: E2E-testning i riktig browser
 - **ESLint & Prettier**: Kodlintering och formatering
 - **PWA**: vite-plugin-pwa
 
@@ -115,6 +116,8 @@ todo/
 │       ├── LoginView.vue
 │       └── SettingsView.vue
 ├── package.json
+├── e2e/                     # Browserbaserade Playwright-tester
+├── playwright.config.ts
 └── README.md
 ```
 
@@ -168,10 +171,29 @@ npm run preview
 npm run test:unit
 ```
 
+### Kör E2E-tester
+
+E2E-testerna använder lokalt mock-auth och demo-data. Ingen Firebase-inloggning krävs.
+
+```sh
+npm run test:e2e
+```
+
+På macOS används installerad Google Chrome automatiskt. För headed mode eller Playwright UI mode:
+
+```sh
+npm run test:e2e:headed
+npm run test:e2e:ui
+```
+
+I CI används Playwright Chromium. Installera browsern en gång i CI med `npx playwright install --with-deps chromium`.
+
 ### Kör alla valideringar
 ```sh
 npm run validate
 ```
+
+`npm run validate` kör lint, type-check, unit tests, E2E-tester och production build.
 
 ---
 

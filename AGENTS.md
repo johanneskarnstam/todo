@@ -7,7 +7,7 @@
 - **Styling:** Tailwind CSS (Mobile-first, Dark mode via `dark:` class).
 - **State Management:** Pinia.
 - **Backend & Database:** Firebase v10+ (Authentication, Firestore NoSQL).
-- **Testing:** Vitest.
+- **Testing:** Vitest for unit tests and Playwright for browser-level E2E tests.
 
 ## 2. Architecture & Structure
 Maintain the established directory structure. Do not create new top-level directories without a valid reason.
@@ -21,6 +21,9 @@ Maintain the established directory structure. Do not create new top-level direct
 Before marking a task as complete or finalizing code changes, you **MUST** run the project's validation scripts (For this project: `npm run type-check && npm run lint`).
 - If the validation fails, analyze the errors, fix them, and re-run until it passes 100%.
 - Never assume a change is safe without completing this validation.
+- `npm run validate` also runs the Playwright E2E suite. Use the local mock-auth mode so validation does not require Firebase credentials.
+- Every new user-facing feature or changed browser workflow must add or update an E2E test when its behavior can be verified through the UI. Unit tests alone are not sufficient for routing, responsive behavior, pointer interaction, or cross-component flows.
+- Keep E2E tests deterministic: use stable mock data, accessible selectors, isolated browser contexts, and no arbitrary sleeps.
 
 ## 4. Git Workflow & Commit Rules
 Always work on dedicated feature branches for new features or fixes:

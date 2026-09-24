@@ -137,7 +137,9 @@ const handlePointerDown = (event: PointerEvent) => {
   pointerStart = { x: event.clientX, y: event.clientY }
   activePointerId = event.pointerId
   isPointerDragging = false
-  ;(event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId)
+  try {
+    ;(event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId)
+  } catch {}
 }
 
 const handlePointerMove = (event: PointerEvent) => {

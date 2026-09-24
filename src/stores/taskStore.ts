@@ -246,6 +246,8 @@ export const useTaskStore = defineStore('tasks', () => {
     tasks.value = sortTasks([...tasks.value, optimisticTask])
     error.value = null
 
+    if (isMockAuthEnabled) return optimisticTask
+
     try {
       const taskReference = await trackWrite(() => addDoc(userCollection(), {
         listId: optimisticTask.listId,

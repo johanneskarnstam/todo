@@ -35,6 +35,11 @@ coverage
 # Vitest
 __screenshots__/
 
+# Playwright
+test-results/
+playwright-report/
+blob-report/
+
 # local helper for env generation
 scripts/pasted_secret_config.js
 
