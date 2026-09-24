@@ -126,10 +126,24 @@ const handleRowClick = () => {
 }
 
 const handleDragStart = (event: DragEvent) => {
-  if (!props.draggable || !event.dataTransfer) return
-  event.dataTransfer.effectAllowed = 'move'
-  event.dataTransfer.setData('text/task-id', props.task.id)
+  if (!props.draggable) return
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/task-id', props.task.id)
+  }
   emit('drag-start')
+}
+
+const handleDragOver = (event: DragEvent) => {
+  if (!props.draggable) return
+  event.preventDefault()
+  emit('drag-over')
+}
+
+const handleDrop = (event: DragEvent) => {
+  if (!props.draggable) return
+  event.preventDefault()
+  emit('drop')
 }
 
 onMounted(() => {
@@ -171,9 +185,9 @@ const handleKeydown = (event: KeyboardEvent) => {
     @click="handleRowClick"
     @keydown="handleKeydown"
     @dragstart="handleDragStart"
-    @dragenter.prevent="draggable && emit('drag-over')"
-    @dragover.prevent="draggable && emit('drag-over')"
-    @drop.prevent="draggable && emit('drop')"
+    @dragenter="handleDragOver"
+    @dragover="handleDragOver"
+    @drop="handleDrop"
     @dragend="draggable && emit('drag-end')"
     @touchstart="handleTouchStart"
     @touchmove="handleTouchMove"

@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
 import type { Folder, List, SmartView } from '@/types'
-import { useAuthStore } from '@/stores/authStore'
 import { DEFAULT_LIST_ID } from '@/stores/listStore'
 
 interface FolderSection {
@@ -33,8 +31,6 @@ interface Emits {
 
 defineProps<Props>()
 const emit = defineEmits<Emits>()
-const authStore = useAuthStore()
-const router = useRouter()
 const iconUrl = `${import.meta.env.BASE_URL}img/icons/todo-icon.svg`
 
 const smartViews = [
@@ -133,10 +129,6 @@ const moveList = (listId: string, folderId: string | null) => {
   openMoveMenuListId.value = null
 }
 
-const handleLogout = async () => {
-  await authStore.logout()
-  await router.push('/login')
-}
 </script>
 
 <template>
@@ -304,6 +296,7 @@ const handleLogout = async () => {
                 <span class="flex-1 truncate">{{ list.name }}</span>
               </button>
               <button
+                v-if="list.id !== DEFAULT_LIST_ID"
                 class="absolute right-1 top-1 grid size-9 place-items-center rounded text-lg text-slate-500 opacity-100 transition hover:bg-slate-200 sm:opacity-0 sm:focus:opacity-100 sm:group-hover/list:opacity-100 dark:hover:bg-slate-700"
                 type="button"
                 :aria-label="`Flytta ${list.name}`"
@@ -373,14 +366,6 @@ const handleLogout = async () => {
           <span class="text-lg" aria-hidden="true">⚙</span>
           <span>Inställningar</span>
         </RouterLink>
-        <div class="mt-3 flex items-center gap-3 border-t border-slate-200 pt-3 dark:border-slate-700">
-          <img v-if="authStore.user?.photoURL" class="size-9 rounded-full object-cover" :src="authStore.user.photoURL" alt="Profilbild" />
-          <div v-else class="grid size-9 place-items-center rounded-full bg-slate-200 text-sm font-semibold text-slate-600 dark:bg-slate-700 dark:text-slate-200">
-            {{ (authStore.user?.email?.[0] ?? 'U').toUpperCase() }}
-          </div>
-          <span class="min-w-0 flex-1 truncate text-xs text-slate-600 dark:text-slate-300">{{ authStore.user?.email }}</span>
-          <button class="grid size-9 place-items-center rounded text-lg text-slate-500 transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-slate-800 dark:hover:text-red-400" type="button" aria-label="Logga ut" @click="handleLogout">↩</button>
-        </div>
       </div>
     </div>
   </aside>

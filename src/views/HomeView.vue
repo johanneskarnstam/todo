@@ -5,7 +5,7 @@ import TodoHeader from '@/components/TodoHeader.vue'
 import TodoSidebar from '@/components/TodoSidebar.vue'
 import TaskRow from '@/components/TaskRow.vue'
 import TaskDetailsPanel from '@/components/TaskDetailsPanel.vue'
-import { useListStore } from '@/stores/listStore'
+import { DEFAULT_LIST_ID, useListStore } from '@/stores/listStore'
 import { useTaskStore } from '@/stores/taskStore'
 import { useReminderNotifications } from '@/composables/useReminderNotifications'
 import type { SmartView } from '@/types'
@@ -95,7 +95,7 @@ const handleSelectList = (listId: string) => {
 
 const handleGoHome = () => {
   taskStore.setActiveTask(null)
-  if (listStore.selectedListId) taskStore.setListView(listStore.selectedListId)
+  taskStore.setListView(listStore.selectedListId ?? DEFAULT_LIST_ID)
   void router.push({ name: 'home' })
 }
 
@@ -253,8 +253,8 @@ onMounted(async () => {
   await listStore.fetchLists()
   if (routeSmartView.value) {
     taskStore.setSmartView(routeSmartView.value)
-  } else if (listStore.selectedListId) {
-    taskStore.setListView(listStore.selectedListId)
+  } else {
+    taskStore.setListView(listStore.selectedListId ?? DEFAULT_LIST_ID)
   }
 })
 
@@ -266,8 +266,8 @@ watch(routeSmartView, (view) => {
   taskStore.setActiveTask(null)
   if (view) {
     taskStore.setSmartView(view)
-  } else if (listStore.selectedListId) {
-    taskStore.setListView(listStore.selectedListId)
+  } else {
+    taskStore.setListView(listStore.selectedListId ?? DEFAULT_LIST_ID)
   }
 })
 
