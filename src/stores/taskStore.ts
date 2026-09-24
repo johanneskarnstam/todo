@@ -16,6 +16,7 @@ import {
 import { auth, db } from '@/firebase'
 import { isMockAuthEnabled, MOCK_USER_ID } from '@/devMode'
 import { useToastStore } from '@/stores/toastStore'
+import { isBrowserOffline } from '@/composables/useNetworkStatus'
 import type { SmartView, Step, StepCount, Task, TaskReminder, TaskView } from '@/types'
 
 interface NewTaskInput {
@@ -237,7 +238,8 @@ export const useTaskStore = defineStore('tasks', () => {
     }
 
     try {
-      const snapshot = await getDocs(userCollection())
+      const read = isBrowserOffline() ? getDocsFromCache : getDocs
+      const snapshot = await read(userCollection())
       tasks.value = sortTasks(
         snapshot.docs.map((task) => ({ id: task.id, ...task.data() }) as Task),
       )

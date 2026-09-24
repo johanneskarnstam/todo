@@ -5,6 +5,7 @@ import TodoHeader from '@/components/TodoHeader.vue'
 import TodoSidebar from '@/components/TodoSidebar.vue'
 import TaskRow from '@/components/TaskRow.vue'
 import TaskDetailsPanel from '@/components/TaskDetailsPanel.vue'
+import { useTheme } from '@/composables/useTheme'
 import { DEFAULT_LIST_ID, useListStore } from '@/stores/listStore'
 import { useTaskStore } from '@/stores/taskStore'
 import { useToastStore } from '@/stores/toastStore'
@@ -12,7 +13,6 @@ import { useReminderNotifications } from '@/composables/useReminderNotifications
 import type { SmartView, TaskReminder } from '@/types'
 
 const isSidebarOpen = ref(typeof window === 'undefined' ? true : window.innerWidth >= 1024)
-const isDark = ref(false)
 const isSearchOpen = ref(false)
 const taskTitle = ref('')
 const pendingDeleteTaskId = ref<string | null>(null)
@@ -24,6 +24,7 @@ const listStore = useListStore()
 const taskStore = useTaskStore()
 const toastStore = useToastStore()
 const { requestPermission, scheduleTaskReminder, cancelTaskReminder } = useReminderNotifications()
+const { isDark, toggleTheme } = useTheme()
 const route = useRoute()
 const router = useRouter()
 
@@ -356,9 +357,6 @@ watch(
   { deep: true, immediate: true },
 )
 
-const toggleTheme = () => {
-  isDark.value = !isDark.value
-}
 </script>
 
 <template>

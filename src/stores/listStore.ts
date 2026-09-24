@@ -15,6 +15,7 @@ import {
 import { auth, db } from '@/firebase'
 import { isMockAuthEnabled, MOCK_USER_ID } from '@/devMode'
 import { useToastStore } from '@/stores/toastStore'
+import { isBrowserOffline } from '@/composables/useNetworkStatus'
 import type { Folder, List } from '@/types'
 
 interface NewListInput {
@@ -121,9 +122,10 @@ export const useListStore = defineStore('lists', () => {
     }
 
     try {
+      const read = isBrowserOffline() ? getDocsFromCache : getDocs
       const [folderSnapshot, listSnapshot] = await Promise.all([
-        getDocs(userCollection('folders')),
-        getDocs(userCollection('lists')),
+        read(userCollection('folders')),
+        read(userCollection('lists')),
       ])
 
       const fetchedFolders = folderSnapshot.docs.map((folder) => ({ id: folder.id, ...folder.data() }) as Folder)

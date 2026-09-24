@@ -73,8 +73,16 @@ onUnmounted(() => {
         <img class="size-8 rounded-full shadow-sm" :src="iconUrl" alt="" aria-hidden="true" />
         <span class="text-lg font-semibold tracking-tight">To Do</span>
       </RouterLink>
-      <div v-if="props.searchOpen" class="flex min-w-0 flex-1 items-center gap-2 sm:max-w-xl">
-        <Search :size="18" :stroke-width="2" aria-hidden="true" />
+    </div>
+
+    <div class="flex min-w-0 flex-1 items-center justify-end gap-2">
+      <span v-if="!isOnline" class="rounded-lg bg-white/15 px-2 py-1 text-xs font-medium text-white" role="status">Offline</span>
+      <span v-if="showSavedIndicator || isSaving" class="inline-flex items-center gap-1 text-xs text-white/90" role="status" aria-live="polite">
+        <Cloud :size="16" class="animate-pulse" aria-hidden="true" />
+        <span>{{ isSaving ? 'Sparar' : 'Sparat' }}</span>
+      </span>
+      <div v-if="props.searchOpen" class="-ml-16 mr-auto flex min-w-0 items-center gap-2 sm:-ml-40 sm:max-w-xl">
+        <Search :size="18" :stroke-width="2" class="shrink-0" aria-hidden="true" />
         <input
           class="min-w-0 flex-1 border-b border-white/50 bg-transparent px-1 py-1 text-sm text-white outline-none placeholder:text-white/70"
           type="search"
@@ -91,21 +99,13 @@ onUnmounted(() => {
       </div>
       <button
         v-else
-        class="grid size-8 shrink-0 place-items-center rounded-lg text-white/90 transition hover:bg-white/15"
+        class="grid size-9 shrink-0 place-items-center rounded-lg text-white/90 transition hover:bg-white/15"
         type="button"
         aria-label="Öppna sök"
         @click="emit('open-search')"
       >
         <Search :size="19" :stroke-width="2" aria-hidden="true" />
       </button>
-    </div>
-
-    <div class="flex shrink-0 items-center justify-end gap-2 sm:flex-1">
-      <span v-if="!isOnline" class="rounded-lg bg-white/15 px-2 py-1 text-xs font-medium text-white" role="status">Offline</span>
-      <span v-if="showSavedIndicator || isSaving" class="inline-flex items-center gap-1 text-xs text-white/90" role="status" aria-live="polite">
-        <Cloud :size="16" class="animate-pulse" aria-hidden="true" />
-        <span>{{ isSaving ? 'Sparar' : 'Sparat' }}</span>
-      </span>
       <button
         class="grid size-9 place-items-center rounded-lg text-lg text-white/90 transition hover:bg-white/15"
         type="button"

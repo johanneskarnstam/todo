@@ -29,3 +29,14 @@ test('search can find a list and close back to the task view', async ({ page }) 
   await expect(page).toHaveURL(/\/todo\/#\/$/)
   await expect(page.getByRole('heading', { name: 'Att göra' })).toBeVisible()
 })
+
+test('persists the selected theme after reload', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Jag har sett detta' }).click()
+
+  await page.getByRole('button', { name: 'Byt till mörkt läge' }).click()
+  await expect(page.getByRole('button', { name: 'Byt till ljust läge' })).toBeVisible()
+
+  await page.reload()
+  await expect(page.getByRole('button', { name: 'Byt till ljust läge' })).toBeVisible()
+})

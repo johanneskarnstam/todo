@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import TodoHeader from '@/components/TodoHeader.vue'
+import { useTheme } from '@/composables/useTheme'
 import { useListStore } from '@/stores/listStore'
 import { useTaskStore } from '@/stores/taskStore'
 
@@ -9,7 +10,7 @@ const route = useRoute()
 const router = useRouter()
 const listStore = useListStore()
 const taskStore = useTaskStore()
-const isDark = ref(false)
+const { isDark, toggleTheme } = useTheme()
 
 const query = computed(() => typeof route.query.q === 'string' ? route.query.q : '')
 const normalizedQuery = computed(() => query.value.trim().toLocaleLowerCase('sv-SE'))
@@ -72,7 +73,7 @@ onMounted(async () => {
       :search-open="true"
       :search-query="query"
       :show-menu="false"
-      @toggle-theme="isDark = !isDark"
+      @toggle-theme="toggleTheme"
       @go-home="closeSearch"
       @open-search="undefined"
       @close-search="closeSearch"
