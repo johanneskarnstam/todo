@@ -15,6 +15,7 @@ const isDark = ref(false)
 const taskTitle = ref('')
 const pendingDeleteTaskId = ref<string | null>(null)
 const draggedTaskId = ref<string | null>(null)
+const dropTargetTaskId = ref<string | null>(null)
 const pendingDeleteListId = ref<string | null>(null)
 const deleteListTasks = ref(false)
 const isListOptionsOpen = ref(false)
@@ -47,6 +48,7 @@ const currentTitle = computed(() => {
 const canAddTask = computed(() => taskStore.activeView?.type === 'list')
 const activeList = computed(() => taskStore.activeView?.type === 'list' ? listStore.selectedList : null)
 const activeListColor = computed(() => activeList.value?.themeColor ?? '#2564cf')
+const isInitialLoading = computed(() => !listStore.isLoaded || !taskStore.isLoaded)
 const themeColors = ['#2564cf', '#107c10', '#d83b01', '#8764b8', '#038387', '#ca5010']
 
 const taskListName = (listId: string) => listStore.lists.find((list) => list.id === listId)?.name ?? null
@@ -185,12 +187,23 @@ const requestDeleteTask = (taskId: string) => {
 
 const handleTaskDragStart = (taskId: string) => {
   draggedTaskId.value = taskId
+  dropTargetTaskId.value = null
+}
+
+const handleTaskDragOver = (taskId: string) => {
+  if (draggedTaskId.value !== taskId) dropTargetTaskId.value = taskId
 }
 
 const handleTaskDrop = (targetTaskId: string) => {
   const sourceTaskId = draggedTaskId.value
   draggedTaskId.value = null
+  dropTargetTaskId.value = null
   if (sourceTaskId) void taskStore.reorderTaskBefore(sourceTaskId, targetTaskId)
+}
+
+const handleTaskDragEnd = () => {
+  draggedTaskId.value = null
+  dropTargetTaskId.value = null
 }
 
 const cancelDeleteTask = () => {
@@ -357,6 +370,7 @@ const toggleTheme = () => {
                   :task="task"
                   :step-count="taskStore.taskStepCounts.get(task.id) ?? null"
                   :list-name="taskListName(task.listId)"
+                  :draggable="false"
                   @select="taskStore.setActiveTask(task.id)"
                   @toggle-completed="taskStore.toggleCompleted(task.id)"
                   @toggle-important="taskStore.toggleImportant(task.id)"
@@ -377,12 +391,15 @@ const toggleTheme = () => {
                 :step-count="taskStore.taskStepCounts.get(task.id) ?? null"
                 :list-name="taskStore.activeView?.type === 'smart' && taskStore.activeView.smartView === 'important' ? taskListName(task.listId) : null"
                 :draggable="taskStore.activeView?.type === 'list'"
+                  :is-drop-target="dropTargetTaskId === task.id"
                 @select="taskStore.setActiveTask(task.id)"
                 @toggle-completed="taskStore.toggleCompleted(task.id)"
                 @toggle-important="taskStore.toggleImportant(task.id)"
                 @toggle-my-day="taskStore.toggleMyDay(task.id)"
                 @drag-start="handleTaskDragStart(task.id)"
+                  @drag-over="handleTaskDragOver(task.id)"
                 @drop="handleTaskDrop(task.id)"
+                  @drag-end="handleTaskDragEnd"
                 @delete="requestDeleteTask(task.id)"
               />
             </div>
@@ -398,12 +415,15 @@ const toggleTheme = () => {
                 :step-count="taskStore.taskStepCounts.get(task.id) ?? null"
                 :list-name="taskStore.activeView?.type === 'smart' && taskStore.activeView.smartView === 'important' ? taskListName(task.listId) : null"
                 :draggable="taskStore.activeView?.type === 'list'"
+                :is-drop-target="dropTargetTaskId === task.id"
                 @select="taskStore.setActiveTask(task.id)"
                 @toggle-completed="taskStore.toggleCompleted(task.id)"
                 @toggle-important="taskStore.toggleImportant(task.id)"
                 @toggle-my-day="taskStore.toggleMyDay(task.id)"
                 @drag-start="handleTaskDragStart(task.id)"
+                @drag-over="handleTaskDragOver(task.id)"
                 @drop="handleTaskDrop(task.id)"
+                @drag-end="handleTaskDragEnd"
                 @delete="requestDeleteTask(task.id)"
               />
             </div>
@@ -412,6 +432,13 @@ const toggleTheme = () => {
           <p v-if="!taskStore.visibleTasks.length" class="mt-16 text-center text-sm text-slate-500 dark:text-slate-400">Inga uppgifter ännu</p>
         </div>
       </main>
+
+      <div v-if="isInitialLoading" class="fixed inset-0 z-[90] grid place-items-center bg-slate-950/25 px-4 backdrop-blur-[2px]" role="status" aria-live="polite" aria-label="Laddar listan">
+        <div class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-5 py-4 text-sm font-medium text-slate-700 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+          <span class="size-5 animate-spin rounded-full border-2 border-slate-300 border-t-[#2564cf] dark:border-slate-600 dark:border-t-blue-400" aria-hidden="true" />
+          Hämtar din lista...
+        </div>
+      </div>
 
       <TaskDetailsPanel
         v-if="taskStore.activeTask"

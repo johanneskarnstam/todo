@@ -180,16 +180,16 @@ export const useTaskStore = defineStore('tasks', () => {
       tasks.value = sortByCreatedAt(
         snapshot.docs.map((task) => ({ id: task.id, ...task.data() }) as Task),
       )
-      await fetchAllSteps(tasks.value)
       isLoaded.value = true
+      await fetchAllSteps(tasks.value)
     } catch (fetchError) {
       try {
         const cachedSnapshot = await getDocsFromCache(userCollection())
         tasks.value = sortByCreatedAt(
           cachedSnapshot.docs.map((task) => ({ id: task.id, ...task.data() }) as Task),
         )
-        await fetchAllSteps(tasks.value)
         isLoaded.value = true
+        await fetchAllSteps(tasks.value)
         return
       } catch {
         error.value = fetchError instanceof Error ? fetchError.message : 'Uppgifterna kunde inte läsas in.'
@@ -474,10 +474,18 @@ export const useTaskStore = defineStore('tasks', () => {
     const [movedTask] = siblings.splice(currentIndex, 1)
     siblings.splice(siblings.findIndex((task) => task.id === targetTaskId), 0, movedTask)
     const updatedOrders = new Map(siblings.map((task, index) => [task.id, index]))
-    tasks.value = tasks.value.map((task) => {
+    const updatedTasks = tasks.value.map((task) => {
       const nextOrder = updatedOrders.get(task.id)
       return nextOrder === undefined ? task : { ...task, order: nextOrder }
     })
+    const siblingPositions = tasks.value
+      .map((task, index) => task.listId === currentTask.listId ? index : -1)
+      .filter((index) => index >= 0)
+    const reorderedTasks = [...updatedTasks]
+    siblingPositions.forEach((taskIndex, siblingIndex) => {
+      reorderedTasks[taskIndex] = { ...siblings[siblingIndex], order: siblingIndex }
+    })
+    tasks.value = reorderedTasks
     error.value = null
 
     try {

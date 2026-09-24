@@ -10,6 +10,7 @@ interface Props {
   stepCount?: StepCount | null
   listName?: string | null
   draggable?: boolean
+  isDropTarget?: boolean
 }
 
 interface Emits {
@@ -21,6 +22,7 @@ interface Emits {
   (event: 'drag-start'): void
   (event: 'drag-over'): void
   (event: 'drop'): void
+  (event: 'drag-end'): void
 }
 
 const props = defineProps<Props>()
@@ -160,6 +162,7 @@ const handleKeydown = (event: KeyboardEvent) => {
 <template>
   <article
     class="group relative min-h-14 overflow-visible rounded-lg border-b border-slate-200 bg-white transition focus-within:ring-2 focus-within:ring-inset focus-within:ring-[#2564cf] dark:border-slate-700 dark:bg-slate-900"
+    :class="{ 'ring-2 ring-inset ring-[#2564cf] dark:ring-blue-400': isDropTarget }"
     role="group"
     tabindex="0"
     :draggable="draggable"
@@ -168,8 +171,10 @@ const handleKeydown = (event: KeyboardEvent) => {
     @click="handleRowClick"
     @keydown="handleKeydown"
     @dragstart="handleDragStart"
+    @dragenter.prevent="draggable && emit('drag-over')"
     @dragover.prevent="draggable && emit('drag-over')"
     @drop.prevent="draggable && emit('drop')"
+    @dragend="draggable && emit('drag-end')"
     @touchstart="handleTouchStart"
     @touchmove="handleTouchMove"
     @touchend="handleTouchEnd"
