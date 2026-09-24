@@ -231,21 +231,7 @@ describe('useTaskStore', () => {
     )
   })
 
-  it('reorders tasks optimistically and persists their order', async () => {
-    const createdAt = Timestamp.now()
-    const store = useTaskStore()
-    store.tasks.push(
-      { id: 'task-1', listId: 'list-1', title: 'First', completed: false, important: false, myDay: false, order: 0, createdAt },
-      { id: 'task-2', listId: 'list-1', title: 'Second', completed: false, important: false, myDay: false, order: 1, createdAt },
-    )
-
-    await store.reorderTask('task-2', 'up')
-
-    expect(store.tasks.map((task) => task.id)).toEqual(['task-2', 'task-1'])
-    expect(firestoreMocks.updateDoc).toHaveBeenCalledTimes(2)
-  })
-
-  it('moves a dragged task before its target and persists the new vertical order', async () => {
+  it('moves a task before its target and persists the new vertical order', async () => {
     const createdAt = Timestamp.now()
     const store = useTaskStore()
     store.tasks.push(
@@ -254,11 +240,26 @@ describe('useTaskStore', () => {
       { id: 'task-3', listId: 'list-1', title: 'Third', completed: false, important: false, myDay: false, order: 2, createdAt },
     )
 
-    await store.reorderTaskBefore('task-3', 'task-1')
+    await store.moveTask('task-3', 'task-1')
 
     expect(store.tasks.map((task) => task.id)).toEqual(['task-3', 'task-1', 'task-2'])
     expect(store.tasks.map((task) => task.order)).toEqual([0, 1, 2])
     expect(firestoreMocks.updateDoc).toHaveBeenCalledTimes(3)
+  })
+
+  it('moves a task after its target in the same vertical list', async () => {
+    const createdAt = Timestamp.now()
+    const store = useTaskStore()
+    store.tasks.push(
+      { id: 'task-1', listId: 'list-1', title: 'First', completed: false, important: false, myDay: false, order: 0, createdAt },
+      { id: 'task-2', listId: 'list-1', title: 'Second', completed: false, important: false, myDay: false, order: 1, createdAt },
+      { id: 'task-3', listId: 'list-1', title: 'Third', completed: false, important: false, myDay: false, order: 2, createdAt },
+    )
+
+    await store.moveTask('task-1', 'task-3', 'after')
+
+    expect(store.tasks.map((task) => task.id)).toEqual(['task-2', 'task-3', 'task-1'])
+    expect(store.tasks.map((task) => task.order)).toEqual([0, 1, 2])
   })
 
   it('rolls back an optimistic completion when Firestore rejects the update', async () => {

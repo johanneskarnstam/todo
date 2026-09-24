@@ -1,16 +1,20 @@
 <script setup lang="ts">
 import { nextTick, onMounted, onUnmounted, ref } from 'vue'
-import { CalendarPlus, CheckCircle2, ListTodo, MoreVertical, Star, Trash2 } from '@lucide/vue'
+import { CalendarPlus, CheckCircle2, GripVertical, ListTodo, MoreVertical, Star, Trash2 } from '@lucide/vue'
 import type { StepCount, Task } from '@/types'
 
 const rowInteractionResets = new Set<() => void>()
+
+type DropPosition = 'before' | 'after'
 
 interface Props {
   task: Task
   stepCount?: StepCount | null
   listName?: string | null
   draggable?: boolean
+  isDragging?: boolean
   isDropTarget?: boolean
+  dropPosition?: DropPosition | null
 }
 
 interface Emits {
@@ -20,8 +24,7 @@ interface Emits {
   (event: 'toggle-my-day'): void
   (event: 'delete'): void
   (event: 'drag-start'): void
-  (event: 'drag-over'): void
-  (event: 'drop'): void
+  (event: 'drag-move', pointerEvent: PointerEvent): void
   (event: 'drag-end'): void
 }
 
@@ -125,31 +128,40 @@ const handleRowClick = () => {
   emit('select')
 }
 
-const handleDragStart = (event: DragEvent) => {
-  if (!props.draggable) return
-  if (event.dataTransfer) {
-    event.dataTransfer.effectAllowed = 'move'
-    event.dataTransfer.setData('text/plain', props.task.id)
-    event.dataTransfer.setData('text/task-id', props.task.id)
+let pointerStart: { x: number; y: number } | null = null
+let activePointerId: number | null = null
+let isPointerDragging = false
+
+const handlePointerDown = (event: PointerEvent) => {
+  if (!props.draggable || event.button !== 0) return
+  pointerStart = { x: event.clientX, y: event.clientY }
+  activePointerId = event.pointerId
+  isPointerDragging = false
+  ;(event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId)
+}
+
+const handlePointerMove = (event: PointerEvent) => {
+  if (!props.draggable || activePointerId !== event.pointerId || !pointerStart) return
+
+  const distance = Math.hypot(event.clientX - pointerStart.x, event.clientY - pointerStart.y)
+  if (!isPointerDragging && distance < 8) return
+
+  if (!isPointerDragging) {
+    isPointerDragging = true
+    suppressClick.value = true
+    emit('drag-start')
   }
-  emit('drag-start')
-}
 
-const handleDragOver = (event: DragEvent) => {
-  if (!props.draggable) return
   event.preventDefault()
-  emit('drag-over')
+  emit('drag-move', event)
 }
 
-const handleDrop = (event: DragEvent) => {
-  if (!props.draggable) return
-  event.preventDefault()
-  emit('drop')
-}
-
-const handleDragEnd = () => {
-  if (!props.draggable) return
-  emit('drag-end')
+const handlePointerUp = (event: PointerEvent) => {
+  if (activePointerId !== event.pointerId) return
+  if (isPointerDragging) emit('drag-end')
+  pointerStart = null
+  activePointerId = null
+  isPointerDragging = false
 }
 
 onMounted(() => {
@@ -182,23 +194,32 @@ const handleKeydown = (event: KeyboardEvent) => {
 <template>
   <article
     class="group relative min-h-14 overflow-visible rounded-lg border-b border-slate-200 bg-white transition focus-within:ring-2 focus-within:ring-inset focus-within:ring-[#2564cf] dark:border-slate-700 dark:bg-slate-900"
-    :class="{ 'ring-2 ring-inset ring-[#2564cf] dark:ring-blue-400': isDropTarget }"
+    :class="{ 'cursor-grab opacity-50 active:cursor-grabbing': isDragging || draggable }"
     role="group"
     tabindex="0"
-    :draggable="draggable"
+    :aria-grabbed="isDragging || undefined"
     :data-task-id="task.id"
     :aria-label="`Uppgift: ${task.title}`"
     @click="handleRowClick"
     @keydown="handleKeydown"
-    @dragstart="handleDragStart"
-    @dragenter="handleDragOver"
-    @dragover="handleDragOver"
-    @drop="handleDrop"
-    @dragend="handleDragEnd"
+    @pointerdown="handlePointerDown"
+    @pointermove="handlePointerMove"
+    @pointerup="handlePointerUp"
+    @pointercancel="handlePointerUp"
     @touchstart="handleTouchStart"
     @touchmove="handleTouchMove"
     @touchend="handleTouchEnd"
   >
+    <div
+      v-if="isDropTarget && dropPosition === 'before'"
+      class="pointer-events-none absolute inset-x-2 top-0 z-10 h-0.5 rounded-full bg-[#2564cf] dark:bg-blue-400"
+      aria-hidden="true"
+    />
+    <div
+      v-if="isDropTarget && dropPosition === 'after'"
+      class="pointer-events-none absolute inset-x-2 bottom-0 z-10 h-0.5 rounded-full bg-[#2564cf] dark:bg-blue-400"
+      aria-hidden="true"
+    />
     <div class="absolute inset-0 flex items-stretch justify-between overflow-hidden rounded-lg text-white">
       <button class="grid w-24 place-items-center bg-red-600" type="button" aria-label="Ta bort uppgift" title="Ta bort uppgift" @click.stop="emit('delete'); resetRowInteraction()">
         <Trash2 :size="20" aria-hidden="true" />
@@ -209,6 +230,9 @@ const handleKeydown = (event: KeyboardEvent) => {
     </div>
 
     <div class="relative flex min-h-14 w-full items-center gap-3 rounded-lg bg-white px-4 py-2 transition-transform dark:bg-slate-900" :style="{ transform: `translateX(${swipeOffset}px)` }">
+      <span v-if="draggable" class="grid size-7 shrink-0 place-items-center rounded text-slate-400 dark:text-slate-500" aria-hidden="true">
+        <GripVertical :size="16" aria-hidden="true" />
+      </span>
       <button
         class="grid size-6 shrink-0 place-items-center rounded-full border border-slate-400 text-xs text-white transition hover:border-[#2564cf] dark:border-slate-500"
         :class="{ 'border-[#2564cf] bg-[#2564cf] dark:border-blue-400 dark:bg-blue-400': task.completed }"

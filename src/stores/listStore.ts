@@ -13,6 +13,7 @@ import {
   updateDoc,
 } from 'firebase/firestore'
 import { auth, db } from '@/firebase'
+import { isMockAuthEnabled, MOCK_USER_ID } from '@/devMode'
 import { useToastStore } from '@/stores/toastStore'
 import type { Folder, List } from '@/types'
 
@@ -61,6 +62,7 @@ export const useListStore = defineStore('lists', () => {
   }
 
   const trackWrite = async <T>(write: () => Promise<T>): Promise<T> => {
+    if (isMockAuthEnabled) return undefined as T
     pendingWriteCount.value += 1
     try {
       return await write()
@@ -96,7 +98,7 @@ export const useListStore = defineStore('lists', () => {
   }
 
   const userCollection = (collectionName: 'folders' | 'lists') => {
-    const userId = auth.currentUser?.uid
+    const userId = isMockAuthEnabled ? MOCK_USER_ID : auth.currentUser?.uid
     if (!userId) {
       throw new Error('En inloggad användare krävs för att komma åt listor.')
     }
@@ -107,6 +109,16 @@ export const useListStore = defineStore('lists', () => {
   const fetchLists = async () => {
     error.value = null
     if (!selectedListId.value) selectedListId.value = DEFAULT_LIST_ID
+
+    if (isMockAuthEnabled) {
+      lists.value = [
+        defaultList,
+        { id: 'local-projects', name: 'Projekt', icon: '☷', order: 1, createdAt: Timestamp.now() },
+      ]
+      selectedListId.value = DEFAULT_LIST_ID
+      isLoaded.value = true
+      return
+    }
 
     try {
       const [folderSnapshot, listSnapshot] = await Promise.all([

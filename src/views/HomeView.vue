@@ -16,6 +16,7 @@ const taskTitle = ref('')
 const pendingDeleteTaskId = ref<string | null>(null)
 const draggedTaskId = ref<string | null>(null)
 const dropTargetTaskId = ref<string | null>(null)
+const dropPosition = ref<'before' | 'after' | null>(null)
 const pendingDeleteListId = ref<string | null>(null)
 const deleteListTasks = ref(false)
 const isListOptionsOpen = ref(false)
@@ -187,22 +188,34 @@ const requestDeleteTask = (taskId: string) => {
 const handleTaskDragStart = (taskId: string) => {
   draggedTaskId.value = taskId
   dropTargetTaskId.value = null
+  dropPosition.value = null
 }
 
-const handleTaskDragOver = (taskId: string) => {
-  if (draggedTaskId.value !== taskId) dropTargetTaskId.value = taskId
-}
+const handleTaskDragMove = (event: PointerEvent) => {
+  if (!draggedTaskId.value) return
 
-const handleTaskDrop = (targetTaskId: string) => {
-  const sourceTaskId = draggedTaskId.value
-  draggedTaskId.value = null
-  dropTargetTaskId.value = null
-  if (sourceTaskId) void taskStore.reorderTaskBefore(sourceTaskId, targetTaskId)
+  const element = document.elementFromPoint(event.clientX, event.clientY)
+  const target = element instanceof HTMLElement ? element.closest<HTMLElement>('[data-task-id]') : null
+  const targetTaskId = target?.dataset.taskId
+  if (!targetTaskId || targetTaskId === draggedTaskId.value) {
+    dropTargetTaskId.value = null
+    dropPosition.value = null
+    return
+  }
+
+  const rect = target.getBoundingClientRect()
+  dropTargetTaskId.value = targetTaskId
+  dropPosition.value = event.clientY < rect.top + rect.height / 2 ? 'before' : 'after'
 }
 
 const handleTaskDragEnd = () => {
+  const sourceTaskId = draggedTaskId.value
+  const targetTaskId = dropTargetTaskId.value
+  const position = dropPosition.value
   draggedTaskId.value = null
   dropTargetTaskId.value = null
+  dropPosition.value = null
+  if (sourceTaskId && targetTaskId && position) void taskStore.moveTask(sourceTaskId, targetTaskId, position)
 }
 
 const cancelDeleteTask = () => {
@@ -396,15 +409,16 @@ const toggleTheme = () => {
                 :step-count="taskStore.taskStepCounts.get(task.id) ?? null"
                 :list-name="taskStore.activeView?.type === 'smart' && taskStore.activeView.smartView === 'important' ? taskListName(task.listId) : null"
                 :draggable="taskStore.activeView?.type === 'list'"
-                  :is-drop-target="dropTargetTaskId === task.id"
+                :is-dragging="draggedTaskId === task.id"
+                :is-drop-target="dropTargetTaskId === task.id"
+                :drop-position="dropTargetTaskId === task.id ? dropPosition : null"
                 @select="taskStore.setActiveTask(task.id)"
                 @toggle-completed="taskStore.toggleCompleted(task.id)"
                 @toggle-important="taskStore.toggleImportant(task.id)"
                 @toggle-my-day="taskStore.toggleMyDay(task.id)"
                 @drag-start="handleTaskDragStart(task.id)"
-                  @drag-over="handleTaskDragOver(task.id)"
-                @drop="handleTaskDrop(task.id)"
-                  @drag-end="handleTaskDragEnd"
+                @drag-move="handleTaskDragMove"
+                @drag-end="handleTaskDragEnd"
                 @delete="requestDeleteTask(task.id)"
               />
             </div>
@@ -420,14 +434,15 @@ const toggleTheme = () => {
                 :step-count="taskStore.taskStepCounts.get(task.id) ?? null"
                 :list-name="taskStore.activeView?.type === 'smart' && taskStore.activeView.smartView === 'important' ? taskListName(task.listId) : null"
                 :draggable="taskStore.activeView?.type === 'list'"
+                :is-dragging="draggedTaskId === task.id"
                 :is-drop-target="dropTargetTaskId === task.id"
+                :drop-position="dropTargetTaskId === task.id ? dropPosition : null"
                 @select="taskStore.setActiveTask(task.id)"
                 @toggle-completed="taskStore.toggleCompleted(task.id)"
                 @toggle-important="taskStore.toggleImportant(task.id)"
                 @toggle-my-day="taskStore.toggleMyDay(task.id)"
                 @drag-start="handleTaskDragStart(task.id)"
-                @drag-over="handleTaskDragOver(task.id)"
-                @drop="handleTaskDrop(task.id)"
+                @drag-move="handleTaskDragMove"
                 @drag-end="handleTaskDragEnd"
                 @delete="requestDeleteTask(task.id)"
               />

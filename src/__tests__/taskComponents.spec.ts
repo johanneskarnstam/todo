@@ -65,23 +65,23 @@ describe('TaskRow', () => {
     expect(wrapper.emitted('select')).toHaveLength(1)
   })
 
-  it('emits drag events for a draggable task without requiring a browser data payload', async () => {
-    const dataTransfer = {
-      effectAllowed: '',
-      setData: () => undefined,
-    }
+  it('emits pointer drag events from the task row', async () => {
     const wrapper = mount(TaskRow, { props: { task, draggable: true } })
     const row = wrapper.find('article')
+    const dispatchPointerEvent = (type: string, values: Record<string, number>) => {
+      const event = new Event(type, { bubbles: true, cancelable: true })
+      for (const [key, value] of Object.entries(values)) Object.defineProperty(event, key, { value })
+      row.element.dispatchEvent(event)
+    }
 
-    await row.trigger('dragstart', { dataTransfer })
-    await row.trigger('dragover')
-    await row.trigger('drop')
-    await row.trigger('dragend')
+    dispatchPointerEvent('pointerdown', { pointerId: 1, button: 0, clientX: 10, clientY: 10 })
+    dispatchPointerEvent('pointermove', { pointerId: 1, clientX: 10, clientY: 30 })
+    dispatchPointerEvent('pointerup', { pointerId: 1, clientX: 10, clientY: 30 })
 
     expect(wrapper.emitted('drag-start')).toHaveLength(1)
-    expect(wrapper.emitted('drag-over')).toHaveLength(1)
-    expect(wrapper.emitted('drop')).toHaveLength(1)
+    expect(wrapper.emitted('drag-move')).toHaveLength(1)
     expect(wrapper.emitted('drag-end')).toHaveLength(1)
+    expect(wrapper.find('svg').exists()).toBe(true)
   })
 
   it('offers every task action from the vertical actions menu', async () => {

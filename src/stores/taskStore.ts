@@ -13,6 +13,7 @@ import {
   updateDoc,
 } from 'firebase/firestore'
 import { auth, db } from '@/firebase'
+import { isMockAuthEnabled, MOCK_USER_ID } from '@/devMode'
 import { useToastStore } from '@/stores/toastStore'
 import type { SmartView, Step, StepCount, Task, TaskView } from '@/types'
 
@@ -26,10 +27,12 @@ interface NewStepInput {
   title: string
 }
 
-const sortByCreatedAt = (tasks: Task[]): Task[] =>
+const sortTasks = (tasks: Task[]): Task[] =>
   [...tasks].sort((first, second) => {
-    if (first.listId === second.listId && first.order !== undefined && second.order !== undefined) {
-      return first.order - second.order
+    if (first.listId === second.listId) {
+      const firstOrder = first.order ?? Number.MAX_SAFE_INTEGER
+      const secondOrder = second.order ?? Number.MAX_SAFE_INTEGER
+      if (firstOrder !== secondOrder) return firstOrder - secondOrder
     }
     return first.createdAt.toMillis() - second.createdAt.toMillis()
   })
@@ -52,6 +55,7 @@ export const useTaskStore = defineStore('tasks', () => {
   }
 
   const trackWrite = async <T>(write: () => Promise<T>): Promise<T> => {
+    if (isMockAuthEnabled) return undefined as T
     pendingWriteCount.value += 1
     try {
       return await write()
@@ -79,8 +83,8 @@ export const useTaskStore = defineStore('tasks', () => {
     return tasks.value.filter((task) => task.myDay)
   })
 
-  const activeTasks = computed(() => visibleTasks.value.filter((task) => !task.completed))
-  const completedTasks = computed(() => visibleTasks.value.filter((task) => task.completed))
+  const activeTasks = computed(() => sortTasks(visibleTasks.value.filter((task) => !task.completed)))
+  const completedTasks = computed(() => sortTasks(visibleTasks.value.filter((task) => task.completed)))
   const activeTask = computed(() => tasks.value.find((task) => task.id === activeTaskId.value) ?? null)
   const activeSteps = computed(() => allSteps.value.filter((step) => step.taskId === activeTaskId.value))
   const taskStepCounts = computed(() => {
@@ -111,7 +115,7 @@ export const useTaskStore = defineStore('tasks', () => {
   }
 
   const userId = () => {
-    const currentUserId = auth.currentUser?.uid
+    const currentUserId = isMockAuthEnabled ? MOCK_USER_ID : auth.currentUser?.uid
     if (!currentUserId) {
       throw new Error('En inloggad användare krävs för att komma åt uppgifter.')
     }
@@ -175,9 +179,20 @@ export const useTaskStore = defineStore('tasks', () => {
   const fetchTasks = async () => {
     error.value = null
 
+    if (isMockAuthEnabled) {
+      const createdAt = Timestamp.now()
+      tasks.value = sortTasks([
+        { id: 'local-task-1', listId: '__default__', title: 'Testa dra och släppa uppgifter', completed: false, important: true, myDay: true, order: 0, createdAt },
+        { id: 'local-task-2', listId: '__default__', title: 'Kontrollera mobilvyn', completed: false, important: false, myDay: false, order: 1, createdAt },
+        { id: 'local-task-3', listId: 'local-projects', title: 'Förbered nästa release', completed: false, important: false, myDay: false, order: 0, createdAt },
+      ])
+      isLoaded.value = true
+      return
+    }
+
     try {
       const snapshot = await getDocs(userCollection())
-      tasks.value = sortByCreatedAt(
+      tasks.value = sortTasks(
         snapshot.docs.map((task) => ({ id: task.id, ...task.data() }) as Task),
       )
       isLoaded.value = true
@@ -185,7 +200,7 @@ export const useTaskStore = defineStore('tasks', () => {
     } catch (fetchError) {
       try {
         const cachedSnapshot = await getDocsFromCache(userCollection())
-        tasks.value = sortByCreatedAt(
+        tasks.value = sortTasks(
           cachedSnapshot.docs.map((task) => ({ id: task.id, ...task.data() }) as Task),
         )
         isLoaded.value = true
@@ -228,7 +243,7 @@ export const useTaskStore = defineStore('tasks', () => {
       order: tasks.value.filter((task) => task.listId === input.listId).length,
     }
 
-    tasks.value = sortByCreatedAt([...tasks.value, optimisticTask])
+    tasks.value = sortTasks([...tasks.value, optimisticTask])
     error.value = null
 
     try {
@@ -406,7 +421,7 @@ export const useTaskStore = defineStore('tasks', () => {
       allSteps.value = allSteps.value.filter((step) => step.taskId !== taskId)
       if (activeTaskId.value === taskId) setActiveTask(null)
     } catch (deleteError) {
-      tasks.value = sortByCreatedAt([...tasks.value, deletedTask])
+      tasks.value = sortTasks([...tasks.value, deletedTask])
       reportWriteError(deleteError, 'Uppgiften kunde inte tas bort.')
     }
   }
@@ -417,80 +432,53 @@ export const useTaskStore = defineStore('tasks', () => {
     }
   }
 
-  const reorderTask = async (taskId: string, direction: 'up' | 'down') => {
-    const currentTask = tasks.value.find((task) => task.id === taskId)
-    if (!currentTask) return
-
-    const siblings = tasks.value
-      .filter((task) => task.listId === currentTask.listId)
-      .sort((first, second) => (first.order ?? Number.MAX_SAFE_INTEGER) - (second.order ?? Number.MAX_SAFE_INTEGER))
-    const index = siblings.findIndex((task) => task.id === taskId)
-    const swapIndex = direction === 'up' ? index - 1 : index + 1
-    if (index < 0 || swapIndex < 0 || swapIndex >= siblings.length) return
-
-    const otherTask = siblings[swapIndex]
-    const currentOrder = currentTask.order ?? index
-    const otherOrder = otherTask.order ?? swapIndex
-    currentTask.order = otherOrder
-    otherTask.order = currentOrder
-    const currentIndex = tasks.value.findIndex((task) => task.id === currentTask.id)
-    const otherIndex = tasks.value.findIndex((task) => task.id === otherTask.id)
-    const reorderedTasks = [...tasks.value]
-    reorderedTasks[currentIndex] = otherTask
-    reorderedTasks[otherIndex] = currentTask
-    tasks.value = reorderedTasks
-
-    try {
-      await trackWrite(() => Promise.all([
-        updateDoc(doc(userCollection(), currentTask.id), { order: currentTask.order }),
-        updateDoc(doc(userCollection(), otherTask.id), { order: otherTask.order }),
-      ]))
-    } catch (reorderError) {
-      currentTask.order = currentOrder
-      otherTask.order = otherOrder
-      const restoredTasks = [...tasks.value]
-      restoredTasks[currentIndex] = currentTask
-      restoredTasks[otherIndex] = otherTask
-      tasks.value = restoredTasks
-      reportWriteError(reorderError, 'Uppgiften kunde inte ordnas om.')
-    }
-  }
-
-  const reorderTaskBefore = async (taskId: string, targetTaskId: string) => {
+  const moveTask = async (
+    taskId: string,
+    targetTaskId: string,
+    position: 'before' | 'after' = 'before',
+  ) => {
     if (taskId === targetTaskId) return
 
     const currentTask = tasks.value.find((task) => task.id === taskId)
     const targetTask = tasks.value.find((task) => task.id === targetTaskId)
-    if (!currentTask || !targetTask || currentTask.listId !== targetTask.listId) return
+    if (
+      !currentTask
+      || !targetTask
+      || currentTask.listId !== targetTask.listId
+      || currentTask.completed !== targetTask.completed
+    ) return
 
     const previousTasks = tasks.value.map((task) => ({ ...task }))
-    const siblings = tasks.value
-      .filter((task) => task.listId === currentTask.listId)
-      .sort((first, second) => (first.order ?? Number.MAX_SAFE_INTEGER) - (second.order ?? Number.MAX_SAFE_INTEGER))
-    const currentIndex = siblings.findIndex((task) => task.id === taskId)
-    const targetIndex = siblings.findIndex((task) => task.id === targetTaskId)
-    if (currentIndex < 0 || targetIndex < 0) return
+    const siblings = sortTasks(
+      tasks.value.filter((task) => task.listId === currentTask.listId && task.completed === currentTask.completed),
+    )
+    const sourceIndex = siblings.findIndex((task) => task.id === taskId)
+    if (sourceIndex < 0) return
 
-    const [movedTask] = siblings.splice(currentIndex, 1)
-    siblings.splice(siblings.findIndex((task) => task.id === targetTaskId), 0, movedTask)
-    const updatedOrders = new Map(siblings.map((task, index) => [task.id, index]))
-    const updatedTasks = tasks.value.map((task) => {
-      const nextOrder = updatedOrders.get(task.id)
-      return nextOrder === undefined ? task : { ...task, order: nextOrder }
+    const [movedTask] = siblings.splice(sourceIndex, 1)
+    let insertIndex = siblings.findIndex((task) => task.id === targetTaskId)
+    if (insertIndex < 0) return
+    if (position === 'after') insertIndex += 1
+    siblings.splice(insertIndex, 0, movedTask)
+
+    const previousOrders = new Map(siblings.map((task) => {
+      const original = previousTasks.find((item) => item.id === task.id)
+      return [task.id, original?.order]
+    }))
+    siblings.forEach((task, index) => {
+      task.order = index
     })
-    const siblingPositions = tasks.value
-      .map((task, index) => task.listId === currentTask.listId ? index : -1)
-      .filter((index) => index >= 0)
-    const reorderedTasks = [...updatedTasks]
-    siblingPositions.forEach((taskIndex, siblingIndex) => {
-      reorderedTasks[taskIndex] = { ...siblings[siblingIndex], order: siblingIndex }
-    })
-    tasks.value = reorderedTasks
+    tasks.value = sortTasks(tasks.value.map((task) => {
+      const sibling = siblings.find((item) => item.id === task.id)
+      return sibling ?? task
+    }))
     error.value = null
 
     try {
       await trackWrite(() => Promise.all(
-        siblings.map((task) => updateDoc(doc(userCollection(), task.id), { order: updatedOrders.get(task.id) })),
+        siblings
+          .filter((task) => previousOrders.get(task.id) !== task.order)
+          .map((task) => updateDoc(doc(userCollection(), task.id), { order: task.order })),
       ))
     } catch (reorderError) {
       tasks.value = previousTasks
@@ -532,7 +520,6 @@ export const useTaskStore = defineStore('tasks', () => {
     deleteStep,
     deleteTask,
     deleteTasksForLists,
-    reorderTask,
-    reorderTaskBefore,
+    moveTask,
   }
 })
