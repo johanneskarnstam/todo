@@ -26,11 +26,13 @@ describe('TaskRow', () => {
     expect(wrapper.emitted('toggle-completed')).toHaveLength(1)
     expect(wrapper.emitted('select')).toHaveLength(1)
 
-    await wrapper.find('button[aria-label="Mark task important"]').trigger('click')
+    await wrapper.find('button[aria-label="Task actions"]').trigger('click')
+    await wrapper.findAll('button').find((button) => button.text() === 'Star task')?.trigger('click')
     expect(wrapper.emitted('toggle-important')).toHaveLength(1)
     expect(wrapper.emitted('select')).toHaveLength(1)
 
-    await wrapper.find('button[aria-label="Add to My day"]').trigger('click')
+    await wrapper.find('button[aria-label="Task actions"]').trigger('click')
+    await wrapper.findAll('button').find((button) => button.text() === 'Add to My day')?.trigger('click')
     expect(wrapper.emitted('toggle-my-day')).toHaveLength(1)
   })
 

@@ -442,6 +442,40 @@ export const useTaskStore = defineStore('tasks', () => {
     }
   }
 
+  const reorderTaskBefore = async (taskId: string, targetTaskId: string) => {
+    if (taskId === targetTaskId) return
+
+    const currentTask = tasks.value.find((task) => task.id === taskId)
+    const targetTask = tasks.value.find((task) => task.id === targetTaskId)
+    if (!currentTask || !targetTask || currentTask.listId !== targetTask.listId) return
+
+    const previousTasks = tasks.value.map((task) => ({ ...task }))
+    const siblings = tasks.value
+      .filter((task) => task.listId === currentTask.listId)
+      .sort((first, second) => (first.order ?? Number.MAX_SAFE_INTEGER) - (second.order ?? Number.MAX_SAFE_INTEGER))
+    const currentIndex = siblings.findIndex((task) => task.id === taskId)
+    const targetIndex = siblings.findIndex((task) => task.id === targetTaskId)
+    if (currentIndex < 0 || targetIndex < 0) return
+
+    const [movedTask] = siblings.splice(currentIndex, 1)
+    siblings.splice(siblings.findIndex((task) => task.id === targetTaskId), 0, movedTask)
+    const updatedOrders = new Map(siblings.map((task, index) => [task.id, index]))
+    tasks.value = tasks.value.map((task) => {
+      const nextOrder = updatedOrders.get(task.id)
+      return nextOrder === undefined ? task : { ...task, order: nextOrder }
+    })
+    error.value = null
+
+    try {
+      await Promise.all(
+        siblings.map((task) => updateDoc(doc(userCollection(), task.id), { order: updatedOrders.get(task.id) })),
+      )
+    } catch (reorderError) {
+      tasks.value = previousTasks
+      reportWriteError(reorderError, 'Unable to reorder task.')
+    }
+  }
+
   return {
     tasks,
     steps: allSteps,
@@ -476,5 +510,6 @@ export const useTaskStore = defineStore('tasks', () => {
     deleteTask,
     deleteTasksForLists,
     reorderTask,
+    reorderTaskBefore,
   }
 })

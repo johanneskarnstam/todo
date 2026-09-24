@@ -15,6 +15,7 @@ const isSidebarOpen = ref(typeof window === 'undefined' ? true : window.innerWid
 const isDark = ref(false)
 const taskTitle = ref('')
 const pendingDeleteTaskId = ref<string | null>(null)
+const draggedTaskId = ref<string | null>(null)
 const pendingDeleteListId = ref<string | null>(null)
 const deleteListTasks = ref(false)
 const isListOptionsOpen = ref(false)
@@ -178,6 +179,16 @@ const requestDeleteTask = (taskId: string) => {
   pendingDeleteTaskId.value = taskId
 }
 
+const handleTaskDragStart = (taskId: string) => {
+  draggedTaskId.value = taskId
+}
+
+const handleTaskDrop = (targetTaskId: string) => {
+  const sourceTaskId = draggedTaskId.value
+  draggedTaskId.value = null
+  if (sourceTaskId) void taskStore.reorderTaskBefore(sourceTaskId, targetTaskId)
+}
+
 const cancelDeleteTask = () => {
   pendingDeleteTaskId.value = null
 }
@@ -335,8 +346,6 @@ const toggleTheme = () => {
                   :task="task"
                   :step-count="taskStore.taskStepCounts.get(task.id) ?? null"
                   :list-name="taskListName(task.listId)"
-                  :can-move-up="false"
-                  :can-move-down="false"
                   @select="taskStore.setActiveTask(task.id)"
                   @toggle-completed="taskStore.toggleCompleted(task.id)"
                   @toggle-important="taskStore.toggleImportant(task.id)"
@@ -356,14 +365,13 @@ const toggleTheme = () => {
                 :task="task"
                 :step-count="taskStore.taskStepCounts.get(task.id) ?? null"
                 :list-name="taskStore.activeView?.type === 'smart' && taskStore.activeView.smartView === 'important' ? taskListName(task.listId) : null"
-                :can-move-up="taskStore.activeView?.type === 'list' && taskStore.activeTasks.indexOf(task) > 0"
-                :can-move-down="taskStore.activeView?.type === 'list' && taskStore.activeTasks.indexOf(task) < taskStore.activeTasks.length - 1"
+                :draggable="taskStore.activeView?.type === 'list'"
                 @select="taskStore.setActiveTask(task.id)"
                 @toggle-completed="taskStore.toggleCompleted(task.id)"
                 @toggle-important="taskStore.toggleImportant(task.id)"
                 @toggle-my-day="taskStore.toggleMyDay(task.id)"
-                @move-up="taskStore.reorderTask(task.id, 'up')"
-                @move-down="taskStore.reorderTask(task.id, 'down')"
+                @drag-start="handleTaskDragStart(task.id)"
+                @drop="handleTaskDrop(task.id)"
                 @delete="requestDeleteTask(task.id)"
               />
             </div>
@@ -378,14 +386,13 @@ const toggleTheme = () => {
                 :task="task"
                 :step-count="taskStore.taskStepCounts.get(task.id) ?? null"
                 :list-name="taskStore.activeView?.type === 'smart' && taskStore.activeView.smartView === 'important' ? taskListName(task.listId) : null"
-                :can-move-up="taskStore.activeView?.type === 'list' && taskStore.completedTasks.indexOf(task) > 0"
-                :can-move-down="taskStore.activeView?.type === 'list' && taskStore.completedTasks.indexOf(task) < taskStore.completedTasks.length - 1"
+                :draggable="taskStore.activeView?.type === 'list'"
                 @select="taskStore.setActiveTask(task.id)"
                 @toggle-completed="taskStore.toggleCompleted(task.id)"
                 @toggle-important="taskStore.toggleImportant(task.id)"
                 @toggle-my-day="taskStore.toggleMyDay(task.id)"
-                @move-up="taskStore.reorderTask(task.id, 'up')"
-                @move-down="taskStore.reorderTask(task.id, 'down')"
+                @drag-start="handleTaskDragStart(task.id)"
+                @drop="handleTaskDrop(task.id)"
                 @delete="requestDeleteTask(task.id)"
               />
             </div>
