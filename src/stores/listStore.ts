@@ -36,6 +36,7 @@ export const useListStore = defineStore('lists', () => {
   const folders = ref<Folder[]>([])
   const lists = ref<List[]>([])
   const selectedListId = ref<string | null>(null)
+  const defaultListId = ref<string | null>(null)
   const isLoaded = ref(false)
   const error = ref<string | null>(null)
   const pendingListIds = new Set<string>()
@@ -58,10 +59,22 @@ export const useListStore = defineStore('lists', () => {
   const ungroupedLists = computed(() => lists.value.filter((list) => !list.folderId))
   const selectedList = computed(() => lists.value.find((list) => list.id === selectedListId.value) ?? null)
 
+  const defaultListStorageKey = () => {
+    const userId = auth.currentUser?.uid
+    return userId ? `todo-default-list-${userId}` : null
+  }
+
+  const readDefaultListId = () => {
+    const storageKey = defaultListStorageKey()
+    if (!storageKey || typeof localStorage === 'undefined') return null
+    return localStorage.getItem(storageKey)
+  }
+
   const clearState = () => {
     folders.value = []
     lists.value = []
     selectedListId.value = null
+    defaultListId.value = null
     isLoaded.value = false
     error.value = null
     pendingListIds.clear()
@@ -71,7 +84,7 @@ export const useListStore = defineStore('lists', () => {
   const userCollection = (collectionName: 'folders' | 'lists') => {
     const userId = auth.currentUser?.uid
     if (!userId) {
-      throw new Error('A signed-in user is required to access lists.')
+      throw new Error('En inloggad användare krävs för att komma åt listor.')
     }
 
     return collection(db, 'users', userId, collectionName)
@@ -102,7 +115,9 @@ export const useListStore = defineStore('lists', () => {
         ...fetchedLists,
         ...pendingLists.filter((list) => !fetchedLists.some((item) => item.id === list.id)),
       ])
-      selectedListId.value ??= lists.value[0]?.id ?? null
+      const storedDefaultListId = readDefaultListId()
+      defaultListId.value = storedDefaultListId && lists.value.some((list) => list.id === storedDefaultListId) ? storedDefaultListId : null
+      selectedListId.value = defaultListId.value ?? lists.value[0]?.id ?? null
       isLoaded.value = true
     } catch (fetchError) {
       try {
@@ -114,11 +129,25 @@ export const useListStore = defineStore('lists', () => {
         const cachedLists = listSnapshot.docs.map((list) => ({ id: list.id, ...list.data() }) as List)
         folders.value = sortByOrder(cachedFolders)
         lists.value = sortByOrder(cachedLists)
-        selectedListId.value ??= lists.value[0]?.id ?? null
+        const storedDefaultListId = readDefaultListId()
+        defaultListId.value = storedDefaultListId && lists.value.some((list) => list.id === storedDefaultListId) ? storedDefaultListId : null
+        selectedListId.value = defaultListId.value ?? lists.value[0]?.id ?? null
         isLoaded.value = true
       } catch {
-        error.value = fetchError instanceof Error ? fetchError.message : 'Unable to load lists.'
+        error.value = fetchError instanceof Error ? fetchError.message : 'Listorna kunde inte läsas in.'
       }
+    }
+  }
+
+  const setDefaultList = (listId: string | null) => {
+    const storageKey = defaultListStorageKey()
+    if (!storageKey || typeof localStorage === 'undefined') return
+
+    defaultListId.value = listId && lists.value.some((list) => list.id === listId) ? listId : null
+    if (defaultListId.value) {
+      localStorage.setItem(storageKey, defaultListId.value)
+    } else {
+      localStorage.removeItem(storageKey)
     }
   }
 
@@ -152,7 +181,7 @@ export const useListStore = defineStore('lists', () => {
       })
       return optimisticList
     } catch (createError) {
-      reportWriteError(createError, 'Unable to create list.')
+      reportWriteError(createError, 'Listan kunde inte skapas.')
       return optimisticList
     }
   }
@@ -180,7 +209,7 @@ export const useListStore = defineStore('lists', () => {
       })
       return optimisticFolder
     } catch (createError) {
-      reportWriteError(createError, 'Unable to create folder.')
+      reportWriteError(createError, 'Mappen kunde inte skapas.')
       return optimisticFolder
     }
   }
@@ -197,7 +226,7 @@ export const useListStore = defineStore('lists', () => {
       await updateDoc(doc(userCollection('lists'), listId), updates)
     } catch (updateError) {
       lists.value = lists.value.map((list) => (list.id === listId ? previousList : list))
-      reportWriteError(updateError, 'Unable to update list.')
+      reportWriteError(updateError, 'Listan kunde inte uppdateras.')
     }
   }
 
@@ -218,7 +247,7 @@ export const useListStore = defineStore('lists', () => {
       })
     } catch (moveError) {
       lists.value = lists.value.map((list) => (list.id === listId ? previousList : list))
-      reportWriteError(moveError, 'Unable to move list.')
+      reportWriteError(moveError, 'Listan kunde inte flyttas.')
     }
   }
 
@@ -239,7 +268,7 @@ export const useListStore = defineStore('lists', () => {
     } catch (deleteError) {
       lists.value = sortByOrder([...lists.value, deletedList])
       selectedListId.value ??= listId
-      reportWriteError(deleteError, 'Unable to delete list.')
+      reportWriteError(deleteError, 'Listan kunde inte tas bort.')
       return false
     }
   }
@@ -277,7 +306,7 @@ export const useListStore = defineStore('lists', () => {
     } catch (deleteError) {
       lists.value = previousLists
       folders.value = previousFolders
-      reportWriteError(deleteError, 'Unable to delete folder.')
+      reportWriteError(deleteError, 'Mappen kunde inte tas bort.')
       return null
     }
   }
@@ -308,7 +337,7 @@ export const useListStore = defineStore('lists', () => {
       currentList.order = otherList.order
       otherList.order = currentOrder
       lists.value = sortByOrder(lists.value)
-      reportWriteError(reorderError, 'Unable to reorder list.')
+      reportWriteError(reorderError, 'Listan kunde inte ordnas om.')
     }
   }
 
@@ -324,7 +353,7 @@ export const useListStore = defineStore('lists', () => {
       await updateDoc(doc(userCollection('folders'), folderId), updates)
     } catch (updateError) {
       folders.value = folders.value.map((folder) => (folder.id === folderId ? previousFolder : folder))
-      reportWriteError(updateError, 'Unable to update folder.')
+      reportWriteError(updateError, 'Mappen kunde inte uppdateras.')
     }
   }
 
@@ -341,10 +370,12 @@ export const useListStore = defineStore('lists', () => {
     ungroupedLists,
     selectedList,
     selectedListId,
+    defaultListId,
     isLoaded,
     error,
     clearState,
     fetchLists,
+    setDefaultList,
     createFolder,
     createList,
     updateListTheme,

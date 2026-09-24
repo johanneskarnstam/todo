@@ -102,7 +102,7 @@ export const useTaskStore = defineStore('tasks', () => {
   const userId = () => {
     const currentUserId = auth.currentUser?.uid
     if (!currentUserId) {
-      throw new Error('A signed-in user is required to access tasks.')
+      throw new Error('En inloggad användare krävs för att komma åt uppgifter.')
     }
 
     return currentUserId
@@ -124,7 +124,7 @@ export const useTaskStore = defineStore('tasks', () => {
         const cachedSnapshot = await getDocsFromCache(taskStepsCollection(taskId))
         return cachedSnapshot.docs.map((step) => ({ id: step.id, ...step.data() }) as Step)
       } catch {
-        error.value = fetchError instanceof Error ? fetchError.message : 'Unable to load steps.'
+        error.value = fetchError instanceof Error ? fetchError.message : 'Delstegen kunde inte läsas in.'
         return null
       }
     }
@@ -181,7 +181,7 @@ export const useTaskStore = defineStore('tasks', () => {
         isLoaded.value = true
         return
       } catch {
-        error.value = fetchError instanceof Error ? fetchError.message : 'Unable to load tasks.'
+        error.value = fetchError instanceof Error ? fetchError.message : 'Uppgifterna kunde inte läsas in.'
       }
     }
   }
@@ -236,7 +236,7 @@ export const useTaskStore = defineStore('tasks', () => {
       return tasks.value.find((task) => task.id === taskReference.id)
     } catch (createError) {
       tasks.value = tasks.value.filter((task) => task.id !== optimisticId)
-      reportWriteError(createError, 'Unable to create task.')
+      reportWriteError(createError, 'Uppgiften kunde inte skapas.')
     }
   }
 
@@ -255,7 +255,7 @@ export const useTaskStore = defineStore('tasks', () => {
       await updateDoc(doc(userCollection(), taskId), updates)
     } catch (updateError) {
       tasks.value = tasks.value.map((task) => (task.id === taskId ? previousTask : task))
-      reportWriteError(updateError, 'Unable to update task.')
+      reportWriteError(updateError, 'Uppgiften kunde inte uppdateras.')
     }
   }
 
@@ -289,7 +289,7 @@ export const useTaskStore = defineStore('tasks', () => {
 
     void updateDoc(doc(userCollection(), taskId), { dueDate: deleteField() }).catch((clearError: unknown) => {
       if (previousDueDate) task.dueDate = previousDueDate
-      reportWriteError(clearError, 'Unable to clear due date.')
+      reportWriteError(clearError, 'Förfallodatumet kunde inte tas bort.')
     })
   }
 
@@ -326,7 +326,7 @@ export const useTaskStore = defineStore('tasks', () => {
       return allSteps.value.find((step) => step.id === stepReference.id)
     } catch (createError) {
       allSteps.value = allSteps.value.filter((step) => step.id !== optimisticId)
-      reportWriteError(createError, 'Unable to create step.')
+      reportWriteError(createError, 'Delsteget kunde inte skapas.')
     }
   }
 
@@ -342,7 +342,7 @@ export const useTaskStore = defineStore('tasks', () => {
       completed: step.completed,
     }).catch((toggleError: unknown) => {
       step.completed = previousCompleted
-      reportWriteError(toggleError, 'Unable to update step.')
+      reportWriteError(toggleError, 'Delsteget kunde inte uppdateras.')
     })
   }
 
@@ -361,7 +361,7 @@ export const useTaskStore = defineStore('tasks', () => {
       await updateDoc(doc(taskStepsCollection(activeTaskId.value), stepId), { title: nextTitle })
     } catch (updateError) {
       step.title = previousTitle
-      reportWriteError(updateError, 'Unable to update step.')
+      reportWriteError(updateError, 'Delsteget kunde inte uppdateras.')
     }
   }
 
@@ -376,7 +376,7 @@ export const useTaskStore = defineStore('tasks', () => {
       await deleteDoc(doc(taskStepsCollection(activeTaskId.value), stepId))
     } catch (deleteError) {
       allSteps.value.splice(stepIndex, 0, deletedStep)
-      reportWriteError(deleteError, 'Unable to delete step.')
+      reportWriteError(deleteError, 'Delsteget kunde inte tas bort.')
     }
   }
 
@@ -393,7 +393,7 @@ export const useTaskStore = defineStore('tasks', () => {
       if (activeTaskId.value === taskId) setActiveTask(null)
     } catch (deleteError) {
       tasks.value = sortByCreatedAt([...tasks.value, deletedTask])
-      reportWriteError(deleteError, 'Unable to delete task.')
+      reportWriteError(deleteError, 'Uppgiften kunde inte tas bort.')
     }
   }
 
@@ -438,7 +438,7 @@ export const useTaskStore = defineStore('tasks', () => {
       restoredTasks[currentIndex] = currentTask
       restoredTasks[otherIndex] = otherTask
       tasks.value = restoredTasks
-      reportWriteError(reorderError, 'Unable to reorder task.')
+      reportWriteError(reorderError, 'Uppgiften kunde inte ordnas om.')
     }
   }
 
@@ -472,7 +472,7 @@ export const useTaskStore = defineStore('tasks', () => {
       )
     } catch (reorderError) {
       tasks.value = previousTasks
-      reportWriteError(reorderError, 'Unable to reorder task.')
+      reportWriteError(reorderError, 'Uppgiften kunde inte ordnas om.')
     }
   }
 

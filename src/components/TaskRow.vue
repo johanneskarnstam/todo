@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
+import { CalendarPlus, CheckCircle2, ListTodo, MoreVertical, Star, Trash2 } from '@lucide/vue'
 import type { StepCount, Task } from '@/types'
+
+let activeSwipeReset: (() => void) | null = null
 
 interface Props {
   task: Task
@@ -40,6 +43,8 @@ const closeMenu = () => {
 }
 
 const handleTouchStart = (event: TouchEvent) => {
+  if (activeSwipeReset && activeSwipeReset !== resetSwipe) activeSwipeReset()
+  activeSwipeReset = resetSwipe
   swipeStartX.value = event.touches[0]?.clientX ?? null
 }
 
@@ -64,6 +69,8 @@ const handleTouchEnd = () => {
 
 const resetSwipe = () => {
   swipeOffset.value = 0
+  swipeStartX.value = null
+  suppressClick.value = false
 }
 
 const handleRowClick = () => {
@@ -82,7 +89,10 @@ const handleDragStart = (event: DragEvent) => {
 }
 
 onMounted(() => window.addEventListener('click', closeMenu))
-onUnmounted(() => window.removeEventListener('click', closeMenu))
+onUnmounted(() => {
+  window.removeEventListener('click', closeMenu)
+  if (activeSwipeReset === resetSwipe) activeSwipeReset = null
+})
 
 const handleKeydown = (event: KeyboardEvent) => {
   if (event.key === 'Enter') {
@@ -102,7 +112,7 @@ const handleKeydown = (event: KeyboardEvent) => {
     tabindex="0"
     :draggable="draggable"
     :data-task-id="task.id"
-    :aria-label="`Task: ${task.title}`"
+    :aria-label="`Uppgift: ${task.title}`"
     @click="handleRowClick"
     @keydown="handleKeydown"
     @dragstart="handleDragStart"
@@ -112,9 +122,13 @@ const handleKeydown = (event: KeyboardEvent) => {
     @touchmove="handleTouchMove"
     @touchend="handleTouchEnd"
   >
-    <div class="absolute inset-0 flex items-stretch justify-between overflow-hidden rounded-lg text-white" aria-hidden="true">
-      <button class="w-24 bg-red-600 text-sm font-medium" type="button" @click.stop="emit('delete'); resetSwipe()">Delete</button>
-      <button class="w-24 bg-[#2564cf] text-sm font-medium" type="button" @click.stop="emit('toggle-important'); resetSwipe()">{{ task.important ? 'Unstar' : 'Star' }}</button>
+    <div class="absolute inset-0 flex items-stretch justify-between overflow-hidden rounded-lg text-white">
+      <button class="grid w-24 place-items-center bg-red-600" type="button" aria-label="Ta bort uppgift" title="Ta bort uppgift" @click.stop="emit('delete'); resetSwipe()">
+        <Trash2 :size="20" aria-hidden="true" />
+      </button>
+      <button class="grid w-24 place-items-center bg-[#2564cf]" type="button" :aria-label="task.important ? 'Ta bort stjärnmarkering' : 'Stjärnmarkera uppgift'" :title="task.important ? 'Ta bort stjärnmarkering' : 'Stjärnmarkera uppgift'" @click.stop="emit('toggle-important'); resetSwipe()">
+        <Star :size="20" :fill="task.important ? 'currentColor' : 'none'" aria-hidden="true" />
+      </button>
     </div>
 
     <div class="relative flex min-h-14 w-full items-center gap-3 rounded-lg bg-white px-4 py-2 transition-transform dark:bg-slate-900" :style="{ transform: `translateX(${swipeOffset}px)` }">
@@ -122,7 +136,7 @@ const handleKeydown = (event: KeyboardEvent) => {
         class="grid size-6 shrink-0 place-items-center rounded-full border border-slate-400 text-xs text-white transition hover:border-[#2564cf] dark:border-slate-500"
         :class="{ 'border-[#2564cf] bg-[#2564cf] dark:border-blue-400 dark:bg-blue-400': task.completed }"
         type="button"
-        :aria-label="task.completed ? 'Mark task active' : 'Mark task completed'"
+        :aria-label="task.completed ? 'Markera uppgift som aktiv' : 'Markera uppgift som slutförd'"
         @click.stop="emit('toggle-completed')"
       >
         <span v-if="task.completed" aria-hidden="true">✓</span>
@@ -130,18 +144,20 @@ const handleKeydown = (event: KeyboardEvent) => {
 
       <span class="min-w-0 flex-1 text-sm text-slate-800 dark:text-slate-100" :class="{ 'text-slate-400 line-through dark:text-slate-500': task.completed }">
         {{ task.title }}
-        <span v-if="stepCount && stepCount.total > 0" class="ml-2 text-xs text-slate-500 dark:text-slate-400" :aria-label="`${stepCount.completed} of ${stepCount.total} subtasks completed`">({{ stepCount.completed }}/{{ stepCount.total }})</span>
+        <span v-if="stepCount && stepCount.total > 0" class="ml-2 text-xs text-slate-500 dark:text-slate-400" :aria-label="`${stepCount.completed} av ${stepCount.total} delsteg klara`">({{ stepCount.completed }}/{{ stepCount.total }})</span>
         <span v-if="listName" class="ml-2 text-xs text-slate-500 dark:text-slate-400">{{ listName }}</span>
       </span>
 
       <div class="relative shrink-0">
-        <button class="grid size-9 place-items-center rounded-full text-xl text-slate-500 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700" type="button" aria-label="Task actions" :aria-expanded="isMenuOpen" @click.stop="updateMenuPlacement">
-          <span aria-hidden="true">⋯</span>
+        <button class="grid size-9 place-items-center rounded-full text-slate-500 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700" type="button" aria-label="Uppgiftsåtgärder" :aria-expanded="isMenuOpen" @click.stop="updateMenuPlacement">
+          <MoreVertical :size="20" aria-hidden="true" />
         </button>
         <div v-if="isMenuOpen" class="absolute right-0 z-30 w-44 rounded-xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-800" :class="menuPlacement === 'above' ? 'bottom-full mb-2' : 'top-full mt-2'" @click.stop>
-          <button class="flex min-h-10 w-full items-center rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="emit('toggle-important'); closeMenu()">{{ task.important ? 'Remove star' : 'Star task' }}</button>
-          <button class="flex min-h-10 w-full items-center rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="emit('toggle-my-day'); closeMenu()">{{ task.myDay ? 'Remove from My day' : 'Add to My day' }}</button>
-          <button class="flex min-h-10 w-full items-center rounded-lg px-3 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950" type="button" @click="emit('delete'); closeMenu()">Delete task</button>
+          <button class="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="emit('select'); closeMenu()"><ListTodo :size="17" aria-hidden="true" />Visa detaljer</button>
+          <button class="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="emit('toggle-completed'); closeMenu()"><CheckCircle2 :size="17" aria-hidden="true" />{{ task.completed ? 'Markera som aktiv' : 'Markera som slutförd' }}</button>
+          <button class="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="emit('toggle-important'); closeMenu()"><Star :size="17" :fill="task.important ? 'currentColor' : 'none'" aria-hidden="true" />{{ task.important ? 'Ta bort stjärnmarkering' : 'Stjärnmarkera' }}</button>
+          <button class="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="emit('toggle-my-day'); closeMenu()"><CalendarPlus :size="17" aria-hidden="true" />{{ task.myDay ? 'Ta bort från Min dag' : 'Lägg till i Min dag' }}</button>
+          <button class="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950" type="button" @click="emit('delete'); closeMenu()"><Trash2 :size="17" aria-hidden="true" />Ta bort uppgift</button>
         </div>
       </div>
     </div>

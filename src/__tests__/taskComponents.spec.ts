@@ -22,17 +22,17 @@ describe('TaskRow', () => {
     await wrapper.find('article').trigger('click')
     expect(wrapper.emitted('select')).toHaveLength(1)
 
-    await wrapper.find('button[aria-label="Mark task completed"]').trigger('click')
+    await wrapper.find('button[aria-label="Markera uppgift som slutförd"]').trigger('click')
     expect(wrapper.emitted('toggle-completed')).toHaveLength(1)
     expect(wrapper.emitted('select')).toHaveLength(1)
 
-    await wrapper.find('button[aria-label="Task actions"]').trigger('click')
-    await wrapper.findAll('button').find((button) => button.text() === 'Star task')?.trigger('click')
+    await wrapper.find('button[aria-label="Uppgiftsåtgärder"]').trigger('click')
+    await wrapper.findAll('button').find((button) => button.text() === 'Stjärnmarkera')?.trigger('click')
     expect(wrapper.emitted('toggle-important')).toHaveLength(1)
     expect(wrapper.emitted('select')).toHaveLength(1)
 
-    await wrapper.find('button[aria-label="Task actions"]').trigger('click')
-    await wrapper.findAll('button').find((button) => button.text() === 'Add to My day')?.trigger('click')
+    await wrapper.find('button[aria-label="Uppgiftsåtgärder"]').trigger('click')
+    await wrapper.findAll('button').find((button) => button.text() === 'Lägg till i Min dag')?.trigger('click')
     expect(wrapper.emitted('toggle-my-day')).toHaveLength(1)
   })
 
@@ -41,7 +41,7 @@ describe('TaskRow', () => {
       props: { task, stepCount: { completed: 2, total: 3 } },
     })
     expect(withSteps.text()).toContain('(2/3)')
-    expect(withSteps.find('[aria-label="2 of 3 subtasks completed"]').exists()).toBe(true)
+    expect(withSteps.find('[aria-label="2 av 3 delsteg klara"]').exists()).toBe(true)
 
     const withoutSteps = mount(TaskRow, { props: { task } })
     expect(withoutSteps.text()).not.toContain('(/')
@@ -56,6 +56,19 @@ describe('TaskRow', () => {
 
     expect(wrapper.emitted('toggle-completed')).toHaveLength(1)
     expect(wrapper.emitted('select')).toHaveLength(1)
+  })
+
+  it('offers every task action from the vertical actions menu', async () => {
+    const wrapper = mount(TaskRow, { props: { task } })
+    const openMenu = () => wrapper.find('button[aria-label="Uppgiftsåtgärder"]').trigger('click')
+
+    await openMenu()
+    await wrapper.findAll('button').find((button) => button.text() === 'Visa detaljer')?.trigger('click')
+    expect(wrapper.emitted('select')).toHaveLength(1)
+
+    await openMenu()
+    await wrapper.findAll('button').find((button) => button.text() === 'Markera som slutförd')?.trigger('click')
+    expect(wrapper.emitted('toggle-completed')).toHaveLength(1)
   })
 })
 
@@ -73,12 +86,12 @@ describe('TaskDetailsPanel', () => {
   it('emits updates for title, steps, My day, due date, notes, and deletion', async () => {
     const wrapper = mount(TaskDetailsPanel, { props: { task, steps } })
 
-    const titleInput = wrapper.find('input[aria-label="Task title"]')
+    const titleInput = wrapper.find('input[aria-label="Uppgiftens titel"]')
     await titleInput.setValue('Paint the ceiling')
     await titleInput.trigger('blur')
     expect(wrapper.emitted('save-title')).toEqual([['Paint the ceiling']])
 
-    const stepInput = wrapper.find('input[placeholder="Add step"]')
+    const stepInput = wrapper.find('input[placeholder="Lägg till delsteg"]')
     await stepInput.setValue('Protect floor')
     await wrapper.find('form').trigger('submit')
     expect(wrapper.emitted('add-step')).toEqual([['Protect floor']])
@@ -86,13 +99,13 @@ describe('TaskDetailsPanel', () => {
     await wrapper.find('input[type="checkbox"]').trigger('change')
     expect(wrapper.emitted('toggle-step')).toEqual([['step-1']])
 
-    await wrapper.find('button[aria-label="Delete step Buy paint"]').trigger('click')
+    await wrapper.find('button[aria-label="Ta bort delsteg: Buy paint"]').trigger('click')
     expect(wrapper.emitted('delete-step')).toEqual([['step-1']])
 
     await wrapper.get('button').trigger('click')
     expect(wrapper.emitted('close')).toBeTruthy()
 
-    const myDayButton = wrapper.findAll('button').find((button) => button.text().includes('Add to My day'))
+    const myDayButton = wrapper.findAll('button').find((button) => button.text().includes('Lägg till i Min dag'))
     await myDayButton?.trigger('click')
     expect(wrapper.emitted('toggle-my-day')).toHaveLength(1)
 
@@ -105,7 +118,7 @@ describe('TaskDetailsPanel', () => {
     await noteInput.trigger('blur')
     expect(wrapper.emitted('save-note')).toEqual([['Use the blue paint.']])
 
-    const deleteButton = wrapper.findAll('button').find((button) => button.text().includes('Delete task'))
+    const deleteButton = wrapper.findAll('button').find((button) => button.text().includes('Ta bort uppgift'))
     await deleteButton?.trigger('click')
     expect(wrapper.emitted('delete-task')).toHaveLength(1)
   })
@@ -115,7 +128,7 @@ describe('TaskDetailsPanel', () => {
 
     const stepButton = wrapper.findAll('button').find((button) => button.text() === 'Buy paint')
     await stepButton?.trigger('click')
-    const editInput = wrapper.find('input[aria-label="Edit step Buy paint"]')
+    const editInput = wrapper.find('input[aria-label="Redigera delsteg: Buy paint"]')
     await editInput.setValue('Buy green paint')
     await editInput.trigger('keydown.enter')
 

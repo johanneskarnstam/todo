@@ -1,14 +1,17 @@
 <script setup lang="ts">
-import { useI18n, type Locale } from '@/i18n'
+import { onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { useListStore } from '@/stores/listStore'
 import { useRouter } from 'vue-router'
 
-const { t, locale, setLocale } = useI18n()
 const authStore = useAuthStore()
+const listStore = useListStore()
 const router = useRouter()
 
-const selectLocale = (nextLocale: Locale) => {
-  setLocale(nextLocale)
+onMounted(() => void listStore.fetchLists())
+
+const selectDefaultList = (event: Event) => {
+  listStore.setDefaultList((event.target as HTMLSelectElement).value || null)
 }
 
 const handleLogout = async () => {
@@ -25,49 +28,34 @@ const handleLogout = async () => {
   <main class="min-h-screen bg-[#faf9f8] px-4 py-8 text-slate-800 dark:bg-slate-950 dark:text-slate-100 sm:px-8 lg:px-12">
     <div class="mx-auto max-w-2xl">
       <RouterLink class="mb-8 inline-flex min-h-10 items-center rounded px-3 text-sm text-[#2564cf] hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-slate-800" to="/">
-        ← {{ t('appName') }}
+        ← Att göra
       </RouterLink>
-      <h1 class="text-3xl font-semibold text-[#2564cf] dark:text-blue-400">{{ t('settingsTitle') }}</h1>
+      <h1 class="text-3xl font-semibold text-[#2564cf] dark:text-blue-400">Inställningar</h1>
 
-      <section class="mt-8 border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900" aria-labelledby="language-heading">
-        <h2 id="language-heading" class="text-lg font-semibold">{{ t('language') }}</h2>
-        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">{{ t('languageDescription') }}</p>
-        <div class="mt-5 grid gap-3 sm:grid-cols-2" role="radiogroup" :aria-label="t('language')">
-          <button
-            class="min-h-12 rounded border px-4 text-left text-sm transition hover:border-[#2564cf]"
-            :class="locale === 'sv' ? 'border-[#2564cf] bg-blue-50 text-[#2564cf] dark:bg-slate-800 dark:text-blue-400' : 'border-slate-200 dark:border-slate-700'"
-            type="button"
-            role="radio"
-            :aria-checked="locale === 'sv'"
-            @click="selectLocale('sv')"
-          >
-            {{ t('swedish') }}
-          </button>
-          <button
-            class="min-h-12 rounded border px-4 text-left text-sm transition hover:border-[#2564cf]"
-            :class="locale === 'en' ? 'border-[#2564cf] bg-blue-50 text-[#2564cf] dark:bg-slate-800 dark:text-blue-400' : 'border-slate-200 dark:border-slate-700'"
-            type="button"
-            role="radio"
-            :aria-checked="locale === 'en'"
-            @click="selectLocale('en')"
-          >
-            {{ t('english') }}
-          </button>
-        </div>
+      <section class="mt-8 border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900" aria-labelledby="default-list-heading">
+        <h2 id="default-list-heading" class="text-lg font-semibold">Standardlista</h2>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Välj vilken lista som ska öppnas automatiskt när appen laddas.</p>
+        <label class="mt-5 block" for="default-list">
+          <span class="sr-only">Standardlista</span>
+          <select id="default-list" class="min-h-12 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-[#2564cf] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200" :value="listStore.defaultListId ?? ''" @change="selectDefaultList">
+            <option value="">Första listan</option>
+            <option v-for="list in listStore.lists" :key="list.id" :value="list.id">{{ list.name }}</option>
+          </select>
+        </label>
       </section>
       <section class="mt-8 border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900" aria-labelledby="account-heading">
-        <h2 id="account-heading" class="text-lg font-semibold">{{ t('account') }}</h2>
+        <h2 id="account-heading" class="text-lg font-semibold">Konto</h2>
         <div class="mt-5 flex items-center gap-4">
           <img
             v-if="authStore.user?.photoURL"
             :src="authStore.user.photoURL"
-            alt="Profile"
+            alt="Profilbild"
             class="h-14 w-14 rounded-full object-cover"
           />
           <div v-else class="h-14 w-14 rounded-full bg-slate-300 dark:bg-slate-600" />
           <div class="flex-1 min-w-0">
             <p class="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">
-              {{ authStore.user?.displayName || t('user') }}
+              {{ authStore.user?.displayName || 'Användare' }}
             </p>
             <p class="text-xs text-slate-500 dark:text-slate-400 truncate">
               {{ authStore.user?.email || '' }}
@@ -80,7 +68,7 @@ const handleLogout = async () => {
           @click="handleLogout"
         >
           <span class="text-lg" aria-hidden="true">↩</span>
-          <span>{{ t('logout') }}</span>
+          <span>Logga ut</span>
         </button>
       </section>
     </div>

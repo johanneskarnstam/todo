@@ -13,7 +13,7 @@ const toastStore = useToastStore()
       role="alert"
     >
       <span class="min-w-0 flex-1">{{ toast.message }}</span>
-      <button class="shrink-0 text-lg leading-none text-red-500 hover:text-red-700" type="button" aria-label="Dismiss notification" @click="toastStore.dismiss(toast.id)">×</button>
+      <button class="shrink-0 text-lg leading-none text-red-500 hover:text-red-700" type="button" aria-label="Stäng meddelande" @click="toastStore.dismiss(toast.id)">×</button>
     </div>
   </div>
 </template>

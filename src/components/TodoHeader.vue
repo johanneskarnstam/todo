@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
-import { useI18n } from '@/i18n'
 
 interface Props {
   isDark: boolean
@@ -14,7 +13,6 @@ interface Emits {
 
 defineProps<Props>()
 const emit = defineEmits<Emits>()
-const { t } = useI18n()
 const iconUrl = `${import.meta.env.BASE_URL}img/icons/todo-icon.svg`
 const isOnline = ref(true)
 
@@ -40,14 +38,14 @@ onUnmounted(() => {
       <button
         class="grid size-8 place-items-center rounded-lg text-white/90 transition hover:bg-white/15"
         type="button"
-        :aria-label="isSidebarOpen ? 'Close navigation menu' : 'Open navigation menu'"
+        :aria-label="isSidebarOpen ? 'Stäng navigeringsmeny' : 'Öppna navigeringsmeny'"
         @click="emit('toggle-menu')"
       >
         <span class="text-xl leading-none">☰</span>
       </button>
       <div class="flex items-center gap-2">
         <img class="size-8 rounded-full shadow-sm" :src="iconUrl" alt="" aria-hidden="true" />
-        <span class="text-lg font-semibold tracking-tight">{{ t('appName') }}</span>
+        <span class="text-lg font-semibold tracking-tight">Att göra</span>
       </div>
     </div>
 
@@ -56,7 +54,7 @@ onUnmounted(() => {
       <button
         class="grid size-9 place-items-center rounded-lg text-lg text-white/90 transition hover:bg-white/15"
         type="button"
-        :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
+        :aria-label="isDark ? 'Byt till ljust läge' : 'Byt till mörkt läge'"
         @click="emit('toggle-theme')"
       >
         <span aria-hidden="true">{{ isDark ? '☀' : '☾' }}</span>
