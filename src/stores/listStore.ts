@@ -46,7 +46,6 @@ export const useListStore = defineStore('lists', () => {
   const folders = ref<Folder[]>([])
   const lists = ref<List[]>([])
   const selectedListId = ref<string | null>(null)
-  const defaultListId = ref<string | null>(null)
   const isLoaded = ref(false)
   const error = ref<string | null>(null)
   const pendingWriteCount = ref(0)
@@ -80,20 +79,8 @@ export const useListStore = defineStore('lists', () => {
   const ungroupedLists = computed(() => lists.value.filter((list) => !list.folderId))
   const selectedList = computed(() => lists.value.find((list) => list.id === selectedListId.value) ?? null)
 
-  const defaultListStorageKey = () => {
-    const userId = auth.currentUser?.uid
-    return userId ? `todo-default-list-${userId}` : null
-  }
-
-  const readDefaultListId = () => {
-    const storageKey = defaultListStorageKey()
-    if (!storageKey || typeof localStorage === 'undefined') return null
-    return localStorage.getItem(storageKey)
-  }
-
   const selectFallbackList = () => {
     lists.value = sortByOrder([defaultList, ...lists.value.filter((list) => list.id !== DEFAULT_LIST_ID)])
-    defaultListId.value = null
     selectedListId.value = DEFAULT_LIST_ID
     isLoaded.value = true
   }
@@ -102,7 +89,6 @@ export const useListStore = defineStore('lists', () => {
     folders.value = []
     lists.value = []
     selectedListId.value = null
-    defaultListId.value = null
     isLoaded.value = false
     error.value = null
     pendingListIds.clear()
@@ -145,11 +131,9 @@ export const useListStore = defineStore('lists', () => {
         ...fetchedLists,
         ...pendingLists.filter((list) => !fetchedLists.some((item) => item.id === list.id)),
       ])
-      const storedDefaultListId = readDefaultListId()
-      defaultListId.value = storedDefaultListId && lists.value.some((list) => list.id === storedDefaultListId) ? storedDefaultListId : null
       selectedListId.value = lists.value.some((list) => list.id === selectedListId.value)
         ? selectedListId.value
-        : defaultListId.value ?? DEFAULT_LIST_ID
+        : DEFAULT_LIST_ID
       isLoaded.value = true
     } catch (fetchError) {
       try {
@@ -161,28 +145,14 @@ export const useListStore = defineStore('lists', () => {
         const cachedLists = listSnapshot.docs.map((list) => ({ id: list.id, ...list.data() }) as List)
         folders.value = sortByOrder(cachedFolders)
         lists.value = sortByOrder([defaultList, ...cachedLists])
-        const storedDefaultListId = readDefaultListId()
-        defaultListId.value = storedDefaultListId && lists.value.some((list) => list.id === storedDefaultListId) ? storedDefaultListId : null
         selectedListId.value = lists.value.some((list) => list.id === selectedListId.value)
           ? selectedListId.value
-          : defaultListId.value ?? DEFAULT_LIST_ID
+          : DEFAULT_LIST_ID
         isLoaded.value = true
       } catch {
         error.value = fetchError instanceof Error ? fetchError.message : 'Listorna kunde inte läsas in.'
         selectFallbackList()
       }
-    }
-  }
-
-  const setDefaultList = (listId: string | null) => {
-    const storageKey = defaultListStorageKey()
-    if (!storageKey || typeof localStorage === 'undefined') return
-
-    defaultListId.value = listId && listId !== DEFAULT_LIST_ID && lists.value.some((list) => list.id === listId) ? listId : null
-    if (defaultListId.value) {
-      localStorage.setItem(storageKey, defaultListId.value)
-    } else {
-      localStorage.removeItem(storageKey)
     }
   }
 
@@ -386,6 +356,39 @@ export const useListStore = defineStore('lists', () => {
     }
   }
 
+  const reorderListBefore = async (listId: string, targetListId: string) => {
+    if (listId === DEFAULT_LIST_ID || listId === targetListId) return
+
+    const currentList = lists.value.find((list) => list.id === listId)
+    const targetList = lists.value.find((list) => list.id === targetListId)
+    if (!currentList || !targetList || currentList.folderId !== targetList.folderId) return
+
+    const siblings = lists.value
+      .filter((list) => list.folderId === currentList.folderId)
+      .sort((first, second) => first.order - second.order)
+    const sourceIndex = siblings.findIndex((list) => list.id === listId)
+    const targetIndex = siblings.findIndex((list) => list.id === targetListId)
+    if (sourceIndex < 0 || targetIndex < 0) return
+
+    const previousOrders = new Map(siblings.map((list) => [list.id, list.order]))
+    const [movedList] = siblings.splice(sourceIndex, 1)
+    siblings.splice(siblings.findIndex((list) => list.id === targetListId), 0, movedList)
+    siblings.forEach((list, index) => { list.order = index })
+    lists.value = sortByOrder(lists.value)
+
+    try {
+      await trackWrite(() => Promise.all(
+        siblings
+          .filter((list) => previousOrders.get(list.id) !== list.order)
+          .map((list) => updateDoc(doc(userCollection('lists'), list.id), { order: list.order })),
+      ))
+    } catch (reorderError) {
+      siblings.forEach((list) => { list.order = previousOrders.get(list.id) ?? list.order })
+      lists.value = sortByOrder(lists.value)
+      reportWriteError(reorderError, 'Listan kunde inte ordnas om.')
+    }
+  }
+
   const updateFolder = async (folderId: string, updates: FolderUpdate) => {
     const currentFolder = folders.value.find((folder) => folder.id === folderId)
     if (!currentFolder) return
@@ -415,13 +418,11 @@ export const useListStore = defineStore('lists', () => {
     ungroupedLists,
     selectedList,
     selectedListId,
-    defaultListId,
     isLoaded,
     isSaving,
     error,
     clearState,
     fetchLists,
-    setDefaultList,
     createFolder,
     createList,
     updateListTheme,
@@ -429,6 +430,7 @@ export const useListStore = defineStore('lists', () => {
     deleteFolder,
     moveList,
     reorderList,
+    reorderListBefore,
     updateList,
     updateFolder,
     selectList,

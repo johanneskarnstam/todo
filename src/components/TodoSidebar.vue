@@ -27,6 +27,7 @@ interface Emits {
   (event: 'rename-folder', folderId: string, name: string): void
   (event: 'delete-folder', folderId: string, deleteLists: boolean): void
   (event: 'reorder-list', listId: string, direction: 'up' | 'down'): void
+  (event: 'reorder-list-before', listId: string, targetListId: string): void
 }
 
 defineProps<Props>()
@@ -60,6 +61,7 @@ const openMoveMenuListId = ref<string | null>(null)
 const openFolderMenuId = ref<string | null>(null)
 const editingFolderId = ref<string | null>(null)
 const editingFolderName = ref('')
+const draggedListId = ref<string | null>(null)
 
 watch(collapsedFolders, (value) => {
   if (typeof localStorage !== 'undefined') localStorage.setItem('todo-collapsed-folders', JSON.stringify(value))
@@ -127,6 +129,25 @@ const toggleMoveMenu = (listId: string) => {
 const moveList = (listId: string, folderId: string | null) => {
   emit('move-list', listId, folderId)
   openMoveMenuListId.value = null
+}
+
+const startListDrag = (listId: string, event: DragEvent) => {
+  draggedListId.value = listId
+  event.dataTransfer?.setData('text/plain', listId)
+  if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'
+}
+
+const finishListDrag = () => {
+  draggedListId.value = null
+}
+
+const dropList = (targetListId: string, event: DragEvent) => {
+  event.preventDefault()
+  const sourceListId = draggedListId.value ?? event.dataTransfer?.getData('text/plain')
+  if (!sourceListId || sourceListId === targetListId) return
+
+  emit('reorder-list-before', sourceListId, targetListId)
+  finishListDrag()
 }
 
 </script>
@@ -225,7 +246,17 @@ const moveList = (listId: string, folderId: string | null) => {
             </div>
           </div>
           <div v-if="!collapsedFolders[section.folder.id]" class="border-l-2 border-slate-300 dark:border-slate-600">
-            <div v-for="list in section.lists" :key="list.id" class="group/list relative">
+            <div
+              v-for="list in section.lists"
+              :key="list.id"
+              class="group/list relative"
+              :class="{ 'opacity-50': draggedListId === list.id }"
+              draggable="true"
+              @dragstart="startListDrag(list.id, $event)"
+              @dragend="finishListDrag"
+              @dragover.prevent
+              @drop="dropList(list.id, $event)"
+            >
               <button
                 class="group flex h-11 w-full items-center gap-4 border-l-2 border-transparent px-4 pr-12 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
                 :class="{
@@ -285,7 +316,17 @@ const moveList = (listId: string, folderId: string | null) => {
 
         <section v-if="ungroupedLists.length" class="mb-4">
           <div class="border-l-2 border-slate-300 dark:border-slate-600">
-            <div v-for="list in ungroupedLists" :key="list.id" class="group/list relative">
+            <div
+              v-for="list in ungroupedLists"
+              :key="list.id"
+              class="group/list relative"
+              :class="{ 'opacity-50': draggedListId === list.id }"
+              draggable="true"
+              @dragstart="startListDrag(list.id, $event)"
+              @dragend="finishListDrag"
+              @dragover.prevent
+              @drop="dropList(list.id, $event)"
+            >
               <button
                 class="group flex h-11 w-full items-center gap-4 border-l-2 border-transparent px-4 pr-12 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
                 :class="{ 'border-[#2564cf] bg-[#eef5fc] text-slate-900 dark:border-blue-400 dark:bg-slate-800 dark:text-white': activeListId === list.id }"

@@ -48,7 +48,6 @@ const currentTitle = computed(() => {
 const canAddTask = computed(() => taskStore.activeView?.type === 'list')
 const activeList = computed(() => taskStore.activeView?.type === 'list' ? listStore.selectedList : null)
 const activeListColor = computed(() => activeList.value?.themeColor ?? '#2564cf')
-const isInitialLoading = computed(() => !listStore.isLoaded || !taskStore.isLoaded)
 const themeColors = ['#2564cf', '#107c10', '#d83b01', '#8764b8', '#038387', '#ca5010']
 
 const taskListName = (listId: string) => listStore.lists.find((list) => list.id === listId)?.name ?? null
@@ -95,7 +94,7 @@ const handleSelectList = (listId: string) => {
 
 const handleGoHome = () => {
   taskStore.setActiveTask(null)
-  taskStore.setListView(listStore.selectedListId ?? DEFAULT_LIST_ID)
+  taskStore.setListView(DEFAULT_LIST_ID)
   void router.push({ name: 'home' })
 }
 
@@ -250,11 +249,16 @@ const handleGlobalKeydown = (event: KeyboardEvent) => {
 
 onMounted(async () => {
   window.addEventListener('keydown', handleGlobalKeydown)
+  if (routeSmartView.value) {
+    taskStore.setSmartView(routeSmartView.value)
+  } else {
+    taskStore.setListView(DEFAULT_LIST_ID)
+  }
   await listStore.fetchLists()
   if (routeSmartView.value) {
     taskStore.setSmartView(routeSmartView.value)
   } else {
-    taskStore.setListView(listStore.selectedListId ?? DEFAULT_LIST_ID)
+    taskStore.setListView(DEFAULT_LIST_ID)
   }
 })
 
@@ -318,6 +322,7 @@ const toggleTheme = () => {
         @rename-folder="handleRenameFolder"
         @delete-folder="handleDeleteFolder"
         @reorder-list="listStore.reorderList"
+        @reorder-list-before="listStore.reorderListBefore"
       />
 
       <main class="min-w-0 flex-1 overflow-y-auto rounded-t-2xl bg-[#faf9f8] dark:bg-slate-950 sm:rounded-t-none">
@@ -429,16 +434,9 @@ const toggleTheme = () => {
             </div>
           </section>
 
-          <p v-if="!taskStore.visibleTasks.length" class="mt-16 text-center text-sm text-slate-500 dark:text-slate-400">Inga uppgifter ännu</p>
+          <p v-if="taskStore.isLoaded && !taskStore.visibleTasks.length" class="mt-16 text-center text-sm text-slate-500 dark:text-slate-400">Inga uppgifter ännu</p>
         </div>
       </main>
-
-      <div v-if="isInitialLoading" class="fixed inset-0 z-[90] grid place-items-center bg-slate-950/25 px-4 backdrop-blur-[2px]" role="status" aria-live="polite" aria-label="Laddar listan">
-        <div class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-5 py-4 text-sm font-medium text-slate-700 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
-          <span class="size-5 animate-spin rounded-full border-2 border-slate-300 border-t-[#2564cf] dark:border-slate-600 dark:border-t-blue-400" aria-hidden="true" />
-          Hämtar din lista...
-        </div>
-      </div>
 
       <TaskDetailsPanel
         v-if="taskStore.activeTask"

@@ -72,6 +72,25 @@ describe('useListStore', () => {
     expect(store.selectedListId).toBe('__default__')
   })
 
+  it('always starts with Att göra even when an old default list is stored', async () => {
+    vi.stubGlobal('localStorage', {
+      getItem: vi.fn(() => 'list-1'),
+      setItem: vi.fn(),
+      removeItem: vi.fn(),
+    })
+    firestoreMocks.getDocs
+      .mockResolvedValueOnce(snapshot([]))
+      .mockResolvedValueOnce(snapshot([
+        { id: 'list-1', data: () => ({ name: 'Other list', order: 1 }) },
+      ]))
+
+    const store = useListStore()
+    await store.fetchLists()
+
+    expect(store.selectedListId).toBe('__default__')
+    expect(store.selectedList?.name).toBe('Att göra')
+  })
+
   it('keeps a new list visible across a concurrent fetch and persists its stable id', async () => {
     let resolveAdd: () => void = () => undefined
     firestoreMocks.setDoc.mockReturnValueOnce(new Promise<void>((resolve) => {
@@ -221,6 +240,22 @@ describe('useListStore', () => {
     expect(removedLists).toEqual([])
     expect(store.foldersWithLists).toHaveLength(0)
     expect(firestoreMocks.deleteDoc).toHaveBeenCalled()
+  })
+
+  it('moves a list directly before another list in the same group', async () => {
+    const store = useListStore()
+    store.lists.push(
+      { id: 'list-1', name: 'First', order: 0, icon: '☷', createdAt: Timestamp.now() },
+      { id: 'list-2', name: 'Second', order: 1, icon: '☷', createdAt: Timestamp.now() },
+      { id: 'list-3', name: 'Third', order: 2, icon: '☷', createdAt: Timestamp.now() },
+      { id: 'other-list', name: 'Other group', folderId: 'folder-1', order: 0, icon: '☷', createdAt: Timestamp.now() },
+    )
+
+    await store.reorderListBefore('list-3', 'list-1')
+
+    expect(store.ungroupedLists.map((list) => list.id)).toEqual(['list-3', 'list-1', 'list-2'])
+    expect(store.lists.find((list) => list.id === 'other-list')?.order).toBe(0)
+    expect(firestoreMocks.updateDoc).toHaveBeenCalledTimes(3)
   })
 
   it('deletes a folder and returns the contained list ids', async () => {
