@@ -12,6 +12,8 @@ interface Props {
   open: boolean
   activeListId: string | null
   activeSmartView: SmartView | null
+  availableTags: string[]
+  selectedTag: string
   folders: FolderSection[]
   ungroupedLists: List[]
   smartViewCounts: Record<SmartView, number>
@@ -21,6 +23,7 @@ interface Emits {
   (event: 'close'): void
   (event: 'select-list', listId: string): void
   (event: 'select-smart-view', view: SmartView): void
+  (event: 'select-tag', tag: string): void
   (event: 'create-list', name: string): void
   (event: 'create-folder', name: string): void
   (event: 'move-list', listId: string, folderId: string | null): void
@@ -59,6 +62,7 @@ const openMoveMenuListId = ref<string | null>(null)
 const openFolderMenuId = ref<string | null>(null)
 const editingFolderId = ref<string | null>(null)
 const editingFolderName = ref('')
+const isTagsOpen = ref(false)
 
 watch(collapsedFolders, (value) => {
   if (typeof localStorage !== 'undefined') localStorage.setItem('todo-collapsed-folders', JSON.stringify(value))
@@ -117,6 +121,11 @@ const submitNewFolder = () => {
 
 const selectSmartView = (view?: SmartView) => {
   if (view) emit('select-smart-view', view)
+}
+
+const selectTag = (tag: string) => {
+  emit('select-tag', tag)
+  isTagsOpen.value = false
 }
 
 const toggleMoveMenu = (listId: string) => {
@@ -184,6 +193,43 @@ const moveList = (listId: string, folderId: string | null) => {
       </nav>
 
       <div class="my-4 border-t border-slate-200 dark:border-slate-700" />
+
+      <div class="mb-4">
+        <button
+          class="flex h-11 w-full items-center gap-4 rounded-lg px-3 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+          type="button"
+          aria-controls="sidebar-tags-menu"
+          :aria-expanded="isTagsOpen"
+          @click="isTagsOpen = !isTagsOpen"
+        >
+          <span class="w-4 text-center text-lg leading-none text-slate-600 dark:text-slate-300" aria-hidden="true">#</span>
+          <span class="flex-1">Taggar</span>
+          <span class="text-base text-slate-500" aria-hidden="true">{{ isTagsOpen ? '⌄' : '›' }}</span>
+        </button>
+        <div v-if="isTagsOpen" id="sidebar-tags-menu" class="mt-1 border-l-2 border-slate-300 pl-2 dark:border-slate-600" role="menu" aria-label="Välj tagg">
+          <button
+            class="flex min-h-10 w-full items-center rounded-lg px-3 text-left text-sm text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+            :class="{ 'bg-[#eef5fc] font-semibold text-slate-900 dark:bg-slate-800 dark:text-white': !selectedTag }"
+            type="button"
+            role="menuitem"
+            @click="selectTag('')"
+          >
+            Alla taggar
+          </button>
+          <button
+            v-for="tag in availableTags"
+            :key="tag"
+            class="flex min-h-10 w-full items-center rounded-lg px-3 text-left text-sm text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+            :class="{ 'bg-[#eef5fc] font-semibold text-slate-900 dark:bg-slate-800 dark:text-white': selectedTag === tag }"
+            type="button"
+            role="menuitem"
+            @click="selectTag(tag)"
+          >
+            #{{ tag }}
+          </button>
+          <p v-if="!availableTags.length" class="px-3 py-2 text-sm text-slate-500 dark:text-slate-400">Inga taggar ännu</p>
+        </div>
+      </div>
 
       <div class="min-h-0 flex-1 overflow-y-auto">
         <div class="mb-3 border-b border-slate-200 pb-2 dark:border-slate-700">

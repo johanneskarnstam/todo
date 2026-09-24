@@ -7,8 +7,9 @@ import TaskRow from '@/components/TaskRow.vue'
 import TaskDetailsPanel from '@/components/TaskDetailsPanel.vue'
 import { DEFAULT_LIST_ID, useListStore } from '@/stores/listStore'
 import { useTaskStore } from '@/stores/taskStore'
+import { useToastStore } from '@/stores/toastStore'
 import { useReminderNotifications } from '@/composables/useReminderNotifications'
-import type { SmartView } from '@/types'
+import type { SmartView, TaskReminder } from '@/types'
 
 const isSidebarOpen = ref(typeof window === 'undefined' ? true : window.innerWidth >= 1024)
 const isDark = ref(false)
@@ -18,9 +19,9 @@ const pendingDeleteListId = ref<string | null>(null)
 const deleteListTasks = ref(false)
 const isListOptionsOpen = ref(false)
 const listRenameTitle = ref('')
-const selectedTag = ref('')
 const listStore = useListStore()
 const taskStore = useTaskStore()
+const toastStore = useToastStore()
 const { requestPermission, scheduleTaskReminder, cancelTaskReminder } = useReminderNotifications()
 const route = useRoute()
 const router = useRouter()
@@ -31,9 +32,12 @@ interface PlannedGroup {
 }
 
 const routeSmartView = computed(() => route.meta.smartView as SmartView | undefined)
+const routeTag = computed(() => typeof route.params.tag === 'string' ? route.params.tag : undefined)
 const isPlannedView = computed(() => routeSmartView.value === 'planned')
 
 const currentTitle = computed(() => {
+  if (routeTag.value) return `#${routeTag.value}`
+
   const view = taskStore.activeView
   if (view?.type === 'smart') {
     if (view.smartView === 'important') return 'Viktigt'
@@ -50,14 +54,12 @@ const activeListColor = computed(() => activeList.value?.themeColor ?? '#2564cf'
 const themeColors = ['#2564cf', '#107c10', '#d83b01', '#8764b8', '#038387', '#ca5010']
 
 const availableTags = computed(() => [...new Set(taskStore.tasks.flatMap((task) => task.tags ?? []))].sort())
-const filteredVisibleTasks = computed(() => selectedTag.value
-  ? taskStore.visibleTasks.filter((task) => task.tags?.includes(selectedTag.value))
-  : taskStore.visibleTasks)
+const filteredVisibleTasks = computed(() => taskStore.visibleTasks)
 const filteredActiveTasks = computed(() => taskStore.activeTasks.filter((task) => filteredVisibleTasks.value.some((visibleTask) => visibleTask.id === task.id)))
 const filteredCompletedTasks = computed(() => taskStore.completedTasks.filter((task) => filteredVisibleTasks.value.some((visibleTask) => visibleTask.id === task.id)))
 const dueDateKey = (task: (typeof taskStore.tasks)[number]) => {
   if (!task.dueDate) return ''
-  if (typeof task.dueDate === 'string') return task.dueDate
+  if (typeof task.dueDate === 'string') return task.dueDate.slice(0, 10)
   const date = task.dueDate.toDate()
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
@@ -213,6 +215,18 @@ const handleSelectSmartView = (view: SmartView) => {
   isSidebarOpen.value = false
 }
 
+const handleSelectTag = (tag: string) => {
+  if (!tag) {
+    taskStore.setListView(listStore.selectedListId ?? DEFAULT_LIST_ID)
+    void router.push({ name: 'home' })
+    return
+  }
+
+  taskStore.setTagView(tag)
+  void router.push({ name: 'tag', params: { tag } })
+  isSidebarOpen.value = false
+}
+
 const handleAddTask = () => {
   const listId = taskStore.activeView?.type === 'list' ? taskStore.activeView.listId : null
   if (!listId || !taskTitle.value.trim()) return
@@ -250,8 +264,15 @@ const handleSaveStepTitle = (stepId: string, title: string) => {
 }
 
 const handleSetDueDate = async (taskId: string, dueDate: string) => {
-  if (dueDate) await requestPermission()
   taskStore.setDueDate(taskId, dueDate)
+}
+
+const handleSaveReminder = async (taskId: string, reminder: TaskReminder | null) => {
+  if (reminder) {
+    const granted = await requestPermission()
+    if (!granted) toastStore.show('Påminnelsen sparas, men aviseringar är blockerade i webbläsaren.')
+  }
+  await taskStore.updateTask(taskId, { reminder })
 }
 
 const handleGlobalKeydown = (event: KeyboardEvent) => {
@@ -276,13 +297,17 @@ const handleGlobalKeydown = (event: KeyboardEvent) => {
 
 onMounted(async () => {
   window.addEventListener('keydown', handleGlobalKeydown)
-  if (routeSmartView.value) {
+  if (routeTag.value) {
+    taskStore.setTagView(routeTag.value)
+  } else if (routeSmartView.value) {
     taskStore.setSmartView(routeSmartView.value)
   } else {
     taskStore.setListView(DEFAULT_LIST_ID)
   }
   await listStore.fetchLists()
-  if (routeSmartView.value) {
+  if (routeTag.value) {
+    taskStore.setTagView(routeTag.value)
+  } else if (routeSmartView.value) {
     taskStore.setSmartView(routeSmartView.value)
   } else {
     taskStore.setListView(DEFAULT_LIST_ID)
@@ -293,9 +318,11 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleGlobalKeydown)
 })
 
-watch(routeSmartView, (view) => {
+watch([routeSmartView, routeTag], ([view, tag]) => {
   taskStore.setActiveTask(null)
-  if (view) {
+  if (tag) {
+    taskStore.setTagView(tag)
+  } else if (view) {
     taskStore.setSmartView(view)
   } else {
     taskStore.setListView(listStore.selectedListId ?? DEFAULT_LIST_ID)
@@ -337,12 +364,15 @@ const toggleTheme = () => {
         :open="isSidebarOpen"
         :active-list-id="listStore.selectedListId"
         :active-smart-view="taskStore.activeView?.type === 'smart' ? taskStore.activeView.smartView : null"
+        :available-tags="availableTags"
+        :selected-tag="routeTag ?? ''"
         :folders="listStore.foldersWithLists"
         :ungrouped-lists="listStore.ungroupedLists"
         :smart-view-counts="taskStore.smartViewCounts"
         @close="isSidebarOpen = false"
         @select-list="handleSelectList"
         @select-smart-view="handleSelectSmartView"
+        @select-tag="handleSelectTag"
         @create-list="handleCreateList"
         @create-folder="handleCreateFolder"
         @move-list="handleMoveList"
@@ -372,14 +402,6 @@ const toggleTheme = () => {
             <div v-else class="size-9" aria-hidden="true" />
             <button class="grid size-9 place-items-center rounded text-lg text-[#2564cf] transition hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-slate-800" type="button" aria-label="Byt listvy">▤</button>
             <button class="hidden size-9 place-items-center rounded text-lg text-[#2564cf] transition hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-slate-800 sm:grid" type="button" aria-label="Sortera uppgifter">☷</button>
-          </div>
-
-          <div v-if="availableTags.length" class="mt-4 flex items-center gap-2">
-            <label class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400" for="task-tag-filter">Tagg</label>
-            <select id="task-tag-filter" v-model="selectedTag" class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
-              <option value="">Alla taggar</option>
-              <option v-for="tag in availableTags" :key="tag" :value="tag">#{{ tag }}</option>
-            </select>
           </div>
 
           <form v-if="listRenameTitle" class="mt-3 flex gap-2" @submit.prevent="saveListRename">
@@ -471,6 +493,7 @@ const toggleTheme = () => {
         @delete-step="taskStore.deleteStep($event)"
         @toggle-my-day="taskStore.toggleMyDay(taskStore.activeTaskId!)"
         @set-due-date="handleSetDueDate(taskStore.activeTaskId!, $event)"
+        @save-reminder="handleSaveReminder(taskStore.activeTaskId!, $event)"
         @save-note="taskStore.saveNote(taskStore.activeTaskId!, $event)"
         @save-tags="taskStore.updateTask(taskStore.activeTaskId!, { tags: $event })"
         @delete-task="handleDeleteActiveTask"

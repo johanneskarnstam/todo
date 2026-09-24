@@ -29,6 +29,22 @@ test('adds a tag and uses a quick due-date preset', async ({ page }) => {
 
   await details.getByRole('button', { name: 'Imorgon' }).click()
   await expect(details.getByLabel('Uppgiftens förfallodatum')).not.toHaveValue('')
+  await details.getByLabel('Uppgiftens förfallotid').fill('14:30')
+  await details.getByLabel('Påminnelse').selectOption('60')
+  await expect(details.getByText('Påminnelse aktiv')).toBeVisible()
+
+  await details.getByRole('button', { name: 'Stäng' }).click()
+  await page.getByRole('button', { name: 'Taggar' }).click()
+  await page.getByRole('menuitem', { name: '#arbete' }).click()
+
+  await expect(page).toHaveURL(/\/tag\/arbete$/)
+  await expect(page.getByRole('heading', { name: '#arbete' })).toBeVisible()
+  await expect(page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' })).toBeVisible()
+
+  await page.reload()
+  await expect(page.getByRole('heading', { name: '#arbete' })).toBeVisible()
+  await page.getByRole('button', { name: 'Taggar' }).click()
+  await expect(page.getByRole('menuitem', { name: '#arbete' })).toBeVisible()
 })
 
 test('can undo deleting a task', async ({ page }) => {

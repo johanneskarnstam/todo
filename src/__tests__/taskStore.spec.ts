@@ -316,6 +316,23 @@ describe('useTaskStore', () => {
       note: 'Use the blue paint.',
       tags: ['jobb', 'hem'],
     })
+    expect(firestoreMocks.updateDoc).toHaveBeenCalledWith(expect.anything(), { tags: ['jobb', 'hem'] })
+
+    firestoreMocks.getDocs.mockResolvedValueOnce(
+      snapshot([taskDocument('task-1', {
+        listId: 'list-1',
+        title: 'Write notes',
+        completed: false,
+        important: false,
+        myDay: true,
+        dueDate: '2026-09-30',
+        note: 'Use the blue paint.',
+        tags: ['jobb', 'hem'],
+        createdAt,
+      })]),
+    )
+    await store.fetchTasks()
+    expect(store.tasks[0].tags).toEqual(['jobb', 'hem'])
 
     await store.deleteTask('task-1')
     expect(store.tasks).toHaveLength(0)

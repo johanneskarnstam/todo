@@ -16,7 +16,7 @@ import {
 import { auth, db } from '@/firebase'
 import { isMockAuthEnabled, MOCK_USER_ID } from '@/devMode'
 import { useToastStore } from '@/stores/toastStore'
-import type { SmartView, Step, StepCount, Task, TaskView } from '@/types'
+import type { SmartView, Step, StepCount, Task, TaskReminder, TaskView } from '@/types'
 
 interface NewTaskInput {
   listId: string
@@ -45,6 +45,33 @@ const sortSteps = (steps: Step[]): Step[] =>
     if (firstOrder !== secondOrder) return firstOrder - secondOrder
     return first.createdAt.toMillis() - second.createdAt.toMillis()
   })
+
+const mockTasksStorageKey = 'todo-mock-tasks'
+
+const readMockTasks = (): Task[] | null => {
+  if (typeof localStorage === 'undefined') return null
+
+  try {
+    const storedTasks = localStorage.getItem(mockTasksStorageKey)
+    if (!storedTasks) return null
+
+    return JSON.parse(storedTasks).map((task: Task & { createdAt: number }) => ({
+      ...task,
+      createdAt: Timestamp.fromMillis(task.createdAt),
+    })) as Task[]
+  } catch {
+    return null
+  }
+}
+
+const persistMockTasks = (tasksToPersist: Task[]) => {
+  if (typeof localStorage === 'undefined') return
+
+  localStorage.setItem(mockTasksStorageKey, JSON.stringify(tasksToPersist.map((task) => ({
+    ...task,
+    createdAt: task.createdAt.toMillis(),
+  }))))
+}
 
 export const useTaskStore = defineStore('tasks', () => {
   const tasks = ref<Task[]>([])
@@ -79,6 +106,10 @@ export const useTaskStore = defineStore('tasks', () => {
 
     if (view.type === 'list') {
       return tasks.value.filter((task) => task.listId === view.listId)
+    }
+
+    if (view.type === 'tag') {
+      return tasks.value.filter((task) => task.tags?.includes(view.tag))
     }
 
     if (view.smartView === 'important') {
@@ -190,11 +221,13 @@ export const useTaskStore = defineStore('tasks', () => {
 
     if (isMockAuthEnabled) {
       const createdAt = Timestamp.now()
-      tasks.value = sortTasks([
+      const initialTasks = [
         { id: 'local-task-1', listId: '__default__', title: 'Testa dra och släppa uppgifter', completed: false, important: true, myDay: true, order: 0, createdAt },
         { id: 'local-task-2', listId: '__default__', title: 'Kontrollera mobilvyn', completed: false, important: false, myDay: false, order: 1, createdAt },
         { id: 'local-task-3', listId: 'local-projects', title: 'Förbered nästa release', completed: false, important: false, myDay: false, order: 0, createdAt },
-      ])
+      ] satisfies Task[]
+      tasks.value = sortTasks(readMockTasks() ?? initialTasks)
+      if (!readMockTasks()) persistMockTasks(tasks.value)
       isLoaded.value = true
       return
     }
@@ -236,6 +269,10 @@ export const useTaskStore = defineStore('tasks', () => {
     setView({ type: 'smart', smartView })
   }
 
+  const setTagView = (tag: string) => {
+    setView({ type: 'tag', tag })
+  }
+
   const createTask = async (input: NewTaskInput) => {
     const title = input.title.trim()
     if (!title) return
@@ -255,7 +292,10 @@ export const useTaskStore = defineStore('tasks', () => {
     tasks.value = sortTasks([...tasks.value, optimisticTask])
     error.value = null
 
-    if (isMockAuthEnabled) return optimisticTask
+    if (isMockAuthEnabled) {
+      persistMockTasks(tasks.value)
+      return optimisticTask
+    }
 
     try {
       const taskReference = await trackWrite(() => addDoc(userCollection(), {
@@ -279,7 +319,7 @@ export const useTaskStore = defineStore('tasks', () => {
 
   const updateTask = async (
     taskId: string,
-    updates: Partial<Pick<Task, 'completed' | 'important' | 'myDay' | 'title' | 'dueDate' | 'note' | 'tags'>>,
+    updates: Partial<Pick<Task, 'completed' | 'important' | 'myDay' | 'title' | 'dueDate' | 'note' | 'tags'>> & { reminder?: TaskReminder | null },
   ) => {
     const currentTask = tasks.value.find((task) => task.id === taskId)
     if (!currentTask) return
@@ -287,6 +327,7 @@ export const useTaskStore = defineStore('tasks', () => {
     const previousTask = { ...currentTask }
     Object.assign(currentTask, updates)
     error.value = null
+    if (isMockAuthEnabled) persistMockTasks(tasks.value)
 
     try {
       await trackWrite(() => updateDoc(doc(userCollection(), taskId), updates))
@@ -321,11 +362,14 @@ export const useTaskStore = defineStore('tasks', () => {
     if (!task) return
 
     const previousDueDate = task.dueDate
+    const previousReminder = task.reminder
     delete task.dueDate
+    task.reminder = null
     error.value = null
 
-    void trackWrite(() => updateDoc(doc(userCollection(), taskId), { dueDate: deleteField() })).catch((clearError: unknown) => {
+    void trackWrite(() => updateDoc(doc(userCollection(), taskId), { dueDate: deleteField(), reminder: null })).catch((clearError: unknown) => {
       if (previousDueDate) task.dueDate = previousDueDate
+      task.reminder = previousReminder
       reportWriteError(clearError, 'Förfallodatumet kunde inte tas bort.')
     })
   }
@@ -506,6 +550,7 @@ export const useTaskStore = defineStore('tasks', () => {
     fetchTasks,
     setListView,
     setSmartView,
+    setTagView,
     setActiveTask,
     createTask,
     createStep,

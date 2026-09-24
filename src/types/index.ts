@@ -16,6 +16,10 @@ export interface List {
   themeColor?: string
 }
 
+export interface TaskReminder {
+  offsetMinutes: 0 | 10 | 60 | 1440
+}
+
 export interface Task {
   id: string
   listId: string
@@ -24,6 +28,7 @@ export interface Task {
   important: boolean
   myDay: boolean
   dueDate?: string | Timestamp
+  reminder?: TaskReminder | null
   note?: string
   tags?: string[]
   createdAt: Timestamp
@@ -49,3 +54,4 @@ export type SmartView = 'myDay' | 'important' | 'planned'
 export type TaskView =
   | { type: 'list'; listId: string }
   | { type: 'smart'; smartView: SmartView }
+  | { type: 'tag'; tag: string }

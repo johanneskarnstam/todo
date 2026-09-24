@@ -2,6 +2,7 @@ import { onUnmounted } from 'vue'
 import type { Task } from '@/types'
 
 const reminderTimers = new Map<string, ReturnType<typeof setTimeout>>()
+const maxTimeout = 2_147_000_000
 
 const reminderTime = (dueDate: Task['dueDate']): number | null => {
   if (!dueDate) return null
@@ -32,24 +33,32 @@ export const useReminderNotifications = () => {
     return (await Notification.requestPermission()) === 'granted'
   }
 
-  const scheduleTaskReminder = (task: Pick<Task, 'id' | 'title' | 'dueDate'>) => {
+  const scheduleTaskReminder = (task: Pick<Task, 'id' | 'title' | 'dueDate' | 'reminder'>) => {
     clearTaskReminder(task.id)
-    if (!isSupported || Notification.permission !== 'granted') return
+    if (!isSupported || Notification.permission !== 'granted' || !task.reminder) return
 
-    const reminderAt = reminderTime(task.dueDate)
+    const dueAt = reminderTime(task.dueDate)
+    const reminderAt = dueAt ? dueAt - task.reminder.offsetMinutes * 60_000 : null
     if (!reminderAt || reminderAt <= Date.now()) return
 
-    const timer = setTimeout(() => {
-      reminderTimers.delete(task.id)
-      if (Notification.permission === 'granted') {
-        new Notification(`Due today: ${task.title}`, {
-          body: 'Open Todo to review this task.',
-          tag: `todo-task-${task.id}`,
-        })
+    const schedule = () => {
+      const remaining = reminderAt - Date.now()
+      if (remaining <= 0) {
+        reminderTimers.delete(task.id)
+        if (Notification.permission === 'granted') {
+          new Notification(`Påminnelse: ${task.title}`, {
+            body: 'Det är dags att se över uppgiften.',
+            tag: `todo-task-${task.id}`,
+          })
+        }
+        return
       }
-    }, reminderAt - Date.now())
 
-    reminderTimers.set(task.id, timer)
+      const timer = setTimeout(schedule, Math.min(remaining, maxTimeout))
+      reminderTimers.set(task.id, timer)
+    }
+
+    schedule()
   }
 
   const cancelTaskReminder = (taskId: string) => {

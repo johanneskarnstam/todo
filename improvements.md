@@ -6,6 +6,8 @@ Det här är en prioriterad lista över funktioner som kan göra appen mer anvä
 
 ### 1. Påminnelser och aviseringar
 
+**Status:** Implementerad
+
 **Nytta:** Mycket hög
 
 Låt användaren ange datum och klockslag för en påminnelse och skicka en webbläsar- eller PWA-avisering när det är dags. Påminnelser är ett av de viktigaste komplementen till förfallodatum eftersom de gör att appen aktivt hjälper användaren att komma ihåg uppgifter.

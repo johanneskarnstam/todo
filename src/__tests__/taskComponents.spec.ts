@@ -4,6 +4,7 @@ import { nextTick } from 'vue'
 import { Timestamp } from 'firebase/firestore'
 import TaskDetailsPanel from '@/components/TaskDetailsPanel.vue'
 import TaskRow from '@/components/TaskRow.vue'
+import TodoSidebar from '@/components/TodoSidebar.vue'
 import type { Step, Task } from '@/types'
 
 const task: Task = {
@@ -15,6 +16,37 @@ const task: Task = {
   myDay: false,
   createdAt: Timestamp.now(),
 }
+
+describe('TodoSidebar', () => {
+  it('opens the tag menu and emits the selected tag', async () => {
+    const wrapper = mount(TodoSidebar, {
+      props: {
+        open: true,
+        activeListId: null,
+        activeSmartView: null,
+        availableTags: ['hem', 'jobb'],
+        selectedTag: '',
+        folders: [],
+        ungroupedLists: [],
+        smartViewCounts: { myDay: 0, important: 0, planned: 0 },
+      },
+      global: { stubs: { RouterLink: true } },
+    })
+
+    const tagsButton = wrapper.get('button[aria-controls="sidebar-tags-menu"]')
+    expect(tagsButton.attributes('aria-expanded')).toBe('false')
+
+    await tagsButton.trigger('click')
+
+    expect(tagsButton.attributes('aria-expanded')).toBe('true')
+    expect(wrapper.findAll('#sidebar-tags-menu [role="menuitem"]').map((button) => button.text())).toEqual(['Alla taggar', '#hem', '#jobb'])
+
+    await wrapper.get('#sidebar-tags-menu button[role="menuitem"]:nth-child(3)').trigger('click')
+
+    expect(wrapper.emitted('select-tag')).toEqual([['jobb']])
+    expect(tagsButton.attributes('aria-expanded')).toBe('false')
+  })
+})
 
 describe('TaskRow', () => {
   it('opens details from the row and keeps inline controls independent', async () => {
@@ -210,6 +242,18 @@ describe('TaskDetailsPanel', () => {
 
     expect(wrapper.emitted('save-tags')).toEqual([[['work']]])
     expect(wrapper.emitted('set-due-date')?.[0]?.[0]).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+  })
+
+  it('emits a due time and reminder offset', async () => {
+    const wrapper = mount(TaskDetailsPanel, {
+      props: { task: { ...task, dueDate: '2026-10-01' }, steps },
+    })
+
+    await wrapper.get('input[aria-label="Uppgiftens förfallotid"]').setValue('14:30')
+    await wrapper.get('select[aria-label="Påminnelse"]').setValue('60')
+
+    expect(wrapper.emitted('set-due-date')).toEqual([['2026-10-01T14:30']])
+    expect(wrapper.emitted('save-reminder')).toEqual([[{ offsetMinutes: 60 }]])
   })
 
 })

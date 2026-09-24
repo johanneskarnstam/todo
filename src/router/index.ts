@@ -30,6 +30,11 @@ const router = createRouter({
       meta: { smartView: 'planned' },
     },
     {
+      path: '/tag/:tag',
+      name: 'tag',
+      component: HomeView,
+    },
+    {
       path: '/login',
       name: 'login',
       component: () => import('../views/LoginView.vue'),

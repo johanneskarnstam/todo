@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
-import type { Step, Task } from '@/types'
+import type { Step, Task, TaskReminder } from '@/types'
 
 interface Props {
   task: Task
@@ -16,6 +16,7 @@ interface Emits {
   (event: 'delete-step', stepId: string): void
   (event: 'toggle-my-day'): void
   (event: 'set-due-date', dueDate: string): void
+  (event: 'save-reminder', reminder: TaskReminder | null): void
   (event: 'save-note', note: string): void
   (event: 'save-tags', tags: string[]): void
   (event: 'delete-task'): void
@@ -31,10 +32,16 @@ const stepTitle = ref('')
 const editingStepId = ref<string | null>(null)
 const editingStepTitle = ref('')
 const titleInput = ref<HTMLInputElement | null>(null)
+const reminderOffset = ref(String(props.task.reminder?.offsetMinutes ?? ''))
 
 const dueDate = computed(() => {
-  if (typeof props.task.dueDate === 'string') return props.task.dueDate
+  if (typeof props.task.dueDate === 'string') return props.task.dueDate.slice(0, 10)
   return props.task.dueDate?.toDate().toISOString().slice(0, 10) ?? ''
+})
+
+const dueTime = computed(() => {
+  if (typeof props.task.dueDate === 'string' && props.task.dueDate.length >= 16) return props.task.dueDate.slice(11, 16)
+  return ''
 })
 
 watch(
@@ -43,6 +50,7 @@ watch(
     title.value = props.task.title
     note.value = props.task.note ?? ''
     tags.value = [...(props.task.tags ?? [])]
+    reminderOffset.value = String(props.task.reminder?.offsetMinutes ?? '')
   },
 )
 
@@ -102,6 +110,21 @@ const selectQuickDate = (daysFromToday: number | null) => {
   date.setHours(0, 0, 0, 0)
   date.setDate(date.getDate() + daysFromToday)
   emit('set-due-date', formatDate(date))
+}
+
+const saveDueTime = (time: string) => {
+  if (dueDate.value && time) emit('set-due-date', `${dueDate.value}T${time}`)
+}
+
+const saveReminder = () => {
+  if (!reminderOffset.value || !props.task.dueDate) {
+    emit('save-reminder', null)
+    return
+  }
+
+  const offset = Number(reminderOffset.value)
+  if (![0, 10, 60, 1440].includes(offset)) return
+  emit('save-reminder', { offsetMinutes: offset as TaskReminder['offsetMinutes'] })
 }
 
 const startEditingStep = (step: Step) => {
@@ -210,12 +233,30 @@ const saveStepTitle = () => {
           <span class="flex-1">Förfallodatum</span>
           <input class="w-32 bg-transparent text-right text-sm text-slate-600 outline-none dark:text-slate-300" type="date" :value="dueDate" aria-label="Uppgiftens förfallodatum" @change="emit('set-due-date', ($event.target as HTMLInputElement).value)" />
         </label>
+        <label class="flex min-h-11 items-center gap-3 rounded-lg px-2 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800">
+          <span class="text-lg text-slate-500" aria-hidden="true">◷</span>
+          <span class="flex-1">Förfallotid</span>
+          <input class="w-24 bg-transparent text-right text-sm text-slate-600 outline-none disabled:opacity-50 dark:text-slate-300" type="time" :value="dueTime" :disabled="!dueDate" aria-label="Uppgiftens förfallotid" @change="saveDueTime(($event.target as HTMLInputElement).value)" />
+        </label>
         <div class="flex flex-wrap gap-2 px-2" aria-label="Snabbval för förfallodatum">
           <button class="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 hover:border-[#2564cf] hover:text-[#2564cf] dark:border-slate-700 dark:text-slate-300" type="button" @click="selectQuickDate(0)">Idag</button>
           <button class="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 hover:border-[#2564cf] hover:text-[#2564cf] dark:border-slate-700 dark:text-slate-300" type="button" @click="selectQuickDate(1)">Imorgon</button>
           <button class="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 hover:border-[#2564cf] hover:text-[#2564cf] dark:border-slate-700 dark:text-slate-300" type="button" @click="selectQuickDate(7)">Nästa vecka</button>
           <button class="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 hover:border-[#2564cf] hover:text-[#2564cf] dark:border-slate-700 dark:text-slate-300" type="button" @click="selectQuickDate(null)">Rensa</button>
         </div>
+        <label class="flex min-h-11 items-center gap-3 rounded-lg px-2 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800">
+          <span class="text-lg text-slate-500" aria-hidden="true">◉</span>
+          <span class="flex-1">Påminnelse</span>
+          <select v-model="reminderOffset" class="max-w-44 bg-transparent text-right text-sm text-slate-600 outline-none disabled:opacity-50 dark:text-slate-300" :disabled="!dueDate" aria-label="Påminnelse" @change="saveReminder">
+            <option value="">Ingen</option>
+            <option value="0">Vid förfallotid</option>
+            <option value="10">10 minuter före</option>
+            <option value="60">1 timme före</option>
+            <option value="1440">1 dag före</option>
+          </select>
+        </label>
+        <p v-if="task.reminder && dueDate" class="px-2 text-xs text-[#2564cf] dark:text-blue-400">Påminnelse aktiv</p>
+        <p v-else class="px-2 text-xs text-slate-500 dark:text-slate-400">Välj datum först för att aktivera en påminnelse.</p>
       </div>
 
       <label class="mt-6 block" for="task-note">
