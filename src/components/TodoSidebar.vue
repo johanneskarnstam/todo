@@ -261,7 +261,7 @@ const moveList = (listId: string, folderId: string | null) => {
         <Transition name="sidebar-expand">
           <div v-if="isTagsOpen" id="sidebar-tags-menu" class="mt-2 flex flex-wrap gap-2 pl-1" role="menu" aria-label="Välj tagg">
           <button
-            class="inline-flex min-h-7 items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+            class="inline-flex min-h-6 items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
             :class="{ 'font-semibold ring-2 ring-[#2564cf] ring-offset-1 dark:ring-blue-400 dark:ring-offset-slate-900': !selectedTag }"
             type="button"
             role="menuitem"
@@ -272,7 +272,7 @@ const moveList = (listId: string, folderId: string | null) => {
           <button
             v-for="tag in availableTags"
             :key="tag"
-            class="inline-flex min-h-7 items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition"
+            class="inline-flex min-h-6 items-center rounded-full border px-2 py-0.5 text-[10px] font-medium transition"
             :class="[tagTone(tag), { 'font-semibold ring-2 ring-[#2564cf] ring-offset-1 dark:ring-blue-400 dark:ring-offset-slate-900': selectedTag === tag }]"
             type="button"
             role="menuitem"
@@ -508,15 +508,15 @@ const moveList = (listId: string, folderId: string | null) => {
         </section>
       </div>
 
-      <div class="border-t border-slate-200 pt-4 dark:border-slate-700">
+      <div class="border-t border-slate-200 pt-2 dark:border-slate-700">
         <Transition name="sidebar-expand" mode="out-in">
           <template v-if="isAddingList">
-            <form class="flex gap-2 px-2" @submit.prevent="submitNewList">
+            <form class="flex gap-1.5 px-2" @submit.prevent="submitNewList">
             <label class="sr-only" for="new-list-name">Nytt listnamn</label>
               <input
                 id="new-list-name"
                 v-model="newListName"
-                class="min-w-0 flex-1 rounded-lg border border-blue-400 bg-white px-3 py-2 text-base text-slate-800 outline-none ring-2 ring-blue-100 dark:bg-slate-800 dark:text-white dark:ring-blue-900"
+                class="min-w-0 flex-1 rounded-lg border border-blue-400 bg-white px-2.5 py-1.5 text-sm text-slate-800 outline-none ring-2 ring-blue-100 dark:bg-slate-800 dark:text-white dark:ring-blue-900"
                 type="text"
                 placeholder="Listnamn"
                 autofocus
@@ -525,21 +525,21 @@ const moveList = (listId: string, folderId: string | null) => {
             </form>
           </template>
           <template v-else>
-            <button class="flex h-12 w-full items-center gap-4 px-3 text-[15px] text-[#2564cf] transition hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-slate-800" type="button" @click="isAddingList = true">
-              <Plus :size="24" :stroke-width="1.8" aria-hidden="true" />
+            <button class="flex h-9 w-full items-center gap-3 px-3 text-sm text-[#2564cf] transition hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-slate-800" type="button" @click="isAddingList = true">
+              <Plus :size="20" :stroke-width="1.8" aria-hidden="true" />
               <span class="flex-1 text-left">Ny lista</span>
-              <ListPlus :size="20" :stroke-width="1.8" aria-hidden="true" />
+              <ListPlus :size="18" :stroke-width="1.8" aria-hidden="true" />
             </button>
           </template>
         </Transition>
         <Transition name="sidebar-expand" mode="out-in">
           <template v-if="isAddingFolder">
-            <form class="mt-2 flex gap-2 px-2" @submit.prevent="submitNewFolder">
+            <form class="mt-1.5 flex gap-1.5 px-2" @submit.prevent="submitNewFolder">
               <label class="sr-only" for="new-folder-name">Nytt mappnamn</label>
               <input
                 id="new-folder-name"
                 v-model="newFolderName"
-                class="min-w-0 flex-1 rounded-lg border border-blue-400 bg-white px-3 py-2 text-base text-slate-800 outline-none ring-2 ring-blue-100 dark:bg-slate-800 dark:text-white dark:ring-blue-900"
+                class="min-w-0 flex-1 rounded-lg border border-blue-400 bg-white px-2.5 py-1.5 text-sm text-slate-800 outline-none ring-2 ring-blue-100 dark:bg-slate-800 dark:text-white dark:ring-blue-900"
                 type="text"
                 placeholder="Mappnamn"
                 autofocus
@@ -548,18 +548,18 @@ const moveList = (listId: string, folderId: string | null) => {
             </form>
           </template>
           <template v-else>
-            <button class="mt-1 flex h-12 w-full items-center gap-4 rounded-lg px-3 text-[15px] text-[#2564cf] transition hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-slate-800" type="button" @click="isAddingFolder = true">
-              <FolderPlus :size="24" :stroke-width="1.8" aria-hidden="true" />
+            <button class="mt-0.5 flex h-9 w-full items-center gap-3 rounded-lg px-3 text-sm text-[#2564cf] transition hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-slate-800" type="button" @click="isAddingFolder = true">
+              <FolderPlus :size="20" :stroke-width="1.8" aria-hidden="true" />
               <span class="flex-1 text-left">Ny mapp</span>
             </button>
           </template>
         </Transition>
         <RouterLink
-          class="mt-2 flex h-10 w-full items-center gap-4 rounded px-3 text-sm text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+          class="mt-1 flex h-8 w-full items-center gap-3 rounded px-3 text-xs text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
           to="/settings"
           @click="emit('close')"
         >
-          <Settings :size="19" :stroke-width="1.8" aria-hidden="true" />
+          <Settings :size="17" :stroke-width="1.8" aria-hidden="true" />
           <span>Inställningar</span>
         </RouterLink>
       </div>
