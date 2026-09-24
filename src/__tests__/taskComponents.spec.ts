@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import { Timestamp } from 'firebase/firestore'
@@ -45,6 +45,40 @@ describe('TodoSidebar', () => {
 
     expect(wrapper.emitted('select-tag')).toEqual([['jobb']])
     expect(tagsButton.attributes('aria-expanded')).toBe('false')
+  })
+
+  it('opens folder options with right-click and touch long-press', async () => {
+    vi.useFakeTimers()
+    const wrapper = mount(TodoSidebar, {
+      props: {
+        open: true,
+        activeListId: null,
+        activeSmartView: null,
+        availableTags: [],
+        selectedTag: '',
+        folders: [{
+          folder: { id: 'folder-1', name: 'Projekt', order: 0 },
+          lists: [],
+        }],
+        ungroupedLists: [],
+        smartViewCounts: { myDay: 0, important: 0, planned: 0 },
+      },
+      global: { stubs: { RouterLink: true } },
+    })
+
+    const folderButton = wrapper.findAll('button').find((button) => button.text().includes('Projekt'))
+    const folderHeader = wrapper.get('[data-folder-header]')
+    expect(folderButton).toBeTruthy()
+    await folderHeader.trigger('contextmenu')
+    expect(wrapper.get('button[aria-label="Byt namn på mapp"]')).toBeTruthy()
+
+    await folderHeader.trigger('pointerdown', { pointerType: 'touch' })
+    vi.advanceTimersByTime(500)
+    await nextTick()
+    expect(wrapper.get('button[aria-label="Byt namn på mapp"]')).toBeTruthy()
+
+    vi.useRealTimers()
+    wrapper.unmount()
   })
 })
 

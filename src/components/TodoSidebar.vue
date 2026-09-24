@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { ChevronDown } from '@lucide/vue'
 import type { Folder, List, SmartView } from '@/types'
 import { DEFAULT_LIST_ID } from '@/stores/listStore'
 
@@ -31,7 +32,7 @@ interface Emits {
   (event: 'delete-folder', folderId: string, deleteLists: boolean): void
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 const iconUrl = `${import.meta.env.BASE_URL}img/icons/todo-icon.svg`
 
@@ -63,6 +64,10 @@ const openFolderMenuId = ref<string | null>(null)
 const editingFolderId = ref<string | null>(null)
 const editingFolderName = ref('')
 const isTagsOpen = ref(false)
+let folderLongPressTimer: ReturnType<typeof setTimeout> | null = null
+const suppressFolderClick = ref(false)
+const defaultList = computed(() => props.ungroupedLists.find((list) => list.id === DEFAULT_LIST_ID))
+const otherUngroupedLists = computed(() => props.ungroupedLists.filter((list) => list.id !== DEFAULT_LIST_ID))
 
 watch(collapsedFolders, (value) => {
   if (typeof localStorage !== 'undefined') localStorage.setItem('todo-collapsed-folders', JSON.stringify(value))
@@ -83,7 +88,33 @@ const smartViewLabel = (key: string) => ({
 }[key] ?? key)
 
 const toggleFolder = (folderId: string) => {
+  if (suppressFolderClick.value) {
+    suppressFolderClick.value = false
+    return
+  }
+
   collapsedFolders.value[folderId] = !collapsedFolders.value[folderId]
+}
+
+const openFolderContextMenu = (folderId: string) => {
+  openFolderMenuId.value = folderId
+  suppressFolderClick.value = true
+}
+
+const startFolderLongPress = (folderId: string, event: PointerEvent) => {
+  if (event.pointerType !== 'touch') return
+
+  folderLongPressTimer = setTimeout(() => {
+    openFolderContextMenu(folderId)
+    folderLongPressTimer = null
+  }, 500)
+}
+
+const cancelFolderLongPress = () => {
+  if (folderLongPressTimer) {
+    clearTimeout(folderLongPressTimer)
+    folderLongPressTimer = null
+  }
 }
 
 const startRenamingFolder = (folder: Folder) => {
@@ -157,11 +188,11 @@ const moveList = (listId: string, folderId: string | null) => {
   </Transition>
 
   <aside
-    class="fixed inset-y-0 left-0 z-[80] flex w-[292px] -translate-x-full flex-col rounded-r-xl border-r border-slate-200 bg-white shadow-xl transition-[width,transform] duration-300 ease-out dark:border-slate-700 dark:bg-slate-900 lg:static lg:z-auto lg:rounded-r-2xl lg:shadow-none"
-    :class="open ? 'translate-x-0 lg:w-[292px]' : '-translate-x-full lg:w-0 lg:overflow-hidden lg:border-transparent lg:px-0'"
+    class="fixed inset-y-0 left-0 z-[80] flex w-[340px] -translate-x-full flex-col rounded-r-xl border-r border-slate-200 bg-white shadow-xl transition-[width,transform] duration-300 ease-out dark:border-slate-700 dark:bg-slate-900 lg:static lg:z-auto lg:rounded-r-2xl lg:shadow-none"
+    :class="open ? 'translate-x-0 lg:w-[340px]' : '-translate-x-full lg:w-0 lg:overflow-hidden lg:border-transparent lg:px-0'"
     aria-label="Uppgiftsnavigering"
   >
-    <div class="flex h-full flex-col px-3 py-5">
+    <div class="flex h-full flex-col px-2 py-5">
       <div class="mb-5 flex h-10 items-center justify-between lg:hidden">
         <div class="flex items-center gap-2 px-1">
           <img class="size-8 rounded-lg shadow-sm" :src="iconUrl" alt="" aria-hidden="true" />
@@ -238,7 +269,7 @@ const moveList = (listId: string, folderId: string | null) => {
             <input
               id="new-folder-name"
               v-model="newFolderName"
-              class="min-w-0 flex-1 rounded-lg border border-blue-400 bg-white px-2 text-sm text-slate-800 outline-none ring-2 ring-blue-100 dark:bg-slate-800 dark:text-white dark:ring-blue-900"
+              class="min-w-0 flex-1 rounded-lg border border-blue-400 bg-white px-3 py-2 text-base text-slate-800 outline-none ring-2 ring-blue-100 dark:bg-slate-800 dark:text-white dark:ring-blue-900"
               type="text"
               placeholder="Mappnamn"
               autofocus
@@ -251,54 +282,87 @@ const moveList = (listId: string, folderId: string | null) => {
           </button>
         </div>
 
-        <section v-for="section in folders" :key="section.folder.id" class="mb-4">
+        <section v-if="defaultList" class="mb-5">
+          <div class="ml-3 border-l-2 border-slate-300 dark:border-slate-600">
+            <button
+              class="group flex h-[52px] w-full items-center gap-4 border-l-2 border-transparent px-7 text-left text-[15px] text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+              :class="{ 'border-[#2564cf] bg-[#eef5fc] font-semibold text-slate-900 dark:border-blue-400 dark:bg-slate-800 dark:text-white': activeListId === defaultList.id }"
+              type="button"
+              @click="emit('select-list', defaultList.id)"
+            >
+              <span class="w-5 text-center text-xl leading-none text-slate-700 dark:text-slate-300" aria-hidden="true">{{ defaultList.icon }}</span>
+              <span class="flex-1 truncate">{{ defaultList.name }}</span>
+            </button>
+          </div>
+        </section>
+
+        <section v-for="section in folders" :key="section.folder.id" class="mb-5">
           <div v-if="editingFolderId === section.folder.id" class="mb-2 flex gap-2 px-2">
             <label class="sr-only" :for="`rename-folder-${section.folder.id}`">Byt namn på mapp</label>
             <input :id="`rename-folder-${section.folder.id}`" v-model="editingFolderName" class="min-w-0 flex-1 rounded border border-blue-400 px-2 text-sm outline-none" type="text" autofocus @keydown.enter="submitRenameFolder" />
             <button class="text-sm text-[#2564cf]" type="button" @click="submitRenameFolder">Spara</button>
           </div>
-          <div v-else class="relative flex items-center px-3 pb-2">
-            <button class="flex min-w-0 flex-1 items-center text-left text-sm font-semibold text-slate-800 dark:text-slate-100" type="button" @click="toggleFolder(section.folder.id)">
+          <div
+            v-else
+            class="relative flex min-h-11 items-center px-3"
+            data-folder-header
+            @contextmenu.prevent="openFolderContextMenu(section.folder.id)"
+            @pointerdown="startFolderLongPress(section.folder.id, $event)"
+            @pointerup="cancelFolderLongPress"
+            @pointercancel="cancelFolderLongPress"
+            @pointerleave="cancelFolderLongPress"
+          >
+            <button
+              class="flex min-w-0 flex-1 items-center text-left text-[15px] font-semibold text-slate-800 dark:text-slate-100"
+              type="button"
+              :aria-expanded="!collapsedFolders[section.folder.id]"
+              @click="toggleFolder(section.folder.id)"
+            >
               <span class="flex-1 truncate">{{ section.folder.name }}</span>
-              <span class="text-base font-normal text-slate-500" aria-hidden="true">{{ collapsedFolders[section.folder.id] ? '›' : '⌄' }}</span>
+              <ChevronDown
+                :size="20"
+                :stroke-width="1.75"
+                class="text-slate-500 transition-transform duration-200 ease-out"
+                :class="{ '-rotate-90': collapsedFolders[section.folder.id] }"
+                aria-hidden="true"
+              />
             </button>
-            <button class="grid size-7 place-items-center rounded text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800" type="button" :aria-label="`Alternativ för ${section.folder.name}`" @click.stop="openFolderMenuId = openFolderMenuId === section.folder.id ? null : section.folder.id">⋯</button>
             <div v-if="openFolderMenuId === section.folder.id" class="absolute right-0 top-8 z-20 w-56 rounded border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-800">
-              <button class="flex min-h-9 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="startRenamingFolder(section.folder)">Byt namn på mapp</button>
-              <button class="flex min-h-9 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="emit('delete-folder', section.folder.id, false); openFolderMenuId = null">Ta bort mapp, behåll listor</button>
-              <button class="flex min-h-9 w-full items-center rounded px-3 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950" type="button" @click="emit('delete-folder', section.folder.id, true); openFolderMenuId = null">Ta bort mapp och listor</button>
+              <button class="flex min-h-9 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" aria-label="Byt namn på mapp" @click="startRenamingFolder(section.folder)">Byt namn på mapp</button>
+              <button class="flex min-h-9 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" aria-label="Ta bort mapp, behåll listor" @click="emit('delete-folder', section.folder.id, false); openFolderMenuId = null">Ta bort mapp, behåll listor</button>
+              <button class="flex min-h-9 w-full items-center rounded px-3 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950" type="button" aria-label="Ta bort mapp och listor" @click="emit('delete-folder', section.folder.id, true); openFolderMenuId = null">Ta bort mapp och listor</button>
             </div>
           </div>
-          <div v-if="!collapsedFolders[section.folder.id]" class="border-l-2 border-slate-300 dark:border-slate-600">
+          <div v-if="!collapsedFolders[section.folder.id]" class="ml-3 border-l-2 border-slate-300 dark:border-slate-600">
             <div
               v-for="list in section.lists"
               :key="list.id"
               class="group/list relative"
             >
               <button
-                class="group flex h-11 w-full items-center gap-4 border-l-2 border-transparent px-4 pr-12 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                class="group flex h-[52px] w-full items-center gap-4 border-l-2 border-transparent px-7 pr-12 text-left text-[15px] text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
                 :class="{
-                  'border-[#2564cf] bg-[#eef5fc] text-slate-900 dark:border-blue-400 dark:bg-slate-800 dark:text-white': activeListId === list.id,
+                  'border-[#2564cf] bg-[#eef5fc] font-semibold text-slate-900 dark:border-blue-400 dark:bg-slate-800 dark:text-white': activeListId === list.id,
                 }"
                 type="button"
                 @click="emit('select-list', list.id)"
               >
-                <span class="text-lg text-slate-600 dark:text-slate-300" aria-hidden="true">{{ list.icon }}</span>
+                <span class="w-5 text-center text-xl leading-none text-slate-700 dark:text-slate-300" aria-hidden="true">{{ list.icon }}</span>
                 <span class="flex-1 truncate">{{ list.name }}</span>
               </button>
               <button
                 v-if="list.id !== DEFAULT_LIST_ID"
-                class="absolute right-1 top-1 grid size-9 place-items-center rounded text-lg text-slate-500 opacity-100 transition hover:bg-slate-200 sm:opacity-0 sm:focus:opacity-100 sm:group-hover/list:opacity-100 dark:hover:bg-slate-700"
+                class="absolute right-1 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded text-lg tracking-widest text-slate-500 opacity-100 transition hover:bg-slate-200 sm:opacity-0 sm:focus:opacity-100 sm:group-hover/list:opacity-100 dark:hover:bg-slate-700"
                 type="button"
                  :aria-label="`Flytta ${list.name}`"
                 :aria-expanded="openMoveMenuListId === list.id"
                 @click.stop="toggleMoveMenu(list.id)"
-              >
-                ⋯
+                >
+                •••
               </button>
               <div
                 v-if="openMoveMenuListId === list.id"
-                class="fixed inset-x-3 bottom-3 z-50 max-h-[70vh] overflow-y-auto rounded border border-slate-200 bg-white p-2 shadow-xl sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-1 sm:top-10 sm:w-56 dark:border-slate-700 dark:bg-slate-800"
+                class="absolute right-1 top-10 z-50 max-h-[70vh] w-56 overflow-y-auto rounded border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-800"
                 role="menu"
                 :aria-label="`Flytta ${list.name} till mapp`"
               >
@@ -330,35 +394,35 @@ const moveList = (listId: string, folderId: string | null) => {
           </div>
         </section>
 
-        <section v-if="ungroupedLists.length" class="mb-4">
-          <div class="border-l-2 border-slate-300 dark:border-slate-600">
+        <section v-if="otherUngroupedLists.length" class="mb-5">
+          <div class="ml-3 border-l-2 border-slate-300 dark:border-slate-600">
             <div
-              v-for="list in ungroupedLists"
+              v-for="list in otherUngroupedLists"
               :key="list.id"
               class="group/list relative"
             >
               <button
-                class="group flex h-11 w-full items-center gap-4 border-l-2 border-transparent px-4 pr-12 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-                :class="{ 'border-[#2564cf] bg-[#eef5fc] text-slate-900 dark:border-blue-400 dark:bg-slate-800 dark:text-white': activeListId === list.id }"
+                class="group flex h-[52px] w-full items-center gap-4 border-l-2 border-transparent px-7 pr-12 text-left text-[15px] text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                :class="{ 'border-[#2564cf] bg-[#eef5fc] font-semibold text-slate-900 dark:border-blue-400 dark:bg-slate-800 dark:text-white': activeListId === list.id }"
                 type="button"
                 @click="emit('select-list', list.id)"
               >
-                <span class="text-lg text-slate-600 dark:text-slate-300" aria-hidden="true">{{ list.icon }}</span>
+                <span class="w-5 text-center text-xl leading-none text-slate-700 dark:text-slate-300" aria-hidden="true">{{ list.icon }}</span>
                 <span class="flex-1 truncate">{{ list.name }}</span>
               </button>
               <button
                 v-if="list.id !== DEFAULT_LIST_ID"
-                class="absolute right-1 top-1 grid size-9 place-items-center rounded text-lg text-slate-500 opacity-100 transition hover:bg-slate-200 sm:opacity-0 sm:focus:opacity-100 sm:group-hover/list:opacity-100 dark:hover:bg-slate-700"
+                class="absolute right-1 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded text-lg tracking-widest text-slate-500 opacity-100 transition hover:bg-slate-200 sm:opacity-0 sm:focus:opacity-100 sm:group-hover/list:opacity-100 dark:hover:bg-slate-700"
                 type="button"
                 :aria-label="`Flytta ${list.name}`"
                 :aria-expanded="openMoveMenuListId === list.id"
                 @click.stop="toggleMoveMenu(list.id)"
-              >
-                ⋯
+                >
+                •••
               </button>
               <div
                 v-if="openMoveMenuListId === list.id"
-                class="fixed inset-x-3 bottom-3 z-50 max-h-[70vh] overflow-y-auto rounded border border-slate-200 bg-white p-2 shadow-xl sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-1 sm:top-10 sm:w-56 dark:border-slate-700 dark:bg-slate-800"
+                class="absolute right-1 top-10 z-50 max-h-[70vh] w-56 overflow-y-auto rounded border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-800"
                 role="menu"
                  :aria-label="`Flytta ${list.name} till mapp`"
               >
@@ -389,23 +453,23 @@ const moveList = (listId: string, folderId: string | null) => {
         </section>
       </div>
 
-      <div class="border-t border-slate-200 pt-3 dark:border-slate-700">
+      <div class="border-t border-slate-200 pt-4 dark:border-slate-700">
         <form v-if="isAddingList" class="flex gap-2 px-2" @submit.prevent="submitNewList">
             <label class="sr-only" for="new-list-name">Nytt listnamn</label>
           <input
             id="new-list-name"
             v-model="newListName"
-            class="min-w-0 flex-1 rounded border border-blue-400 bg-white px-2 text-sm text-slate-800 outline-none ring-2 ring-blue-100 dark:bg-slate-800 dark:text-white dark:ring-blue-900"
+            class="min-w-0 flex-1 rounded-lg border border-blue-400 bg-white px-3 py-2 text-base text-slate-800 outline-none ring-2 ring-blue-100 dark:bg-slate-800 dark:text-white dark:ring-blue-900"
             type="text"
             placeholder="Listnamn"
             autofocus
           />
           <button class="text-sm text-[#2564cf] dark:text-blue-400" type="submit">Lägg till</button>
         </form>
-        <button v-else class="flex h-10 w-full items-center gap-4 px-3 text-sm text-[#2564cf] transition hover:bg-slate-100 dark:text-blue-400 dark:hover:bg-slate-800" type="button" @click="isAddingList = true">
-          <span class="text-xl leading-none" aria-hidden="true">＋</span>
+        <button v-else class="flex h-12 w-full items-center gap-4 px-3 text-[15px] text-[#2564cf] transition hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-slate-800" type="button" @click="isAddingList = true">
+          <span class="text-3xl font-light leading-none" aria-hidden="true">＋</span>
           <span class="flex-1 text-left">Ny lista</span>
-          <span aria-hidden="true">▣</span>
+          <span class="text-xl" aria-hidden="true">▣</span>
         </button>
         <RouterLink
           class="mt-2 flex h-10 w-full items-center gap-4 rounded px-3 text-sm text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
