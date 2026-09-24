@@ -7,6 +7,11 @@ import TaskRow from '@/components/TaskRow.vue'
 import TodoSidebar from '@/components/TodoSidebar.vue'
 import type { Step, Task } from '@/types'
 
+vi.mock('@/firebase', () => ({
+  auth: { currentUser: { uid: 'test-user' } },
+  db: {},
+}))
+
 const task: Task = {
   id: 'task-1',
   listId: 'list-1',
