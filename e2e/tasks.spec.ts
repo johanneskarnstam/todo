@@ -20,6 +20,44 @@ test('opens task details from a task row', async ({ page }) => {
   await expect(page.getByRole('dialog', { name: 'Uppgiftsdetaljer' })).toBeVisible()
 })
 
+test('marks a task complete and restores it to active', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Jag har sett detta' }).click()
+
+  const task = page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' })
+  await task.getByRole('button', { name: 'Markera uppgift som slutförd' }).click()
+  await expect(task.getByRole('button', { name: 'Markera uppgift som aktiv' })).toBeVisible()
+
+  await task.getByRole('button', { name: 'Markera uppgift som aktiv' }).click()
+  await expect(task.getByRole('button', { name: 'Markera uppgift som slutförd' })).toBeVisible()
+})
+
+test('marks a task important and finds it in Viktigt', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Jag har sett detta' }).click()
+
+  const task = page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' })
+  await task.getByRole('button', { name: 'Uppgiftsåtgärder' }).click()
+  await page.getByRole('button', { name: 'Stjärnmarkera', exact: true }).click()
+  await page.getByRole('button', { name: 'Viktigt' }).click()
+
+  await expect(page).toHaveURL(/\/important$/)
+  await expect(page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' })).toBeVisible()
+})
+
+test('adds a task to Min dag and finds it in the smart view', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Jag har sett detta' }).click()
+
+  const task = page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' })
+  await task.getByRole('button', { name: 'Uppgiftsåtgärder' }).click()
+  await page.getByRole('button', { name: 'Lägg till i Min dag', exact: true }).click()
+  await page.getByRole('button', { name: 'Min dag' }).click()
+
+  await expect(page).toHaveURL(/\/my-day$/)
+  await expect(page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' })).toBeVisible()
+})
+
 test('adds a tag and uses a quick due-date preset', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: 'Jag har sett detta' }).click()

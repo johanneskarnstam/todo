@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { Timestamp } from 'firebase/firestore'
-import { useListStore } from '@/stores/listStore'
+import { DEFAULT_LIST_ID, useListStore } from '@/stores/listStore'
 
 const firestoreMocks = vi.hoisted(() => ({
   collection: vi.fn(),
@@ -119,6 +119,16 @@ describe('useListStore', () => {
     )
   })
 
+  it('ignores blank list and folder names', async () => {
+    const store = useListStore()
+
+    expect(await store.createList({ name: '   ' })).toBeUndefined()
+    expect(await store.createFolder({ name: '   ' })).toBeUndefined()
+    expect(store.lists).toEqual([])
+    expect(store.folders).toEqual([])
+    expect(firestoreMocks.setDoc).not.toHaveBeenCalled()
+  })
+
   it('keeps Att göra available when Firestore and cache are unavailable', async () => {
     firestoreMocks.getDocs.mockRejectedValue(new Error('offline'))
     firestoreMocks.getDocsFromCache.mockRejectedValue(new Error('offline'))
@@ -147,6 +157,42 @@ describe('useListStore', () => {
 
     expect(store.lists[0].name).toBe('Original name')
     expect(store.error).toBe('update failed')
+  })
+
+  it('updates and rolls back a list theme when Firestore rejects', async () => {
+    const store = useListStore()
+    store.lists.push({
+      id: 'list-1',
+      name: 'Original list',
+      icon: 'list',
+      order: 1,
+      createdAt: Timestamp.now(),
+      themeColor: '#2564cf',
+    })
+    firestoreMocks.updateDoc.mockRejectedValueOnce(new Error('theme update failed'))
+
+    store.updateListTheme('list-1', '#107c10')
+    expect(store.lists[0].themeColor).toBe('#107c10')
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(store.lists[0].themeColor).toBe('#2564cf')
+    expect(store.error).toBe('theme update failed')
+  })
+
+  it('does not delete the default list and selects a fallback after deleting the active list', async () => {
+    const store = useListStore()
+    store.lists.push(
+      { id: DEFAULT_LIST_ID, name: 'Att göra', order: 0, icon: 'list', createdAt: Timestamp.fromMillis(0) },
+      { id: 'list-1', name: 'First', order: 1, icon: 'list', createdAt: Timestamp.now() },
+      { id: 'list-2', name: 'Second', order: 2, icon: 'list', createdAt: Timestamp.now() },
+    )
+    store.selectedListId = 'list-1'
+
+    expect(await store.deleteList(DEFAULT_LIST_ID)).toBe(false)
+    expect(await store.deleteList('list-1')).toBe(true)
+    expect(store.lists.some((list) => list.id === 'list-1')).toBe(false)
+    expect(store.selectedListId).toBe(DEFAULT_LIST_ID)
   })
 
   it('moves a list between folders optimistically', async () => {

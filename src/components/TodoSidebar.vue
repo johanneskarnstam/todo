@@ -188,6 +188,7 @@ const moveList = (listId: string, folderId: string | null) => {
   >
     <div
       v-if="open"
+      data-sidebar-overlay
       class="fixed inset-0 z-[70] bg-slate-950/30 lg:hidden"
       aria-hidden="true"
       @click="emit('close')"

@@ -261,6 +261,55 @@ describe('useTaskStore', () => {
     expect(store.error).toBe('offline write failed')
   })
 
+  it('toggles completion, importance, and My day state optimistically', async () => {
+    const createdAt = Timestamp.now()
+    firestoreMocks.getDocs.mockResolvedValueOnce(
+      snapshot([taskDocument('task-1', {
+        listId: 'list-1',
+        title: 'Finish wall',
+        completed: false,
+        important: false,
+        myDay: false,
+        createdAt,
+      })]),
+    )
+    const store = useTaskStore()
+    await store.fetchTasks()
+
+    store.toggleCompleted('task-1')
+    store.toggleImportant('task-1')
+    store.toggleMyDay('task-1')
+
+    expect(store.tasks[0]).toMatchObject({ completed: true, important: true, myDay: true })
+    expect(firestoreMocks.updateDoc).toHaveBeenCalledWith(expect.anything(), { completed: true })
+    expect(firestoreMocks.updateDoc).toHaveBeenCalledWith(expect.anything(), { important: true })
+    expect(firestoreMocks.updateDoc).toHaveBeenCalledWith(expect.anything(), { myDay: true })
+  })
+
+  it('rolls back an optimistic importance update when Firestore rejects', async () => {
+    const createdAt = Timestamp.now()
+    firestoreMocks.getDocs.mockResolvedValueOnce(
+      snapshot([taskDocument('task-1', {
+        listId: 'list-1',
+        title: 'Important task',
+        completed: false,
+        important: false,
+        myDay: false,
+        createdAt,
+      })]),
+    )
+    firestoreMocks.updateDoc.mockRejectedValueOnce(new Error('important update failed'))
+    const store = useTaskStore()
+    await store.fetchTasks()
+
+    store.toggleImportant('task-1')
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(store.tasks[0].important).toBe(false)
+    expect(store.error).toBe('important update failed')
+  })
+
   it('adds and toggles steps optimistically for the active task', async () => {
     const store = useTaskStore()
     store.setActiveTask('task-1')

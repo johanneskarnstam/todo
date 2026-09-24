@@ -48,6 +48,56 @@ describe('TodoSidebar', () => {
     expect(tagsButton.attributes('aria-expanded')).toBe('false')
   })
 
+  it('creates lists and folders from the sidebar forms', async () => {
+    const wrapper = mount(TodoSidebar, {
+      props: {
+        open: true,
+        activeListId: null,
+        activeSmartView: null,
+        availableTags: [],
+        selectedTag: '',
+        folders: [],
+        ungroupedLists: [],
+        smartViewCounts: { myDay: 0, important: 0, planned: 0 },
+        listTaskCounts: {},
+      },
+      global: { stubs: { RouterLink: true } },
+    })
+
+    await wrapper.get('button').trigger('click')
+    await wrapper.get('input[placeholder="Listnamn"]').setValue('  Weekend  ')
+    await wrapper.get('form').trigger('submit')
+    expect(wrapper.emitted('create-list')).toEqual([['Weekend']])
+
+    const addFolderButton = wrapper.findAll('button').find((button) => button.text().includes('Ny mapp'))
+    await addFolderButton?.trigger('click')
+    await wrapper.get('input[placeholder="Mappnamn"]').setValue('  Resor  ')
+    await wrapper.get('form').filter((form) => form.find('input[placeholder="Mappnamn"]').exists()).trigger('submit')
+    expect(wrapper.emitted('create-folder')).toEqual([['Resor']])
+  })
+
+  it('emits the selected folder when moving a list', async () => {
+    const wrapper = mount(TodoSidebar, {
+      props: {
+        open: true,
+        activeListId: 'list-1',
+        activeSmartView: null,
+        availableTags: [],
+        selectedTag: '',
+        folders: [{ folder: { id: 'folder-1', name: 'Projekt', order: 0 }, lists: [] }],
+        ungroupedLists: [{ id: 'list-1', name: 'Arbete', icon: 'list', order: 0, createdAt: Timestamp.now() }],
+        smartViewCounts: { myDay: 0, important: 0, planned: 0 },
+        listTaskCounts: {},
+      },
+      global: { stubs: { RouterLink: true } },
+    })
+
+    await wrapper.get('button[aria-label="Flytta Arbete"]').trigger('click')
+    await wrapper.get('[role="menu"][aria-label="Flytta Arbete till mapp"] [role="menuitem"]', { exact: false }).filter((button) => button.text() === 'Projekt').trigger('click')
+
+    expect(wrapper.emitted('move-list')).toEqual([['list-1', 'folder-1']])
+  })
+
   it('opens folder options with right-click and touch long-press', async () => {
     vi.useFakeTimers()
     const wrapper = mount(TodoSidebar, {
@@ -304,6 +354,15 @@ describe('TaskDetailsPanel', () => {
     await editInput.trigger('keydown.enter')
 
     expect(wrapper.emitted('save-step-title')).toEqual([['step-1', 'Buy green paint']])
+  })
+
+  it('refreshes editable fields when the active task changes', async () => {
+    const wrapper = mount(TaskDetailsPanel, { props: { task, steps } })
+
+    await wrapper.setProps({ task: { ...task, id: 'task-2', title: 'New task', note: 'New note' } })
+
+    expect(wrapper.get('input[aria-label="Uppgiftens titel"]').element).toHaveValue('New task')
+    expect(wrapper.get('textarea').element).toHaveValue('New note')
   })
 
   it('adds tags and emits quick due-date changes', async () => {
