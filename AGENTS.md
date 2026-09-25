@@ -21,9 +21,15 @@ Maintain the established directory structure. Do not create new top-level direct
 Before marking a task as complete or finalizing code changes, you **MUST** run the project's validation scripts (For this project: `npm run type-check && npm run lint`).
 - If the validation fails, analyze the errors, fix them, and re-run until it passes 100%.
 - Never assume a change is safe without completing this validation.
-- `npm run validate` also runs the Playwright E2E suite. Use the local mock-auth mode so validation does not require Firebase credentials.
+- `npm run validate` is the complete PR validation: lint, type-check, coverage, Playwright E2E and production build. Use it before finalizing changes whenever the environment supports it.
+- Use the local `VITE_DEV_AUTH_BYPASS=true` mock-auth mode for the normal E2E suite so validation does not require Firebase credentials. Auth-gating tests without a user belong in a separate deterministic test mode.
+- Preserve the coverage gate: Statements 70%, Branches 55%, Functions 65% and Lines 75%. Do not lower thresholds or add exclusions to make a refactor pass without adding or adjusting behavior tests.
 - Every new user-facing feature or changed browser workflow must add or update an E2E test when its behavior can be verified through the UI. Unit tests alone are not sufficient for routing, responsive behavior, pointer interaction, or cross-component flows.
-- Keep E2E tests deterministic: use stable mock data, accessible selectors, isolated browser contexts, and no arbitrary sleeps.
+- Keep E2E tests deterministic: use stable mock data, explicit starting routes, isolated browser contexts, accessible selectors and no arbitrary sleeps. Wait for URLs, visibility, text or state changes instead of fixed millisecond delays.
+- Prefer `getByRole`, `getByLabel` and stable visible text. Use `data-testid` only when a semantic contract is not available; do not use Tailwind classes or DOM position as behavioral selectors.
+- Keep Playwright diagnostics enabled on failure: trace on first retry, screenshots on failure and video on failure. CI should use one worker and retain artifacts needed to diagnose a failed test.
+- Test optimistic writes at unit level with explicit Firestore rejects and at E2E level with controlled test flags or routes, never random network failures.
+- Run Firebase Emulator Suite tests separately from the fast mock-auth PR suite. Emulator tests must use isolated test data and never production credentials, personal accounts or a production database.
 
 ## 4. Git Workflow & Commit Rules
 Always work on dedicated feature branches for new features or fixes:
