@@ -254,6 +254,11 @@ const handleMoveList = (listId: string, folderId: string | null) => {
   void listStore.moveList(listId, folderId)
 }
 
+const handleMoveTaskToList = (taskId: string, targetListId: string) => {
+  const targetList = listStore.lists.find((list) => list.id === targetListId)
+  void taskStore.moveTask(taskId, targetListId, targetList?.name)
+}
+
 const handleRenameFolder = (folderId: string, name: string) => {
   void listStore.updateFolder(folderId, { name })
 }
@@ -496,11 +501,13 @@ watch(
                   :step-count="taskStore.taskStepCounts.get(task.id) ?? null"
                   :list-name="taskListName(task.listId)"
                   :show-due-date="true"
+                  :available-lists="listStore.lists"
                   @select="taskStore.setActiveTask(task.id)"
                   @toggle-completed="taskStore.toggleCompleted(task.id)"
                   @toggle-important="taskStore.toggleImportant(task.id)"
                   @toggle-my-day="taskStore.toggleMyDay(task.id)"
                   @delete="requestDeleteTask(task.id)"
+                  @move-to-list="handleMoveTaskToList(task.id, $event)"
                 />
               </div>
             </section>
@@ -516,12 +523,14 @@ watch(
                 :step-count="taskStore.taskStepCounts.get(task.id) ?? null"
                 :list-name="taskStore.activeView?.type === 'smart' && taskStore.activeView.smartView === 'important' ? taskListName(task.listId) : null"
                 :draggable="canDrag"
+                :available-lists="listStore.lists"
                 @select="taskStore.setActiveTask(task.id)"
                 @toggle-completed="taskStore.toggleCompleted(task.id)"
                 @toggle-important="taskStore.toggleImportant(task.id)"
                 @toggle-my-day="taskStore.toggleMyDay(task.id)"
                 @delete="requestDeleteTask(task.id)"
                 @move="(direction) => handleMoveTask(task.id, direction)"
+                @move-to-list="handleMoveTaskToList(task.id, $event)"
               />
             </div>
           </section>
@@ -535,11 +544,13 @@ watch(
                 :task="task"
                 :step-count="taskStore.taskStepCounts.get(task.id) ?? null"
                 :list-name="taskStore.activeView?.type === 'smart' && taskStore.activeView.smartView === 'important' ? taskListName(task.listId) : null"
+                :available-lists="listStore.lists"
                 @select="taskStore.setActiveTask(task.id)"
                 @toggle-completed="taskStore.toggleCompleted(task.id)"
                 @toggle-important="taskStore.toggleImportant(task.id)"
                 @toggle-my-day="taskStore.toggleMyDay(task.id)"
                 @delete="requestDeleteTask(task.id)"
+                @move-to-list="handleMoveTaskToList(task.id, $event)"
               />
             </div>
           </section>
@@ -552,6 +563,7 @@ watch(
         v-if="taskStore.activeTask"
         :task="taskStore.activeTask"
         :steps="taskStore.activeSteps"
+        :available-lists="listStore.lists"
         @close="taskStore.setActiveTask(null)"
         @save-title="taskStore.updateTask(taskStore.activeTaskId!, { title: $event })"
         @add-step="taskStore.createStep({ taskId: taskStore.activeTaskId!, title: $event })"
@@ -563,6 +575,7 @@ watch(
         @save-reminder="handleSaveReminder(taskStore.activeTaskId!, $event)"
         @save-note="taskStore.saveNote(taskStore.activeTaskId!, $event)"
         @save-tags="taskStore.updateTask(taskStore.activeTaskId!, { tags: $event })"
+        @move-to-list="handleMoveTaskToList(taskStore.activeTaskId!, $event)"
         @delete-task="handleDeleteActiveTask"
       />
 

@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { ArrowLeft } from '@lucide/vue'
-import type { Step, Task, TaskReminder } from '@/types'
+import type { List, Step, Task, TaskReminder } from '@/types'
 
 interface Props {
   task: Task
   steps: Step[]
+  availableLists?: List[]
 }
 
 interface Emits {
@@ -20,6 +21,7 @@ interface Emits {
   (event: 'save-reminder', reminder: TaskReminder | null): void
   (event: 'save-note', note: string): void
   (event: 'save-tags', tags: string[]): void
+  (event: 'move-to-list', listId: string): void
   (event: 'delete-task'): void
 }
 
@@ -236,6 +238,14 @@ const saveStepTitle = () => {
           <span class="flex-1">{{ task.myDay ? 'Ta bort från Min dag' : 'Lägg till i Min dag' }}</span>
           <span v-if="task.myDay" class="text-xs text-[#2564cf] dark:text-blue-400">Added</span>
         </button>
+
+        <label v-if="availableLists && availableLists.length > 1" class="flex min-h-11 items-center gap-3 rounded-lg px-2 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800">
+          <span class="text-lg text-slate-500" aria-hidden="true">▤</span>
+          <span class="flex-1">Lista</span>
+          <select class="max-w-44 bg-transparent text-right text-sm text-slate-600 outline-none dark:text-slate-300" :value="task.listId" aria-label="Uppgiftens lista" @change="emit('move-to-list', ($event.target as HTMLSelectElement).value)">
+            <option v-for="list in availableLists" :key="list.id" :value="list.id">{{ list.name }}</option>
+          </select>
+        </label>
 
         <label class="flex min-h-11 items-center gap-3 rounded-lg px-2 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800">
           <span class="text-lg text-slate-500" aria-hidden="true">▣</span>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { CalendarDays, CalendarPlus, CheckCircle2, GripVertical, ListTodo, MoreVertical, Star, Trash2 } from '@lucide/vue'
-import type { StepCount, Task } from '@/types'
+import type { List, StepCount, Task } from '@/types'
 
 const rowInteractionResets = new Set<() => void>()
 
@@ -11,6 +11,7 @@ interface Props {
   listName?: string | null
   showDueDate?: boolean
   draggable?: boolean
+  availableLists?: List[]
 }
 
 interface Emits {
@@ -20,11 +21,13 @@ interface Emits {
   (event: 'toggle-my-day'): void
   (event: 'delete'): void
   (event: 'move', direction: -1 | 1): void
+  (event: 'move-to-list', listId: string): void
 }
 
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 const isMenuOpen = ref(false)
+const isMoveMenuOpen = ref(false)
 const actionsButton = ref<HTMLButtonElement | null>(null)
 const actionsMenu = ref<HTMLDivElement | null>(null)
 const menuStyle = ref<Record<string, string>>({})
@@ -34,6 +37,7 @@ const suppressClick = ref(false)
 
 const resetRowInteraction = () => {
   isMenuOpen.value = false
+  isMoveMenuOpen.value = false
   menuStyle.value = {}
   swipeOffset.value = 0
   swipeStartX.value = null
@@ -74,7 +78,13 @@ const updateMenuPlacement = () => {
 
 const closeMenu = () => {
   isMenuOpen.value = false
+  isMoveMenuOpen.value = false
   menuStyle.value = {}
+}
+
+const toggleMoveMenu = () => {
+  isMoveMenuOpen.value = !isMoveMenuOpen.value
+  void nextTick(positionMenu)
 }
 
 const handleWindowKeydown = (event: KeyboardEvent) => {
@@ -242,6 +252,23 @@ const dueDateText = computed(() => {
         <button class="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="emit('toggle-completed'); closeMenu()"><CheckCircle2 :size="17" aria-hidden="true" />{{ task.completed ? 'Markera som aktiv' : 'Markera som slutförd' }}</button>
         <button class="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="emit('toggle-important'); closeMenu()"><Star :size="17" :fill="task.important ? 'currentColor' : 'none'" aria-hidden="true" />{{ task.important ? 'Ta bort stjärnmarkering' : 'Stjärnmarkera' }}</button>
         <button class="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="emit('toggle-my-day'); closeMenu()"><CalendarPlus :size="17" aria-hidden="true" />{{ task.myDay ? 'Ta bort från Min dag' : 'Lägg till i Min dag' }}</button>
+        <template v-if="availableLists && availableLists.length > 1">
+          <button class="flex min-h-10 w-full items-center justify-between gap-3 rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" :aria-expanded="isMoveMenuOpen" @click="toggleMoveMenu"><span>Flytta till lista</span><span aria-hidden="true">›</span></button>
+          <div v-if="isMoveMenuOpen" class="max-h-48 overflow-y-auto border-t border-slate-200 py-1 dark:border-slate-700" role="menu" aria-label="Flytta uppgiften till lista">
+            <button
+              v-for="list in availableLists"
+              :key="list.id"
+              class="flex min-h-9 w-full items-center justify-between px-3 text-left text-sm hover:bg-slate-100 disabled:cursor-default disabled:text-slate-400 dark:hover:bg-slate-700 dark:disabled:text-slate-500"
+              type="button"
+              role="menuitem"
+              :disabled="list.id === task.listId"
+              @click="emit('move-to-list', list.id); closeMenu()"
+            >
+              <span class="truncate">{{ list.name }}</span>
+              <span v-if="list.id === task.listId" class="ml-2 text-xs">Aktuell</span>
+            </button>
+          </div>
+        </template>
         <button class="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950" type="button" @click="emit('delete'); closeMenu()"><Trash2 :size="17" aria-hidden="true" />Ta bort uppgift</button>
       </div>
     </Teleport>

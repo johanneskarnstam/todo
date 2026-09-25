@@ -570,6 +570,40 @@ export const useTaskStore = defineStore('tasks', () => {
     }
   }
 
+  const moveTask = async (taskId: string, targetListId: string, targetListName?: string, announce = true) => {
+    const task = tasks.value.find((item) => item.id === taskId)
+    if (!task || task.listId === targetListId) return
+
+    const previousListId = task.listId
+    const previousOrder = task.order
+    const targetTasks = tasks.value.filter((item) => item.listId === targetListId && item.id !== taskId)
+    const targetOrder = targetTasks.reduce((highest, item) => Math.max(highest, item.order ?? -1), -1) + 1
+
+    task.listId = targetListId
+    task.order = targetOrder
+    tasks.value = sortTasks(tasks.value)
+    error.value = null
+
+    try {
+      await trackWrite(() => updateDoc(doc(userCollection(), taskId), {
+        listId: targetListId,
+        order: targetOrder,
+      }))
+      if (announce) {
+        toastStore.showAction(
+          `Uppgiften flyttades till ${targetListName ?? 'en annan lista'}`,
+          'Ångra',
+          () => void moveTask(taskId, previousListId, undefined, false),
+        )
+      }
+    } catch (moveError) {
+      task.listId = previousListId
+      task.order = previousOrder
+      tasks.value = sortTasks(tasks.value)
+      reportWriteError(moveError, 'Uppgiften kunde inte flyttas.')
+    }
+  }
+
   return {
     tasks,
     steps: allSteps,
@@ -607,5 +641,6 @@ export const useTaskStore = defineStore('tasks', () => {
     deleteTask,
     deleteTasksForLists,
     reorderTasks,
+    moveTask,
   }
 })

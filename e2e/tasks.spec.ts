@@ -93,6 +93,22 @@ test('adds a tag and uses a quick due-date preset', async ({ page }) => {
   await expect(page.getByRole('menuitem', { name: '#arbete' })).toBeVisible()
 })
 
+test('moves a task to another list', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Jag har sett detta' }).click()
+
+  const task = page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' })
+  await task.getByRole('button', { name: 'Uppgiftsåtgärder' }).click()
+  await page.getByRole('button', { name: 'Flytta till lista' }).click()
+  await page.getByRole('menuitem', { name: /Projekt/ }).click()
+
+  await expect(page.getByRole('alert')).toContainText('Uppgiften flyttades till Projekt')
+  await expect(task).toHaveCount(0)
+
+  await page.getByRole('button', { name: /^Projekt \d+$/ }).click()
+  await expect(page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' })).toBeVisible()
+})
+
 test('can undo deleting a task', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: 'Jag har sett detta' }).click()

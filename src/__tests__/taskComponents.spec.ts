@@ -298,6 +298,31 @@ describe('TaskRow', () => {
     expect(wrapper.emitted('toggle-completed')).toHaveLength(1)
   })
 
+  it('offers other lists in the task actions menu', async () => {
+    const wrapper = mount(TaskRow, {
+      props: {
+        task,
+        availableLists: [
+          { id: 'list-1', name: 'Arbete', icon: 'list', order: 0, createdAt: Timestamp.now() },
+          { id: 'list-2', name: 'Projekt', icon: 'list', order: 1, createdAt: Timestamp.now() },
+        ],
+      },
+    })
+
+    await wrapper.find('button[aria-label="Uppgiftsåtgärder"]').trigger('click')
+    await nextTick()
+    const moveButton = Array.from(document.body.querySelectorAll('button')).find((button) => button.textContent?.includes('Flytta till lista'))
+    expect(moveButton).toBeTruthy()
+    moveButton?.click()
+    await nextTick()
+
+    const targetButton = Array.from(document.body.querySelectorAll('[role="menuitem"]')).find((button) => button.textContent?.includes('Projekt'))
+    expect(targetButton).toBeTruthy()
+    targetButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+
+    expect(wrapper.emitted('move-to-list')).toEqual([['list-2']])
+  })
+
   it('keeps swipe and dropdown interaction exclusive to one row', async () => {
     document.querySelectorAll('[data-task-menu-id]').forEach((menu) => menu.remove())
     const secondTask = { ...task, id: 'task-2', title: 'Paint the ceiling' }

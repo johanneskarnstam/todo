@@ -394,6 +394,37 @@ describe('useTaskStore', () => {
     expect(firestoreMocks.deleteDoc).toHaveBeenCalled()
   })
 
+  it('moves a task to the end of another list', async () => {
+    const createdAt = Timestamp.now()
+    const store = useTaskStore()
+    store.tasks.push(
+      { id: 'task-1', listId: 'list-1', title: 'Move me', completed: false, important: false, myDay: false, order: 0, createdAt },
+      { id: 'task-2', listId: 'list-2', title: 'Already there', completed: false, important: false, myDay: false, order: 2, createdAt },
+    )
+
+    await store.moveTask('task-1', 'list-2', 'Projekt')
+
+    expect(store.tasks.map((task) => [task.id, task.listId, task.order])).toEqual([
+      ['task-2', 'list-2', 2],
+      ['task-1', 'list-2', 3],
+    ])
+    expect(firestoreMocks.updateDoc).toHaveBeenCalledWith(expect.anything(), { listId: 'list-2', order: 3 })
+  })
+
+  it('rolls back a task move when Firestore rejects it', async () => {
+    const store = useTaskStore()
+    store.tasks.push({
+      id: 'task-1', listId: 'list-1', title: 'Move me', completed: false, important: false,
+      myDay: false, order: 1, createdAt: Timestamp.now(),
+    })
+    firestoreMocks.updateDoc.mockRejectedValueOnce(new Error('move failed'))
+
+    await store.moveTask('task-1', 'list-2')
+
+    expect(store.tasks[0]).toMatchObject({ listId: 'list-1', order: 1 })
+    expect(store.error).toBe('move failed')
+  })
+
   it('deletes a subtask optimistically without changing the parent task', async () => {
     const store = useTaskStore()
     store.setActiveTask('task-1')
