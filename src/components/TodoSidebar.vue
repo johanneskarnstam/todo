@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { CalendarDays, ChevronDown, FolderPlus, ListTodo, MoreVertical, Plus, Settings, Star, Sun, Tags, X } from '@lucide/vue'
+import { CalendarDays, Check, ChevronDown, FolderPlus, ListTodo, MoreVertical, Plus, Settings, Star, Sun, Tags, X } from '@lucide/vue'
 import type { Folder, List, SmartView } from '@/types'
 import { DEFAULT_LIST_ID } from '@/stores/listStore'
 
@@ -228,8 +228,8 @@ const moveList = (listId: string, folderId: string | null) => {
       :class="open ? 'lg:w-[340px]' : 'lg:w-0 lg:overflow-hidden lg:border-transparent lg:px-0'"
       aria-label="Uppgiftsnavigering"
     >
-    <div class="flex h-full flex-col px-2 py-5">
-      <div class="mb-5 flex h-10 items-center justify-between lg:hidden">
+    <div class="flex h-full flex-col px-2 py-3">
+      <div class="mb-3 flex h-10 items-center justify-between lg:hidden">
         <div class="flex items-center gap-2 px-1">
           <img class="size-8 rounded-lg shadow-sm" :src="iconUrl" alt="" aria-hidden="true" />
           <span class="text-lg font-semibold tracking-tight text-slate-800 dark:text-slate-100">To Do</span>
@@ -248,7 +248,7 @@ const moveList = (listId: string, folderId: string | null) => {
         <button
           v-for="view in smartViews"
           :key="view.key"
-          class="flex h-11 w-full items-center gap-4 rounded-lg px-3 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+          class="flex h-9 w-full items-center gap-3 rounded-lg px-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
           :class="{ 'bg-[#eef5fc] text-slate-900 dark:bg-slate-800 dark:text-white': activeSmartView === view.view }"
           type="button"
           @click="selectSmartView(view.view)"
@@ -259,9 +259,9 @@ const moveList = (listId: string, folderId: string | null) => {
         </button>
       </nav>
 
-      <div class="mb-4">
+      <div class="mb-3">
         <button
-          class="flex h-11 w-full items-center gap-4 rounded-lg px-3 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+          class="flex h-9 w-full items-center gap-3 rounded-lg px-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
           type="button"
           aria-controls="sidebar-tags-menu"
           :aria-expanded="isTagsOpen"
@@ -304,20 +304,20 @@ const moveList = (listId: string, folderId: string | null) => {
         </Transition>
       </div>
 
-      <div class="mb-4 border-t border-slate-200 dark:border-slate-700" />
+      <div class="mb-3 border-t border-slate-200 dark:border-slate-700" />
 
       <div class="min-h-0 flex-1 overflow-y-auto">
-        <section v-if="defaultList" class="mb-5">
-          <div class="relative flex min-h-11 items-center px-3">
+        <section v-if="defaultList" class="mb-3">
+          <div class="relative flex min-h-9 items-center px-2.5">
             <button
-              class="flex min-w-0 flex-1 items-center text-left text-[15px] font-semibold text-slate-800 dark:text-slate-100"
+              class="flex min-w-0 flex-1 items-center text-left text-sm font-semibold text-slate-800 dark:text-slate-100"
               type="button"
               :aria-expanded="!collapsedFolders[DEFAULT_LIST_ID]"
               @click="toggleFolder(DEFAULT_LIST_ID)"
             >
               <span class="flex-1 truncate">Huvudlista</span>
               <ChevronDown
-                :size="20"
+                :size="18"
                 :stroke-width="1.75"
                 class="text-slate-500 transition-transform duration-200 ease-out"
                 :class="{ '-rotate-90': collapsedFolders[DEFAULT_LIST_ID] }"
@@ -328,20 +328,20 @@ const moveList = (listId: string, folderId: string | null) => {
           <Transition name="sidebar-expand">
             <div v-if="!collapsedFolders[DEFAULT_LIST_ID]" class="ml-3 border-l-2 border-slate-300 dark:border-slate-600">
             <button
-              class="group flex h-[52px] w-full items-center gap-4 border-l-2 border-transparent px-7 text-left text-[15px] text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+              class="group flex h-9 w-full items-center gap-3 border-l-2 border-transparent px-5 text-left text-xs text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
               :class="{ 'border-[#2564cf] bg-[#eef5fc] font-semibold text-slate-900 dark:border-blue-400 dark:bg-slate-800 dark:text-white': activeListId === defaultList.id }"
               type="button"
               @click="emit('select-list', defaultList.id)"
             >
-              <ListTodo :size="20" :stroke-width="1.8" class="shrink-0 text-slate-700 dark:text-slate-300" aria-hidden="true" />
+              <ListTodo :size="18" :stroke-width="1.8" class="shrink-0 text-slate-700 dark:text-slate-300" aria-hidden="true" />
               <span class="flex-1 truncate">{{ defaultList.name }}</span>
-              <span v-if="listTaskCounts[defaultList.id]" class="min-w-5 text-right text-sm text-slate-600 dark:text-slate-300">{{ listTaskCounts[defaultList.id] }}</span>
+              <span v-if="listTaskCounts[defaultList.id]" class="min-w-5 text-right text-xs text-slate-600 dark:text-slate-300">{{ listTaskCounts[defaultList.id] }}</span>
             </button>
             </div>
           </Transition>
         </section>
 
-        <section v-for="section in folders" :key="section.folder.id" class="mb-5">
+        <section v-for="section in folders" :key="section.folder.id" class="mb-3">
           <div v-if="editingFolderId === section.folder.id" class="mb-2 flex gap-2 px-2">
             <label class="sr-only" :for="`rename-folder-${section.folder.id}`">Byt namn på mapp</label>
             <input :id="`rename-folder-${section.folder.id}`" v-model="editingFolderName" class="min-w-0 flex-1 rounded border border-blue-400 px-2 text-sm outline-none" type="text" autofocus @keydown.enter="submitRenameFolder" />
@@ -349,7 +349,7 @@ const moveList = (listId: string, folderId: string | null) => {
           </div>
           <div
             v-else
-            class="relative flex min-h-11 items-center px-3"
+            class="relative flex min-h-9 items-center px-2.5"
             data-folder-header
             @contextmenu.prevent="openFolderContextMenu(section.folder.id)"
             @pointerdown="startFolderLongPress(section.folder.id, $event)"
@@ -358,14 +358,14 @@ const moveList = (listId: string, folderId: string | null) => {
             @pointerleave="cancelFolderLongPress"
           >
             <button
-              class="flex min-w-0 flex-1 items-center text-left text-[15px] font-semibold text-slate-800 dark:text-slate-100"
+              class="flex min-w-0 flex-1 items-center text-left text-sm font-semibold text-slate-800 dark:text-slate-100"
               type="button"
               :aria-expanded="!collapsedFolders[section.folder.id]"
               @click="toggleFolder(section.folder.id)"
             >
               <span class="flex-1 truncate">{{ section.folder.name }}</span>
               <ChevronDown
-                :size="20"
+                :size="18"
                 :stroke-width="1.75"
                 class="text-slate-500 transition-transform duration-200 ease-out"
                 :class="{ '-rotate-90': collapsedFolders[section.folder.id] }"
@@ -389,16 +389,16 @@ const moveList = (listId: string, folderId: string | null) => {
               class="group/list relative"
             >
               <button
-                class="group flex h-[52px] w-full items-center gap-4 border-l-2 border-transparent px-7 pr-12 text-left text-[15px] text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                class="group flex h-9 w-full items-center gap-3 border-l-2 border-transparent px-5 pr-12 text-left text-xs text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
                 :class="{
                   'border-[#2564cf] bg-[#eef5fc] font-semibold text-slate-900 dark:border-blue-400 dark:bg-slate-800 dark:text-white': activeListId === list.id,
                 }"
                 type="button"
                 @click="emit('select-list', list.id)"
               >
-                <ListTodo :size="20" :stroke-width="1.8" class="shrink-0 text-slate-700 dark:text-slate-300" aria-hidden="true" />
+                <ListTodo :size="18" :stroke-width="1.8" class="shrink-0 text-slate-700 dark:text-slate-300" aria-hidden="true" />
                 <span class="flex-1 truncate">{{ list.name }}</span>
-                <span v-if="listTaskCounts[list.id]" class="min-w-5 text-right text-sm text-slate-600 dark:text-slate-300">{{ listTaskCounts[list.id] }}</span>
+                <span v-if="listTaskCounts[list.id]" class="min-w-5 text-right text-xs text-slate-600 dark:text-slate-300">{{ listTaskCounts[list.id] }}</span>
               </button>
               <button
                 v-if="list.id !== DEFAULT_LIST_ID"
@@ -449,14 +449,18 @@ const moveList = (listId: string, folderId: string | null) => {
                 <input
                   :id="`new-list-name-${section.folder.id}`"
                   v-model="newListName"
-                  class="min-w-0 flex-1 rounded-lg border border-blue-400 bg-white px-2.5 py-1.5 text-sm text-slate-800 outline-none ring-2 ring-blue-100 dark:bg-slate-800 dark:text-white dark:ring-blue-900"
+                  class="min-w-0 flex-1 rounded-lg border border-blue-400 bg-white px-2.5 py-1.5 text-xs text-slate-800 outline-none ring-2 ring-blue-100 dark:bg-slate-800 dark:text-white dark:ring-blue-900"
                   type="text"
                   placeholder="Listnamn"
                   autofocus
                   @keydown.escape="cancelAddingList"
                 />
-                <button class="text-sm font-medium text-[#2564cf] dark:text-blue-400" type="submit">Lägg till</button>
-                <button class="text-sm text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300" type="button" @click="cancelAddingList">Avbryt</button>
+                <button class="grid size-8 place-items-center rounded text-[#2564cf] transition hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-slate-800" type="submit" aria-label="Lägg till lista" title="Lägg till lista">
+                  <Check :size="16" :stroke-width="2" aria-hidden="true" />
+                </button>
+                <button class="grid size-8 place-items-center rounded text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-300" type="button" aria-label="Avbryt" title="Avbryt" @click="cancelAddingList">
+                  <X :size="16" :stroke-width="2" aria-hidden="true" />
+                </button>
               </form>
             </div>
             <button
@@ -473,17 +477,17 @@ const moveList = (listId: string, folderId: string | null) => {
           </Transition>
         </section>
 
-        <section class="mb-5">
-          <div class="relative flex min-h-11 items-center px-3">
+        <section class="mb-3">
+          <div class="relative flex min-h-9 items-center px-2.5">
             <button
-              class="flex min-w-0 flex-1 items-center text-left text-[15px] font-semibold text-slate-800 dark:text-slate-100"
+              class="flex min-w-0 flex-1 items-center text-left text-sm font-semibold text-slate-800 dark:text-slate-100"
               type="button"
               :aria-expanded="!collapsedFolders[ungroupedSectionId]"
               @click="toggleFolder(ungroupedSectionId)"
             >
               <span class="flex-1 truncate">Utan mapp</span>
               <ChevronDown
-                :size="20"
+                :size="18"
                 :stroke-width="1.75"
                 class="text-slate-500 transition-transform duration-200 ease-out"
                 :class="{ '-rotate-90': collapsedFolders[ungroupedSectionId] }"
@@ -499,14 +503,14 @@ const moveList = (listId: string, folderId: string | null) => {
               class="group/list relative"
             >
               <button
-                class="group flex h-[52px] w-full items-center gap-4 border-l-2 border-transparent px-7 pr-12 text-left text-[15px] text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                class="group flex h-9 w-full items-center gap-3 border-l-2 border-transparent px-5 pr-12 text-left text-xs text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
                 :class="{ 'border-[#2564cf] bg-[#eef5fc] font-semibold text-slate-900 dark:border-blue-400 dark:bg-slate-800 dark:text-white': activeListId === list.id }"
                 type="button"
                 @click="emit('select-list', list.id)"
               >
-                <ListTodo :size="20" :stroke-width="1.8" class="shrink-0 text-slate-700 dark:text-slate-300" aria-hidden="true" />
+                <ListTodo :size="18" :stroke-width="1.8" class="shrink-0 text-slate-700 dark:text-slate-300" aria-hidden="true" />
                 <span class="flex-1 truncate">{{ list.name }}</span>
-                <span v-if="listTaskCounts[list.id]" class="min-w-5 text-right text-sm text-slate-600 dark:text-slate-300">{{ listTaskCounts[list.id] }}</span>
+                <span v-if="listTaskCounts[list.id]" class="min-w-5 text-right text-xs text-slate-600 dark:text-slate-300">{{ listTaskCounts[list.id] }}</span>
               </button>
               <button
                 v-if="list.id !== DEFAULT_LIST_ID"
@@ -555,14 +559,18 @@ const moveList = (listId: string, folderId: string | null) => {
                 <input
                   id="new-list-name-ungrouped"
                   v-model="newListName"
-                  class="min-w-0 flex-1 rounded-lg border border-blue-400 bg-white px-2.5 py-1.5 text-sm text-slate-800 outline-none ring-2 ring-blue-100 dark:bg-slate-800 dark:text-white dark:ring-blue-900"
+                  class="min-w-0 flex-1 rounded-lg border border-blue-400 bg-white px-2.5 py-1.5 text-xs text-slate-800 outline-none ring-2 ring-blue-100 dark:bg-slate-800 dark:text-white dark:ring-blue-900"
                   type="text"
                   placeholder="Listnamn"
                   autofocus
                   @keydown.escape="cancelAddingList"
                 />
-                <button class="text-sm font-medium text-[#2564cf] dark:text-blue-400" type="submit">Lägg till</button>
-                <button class="text-sm text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300" type="button" @click="cancelAddingList">Avbryt</button>
+                <button class="grid size-8 place-items-center rounded text-[#2564cf] transition hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-slate-800" type="submit" aria-label="Lägg till lista" title="Lägg till lista">
+                  <Check :size="16" :stroke-width="2" aria-hidden="true" />
+                </button>
+                <button class="grid size-8 place-items-center rounded text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-300" type="button" aria-label="Avbryt" title="Avbryt" @click="cancelAddingList">
+                  <X :size="16" :stroke-width="2" aria-hidden="true" />
+                </button>
               </form>
             </div>
             <button

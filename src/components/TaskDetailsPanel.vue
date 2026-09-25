@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { ArrowLeft } from '@lucide/vue'
 import type { Step, Task, TaskReminder } from '@/types'
 
 interface Props {
@@ -144,7 +145,9 @@ const saveStepTitle = () => {
   <aside class="fixed inset-x-0 bottom-0 top-14 z-50 flex flex-col bg-white shadow-2xl dark:bg-slate-900 lg:static lg:z-auto lg:w-80 lg:shrink-0 lg:rounded-l-xl lg:border-l lg:border-slate-200 lg:shadow-none dark:lg:border-slate-700" role="dialog" aria-modal="true" aria-labelledby="task-details-heading">
     <div class="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 px-4 dark:border-slate-700">
       <span id="task-details-heading" class="text-sm font-semibold text-slate-700 dark:text-slate-200">Uppgiftsdetaljer</span>
-      <button class="grid size-8 place-items-center rounded-lg text-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800" type="button" aria-label="Stäng" @click="emit('close')">×</button>
+      <button class="grid size-8 place-items-center rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700" type="button" aria-label="Stäng uppgiftsdetaljer" @click="emit('close')">
+        <ArrowLeft :size="19" :stroke-width="1.8" aria-hidden="true" />
+      </button>
     </div>
 
     <div class="min-h-0 flex-1 overflow-y-auto p-4">
