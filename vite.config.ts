@@ -12,7 +12,12 @@ export default defineConfig({
     vueDevTools(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['img/icons/todo-icon.svg', 'img/icons/pwa-192x192.png', 'img/icons/pwa-512x512.png'],
+      includeAssets: [
+        'img/icons/todo-icon.svg',
+        'img/icons/favicon-32x32.png',
+        'img/icons/favicon-16x16.png',
+        'img/icons/apple-touch-icon-180x180.png',
+      ],
       manifest: {
         name: 'Todo',
         short_name: 'Todo',
@@ -30,6 +35,12 @@ export default defineConfig({
             src: 'img/icons/pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png',
+          },
+          {
+            src: 'img/icons/maskable-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable',
           },
         ],
       },
