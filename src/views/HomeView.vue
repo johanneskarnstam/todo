@@ -467,7 +467,7 @@ watch(
                     <button v-for="color in themeColors" :key="color" class="size-6 rounded-full border-2 border-white ring-1 ring-slate-300" :style="{ backgroundColor: color }" type="button" :aria-label="`Använd listfärg ${color}`" @click="selectListTheme(color)" />
                   </div>
                 </div>
-                <button class="mt-2 flex min-h-9 w-full items-center rounded-lg px-3 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950" type="button" @click="requestDeleteList">Ta bort lista</button>
+                <button class="mt-2 flex min-h-9 w-full items-center rounded-lg px-3 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950" type="button" @click="requestDeleteList()">Ta bort lista</button>
               </div>
             </div>
             <div v-else class="size-9" aria-hidden="true" />
