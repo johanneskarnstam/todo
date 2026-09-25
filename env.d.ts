@@ -4,3 +4,6 @@
 interface ImportMetaEnv {
 	readonly VITE_DEV_AUTH_BYPASS?: string
 }
+
+declare const __BUILD_TIME__: string
+

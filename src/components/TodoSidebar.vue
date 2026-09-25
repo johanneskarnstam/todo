@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { CalendarDays, Check, ChevronDown, FolderOpen, FolderPlus, ListTodo, MoreVertical, Plus, Settings, Star, Sun, Tags, X } from '@lucide/vue'
 import type { Folder, List, SmartView } from '@/types'
 import { DEFAULT_LIST_ID } from '@/stores/listStore'
+import { appVersion, formattedBuildTime } from '@/buildInfo'
 
 interface FolderSection {
   folder: Folder
@@ -667,6 +668,10 @@ onUnmounted(() => {
           <Settings :size="17" :stroke-width="1.8" aria-hidden="true" />
           <span>Inställningar</span>
         </RouterLink>
+        <hr class="my-2 border-slate-200 dark:border-slate-700" />
+        <p class="px-3 pb-0.5 text-[10px] text-slate-400 dark:text-slate-500">
+          Senast uppdaterat: {{ formattedBuildTime }} - v{{ appVersion }}
+        </p>
       </div>
     </div>
     </aside>
