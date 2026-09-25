@@ -370,7 +370,7 @@ onMounted(async () => {
   } else if (routeSmartView.value) {
     taskStore.setSmartView(routeSmartView.value)
   } else {
-    taskStore.setListView(DEFAULT_LIST_ID)
+    taskStore.setListView(listStore.selectedListId ?? DEFAULT_LIST_ID)
   }
   await listStore.fetchLists()
   if (routeTag.value) {
@@ -378,7 +378,7 @@ onMounted(async () => {
   } else if (routeSmartView.value) {
     taskStore.setSmartView(routeSmartView.value)
   } else {
-    taskStore.setListView(DEFAULT_LIST_ID)
+    taskStore.setListView(listStore.selectedListId ?? DEFAULT_LIST_ID)
   }
 })
 

@@ -18,6 +18,47 @@ import { useToastStore } from '@/stores/toastStore'
 import { isBrowserOffline } from '@/composables/useNetworkStatus'
 import type { Folder, List } from '@/types'
 
+const mockListsStorageKey = 'todo-mock-lists'
+const mockFoldersStorageKey = 'todo-mock-folders'
+
+const readMockLists = (): List[] | null => {
+  if (typeof localStorage === 'undefined') return null
+  try {
+    const stored = localStorage.getItem(mockListsStorageKey)
+    if (!stored) return null
+    return JSON.parse(stored).map((list: List & { createdAt: number }) => ({
+      ...list,
+      createdAt: Timestamp.fromMillis(list.createdAt),
+    })) as List[]
+  } catch {
+    return null
+  }
+}
+
+const persistMockLists = (listsToPersist: List[]) => {
+  if (typeof localStorage === 'undefined') return
+  localStorage.setItem(mockListsStorageKey, JSON.stringify(listsToPersist.map((list) => ({
+    ...list,
+    createdAt: list.createdAt.toMillis(),
+  }))))
+}
+
+const readMockFolders = (): Folder[] | null => {
+  if (typeof localStorage === 'undefined') return null
+  try {
+    const stored = localStorage.getItem(mockFoldersStorageKey)
+    if (!stored) return null
+    return JSON.parse(stored) as Folder[]
+  } catch {
+    return null
+  }
+}
+
+const persistMockFolders = (foldersToPersist: Folder[]) => {
+  if (typeof localStorage === 'undefined') return
+  localStorage.setItem(mockFoldersStorageKey, JSON.stringify(foldersToPersist))
+}
+
 interface NewListInput {
   name: string
   folderId?: string
@@ -112,11 +153,18 @@ export const useListStore = defineStore('lists', () => {
     if (!selectedListId.value) selectedListId.value = DEFAULT_LIST_ID
 
     if (isMockAuthEnabled) {
-      lists.value = [
-        defaultList,
+      const initialLists: List[] = [
         { id: 'local-projects', name: 'Projekt', icon: '☷', order: 1, createdAt: Timestamp.now() },
       ]
-      selectedListId.value = DEFAULT_LIST_ID
+      const storedLists = readMockLists()
+      const storedFolders = readMockFolders()
+      lists.value = sortByOrder([defaultList, ...(storedLists ?? initialLists)])
+      folders.value = sortByOrder(storedFolders ?? [])
+      if (!storedLists) persistMockLists(lists.value.filter((list) => list.id !== DEFAULT_LIST_ID))
+      if (!storedFolders) persistMockFolders(folders.value)
+      selectedListId.value = lists.value.some((list) => list.id === selectedListId.value)
+        ? selectedListId.value
+        : DEFAULT_LIST_ID
       isLoaded.value = true
       return
     }
@@ -190,6 +238,11 @@ export const useListStore = defineStore('lists', () => {
     selectedListId.value = optimisticId
     error.value = null
 
+    if (isMockAuthEnabled) {
+      persistMockLists(lists.value.filter((list) => list.id !== DEFAULT_LIST_ID))
+      return optimisticList
+    }
+
     try {
       await trackWrite(() => setDoc(listReference, {
         name: optimisticList.name,
@@ -221,6 +274,11 @@ export const useListStore = defineStore('lists', () => {
     pendingFolderIds.add(optimisticId)
     error.value = null
 
+    if (isMockAuthEnabled) {
+      persistMockFolders(folders.value)
+      return optimisticFolder
+    }
+
     try {
       await trackWrite(() => setDoc(folderReference, {
         name: optimisticFolder.name,
@@ -242,6 +300,7 @@ export const useListStore = defineStore('lists', () => {
     const previousList = { ...currentList }
     Object.assign(currentList, updates)
     lists.value = sortByOrder(lists.value)
+    if (isMockAuthEnabled) persistMockLists(lists.value.filter((list) => list.id !== DEFAULT_LIST_ID))
 
     try {
       await trackWrite(() => updateDoc(doc(userCollection('lists'), listId), updates))
@@ -263,6 +322,7 @@ export const useListStore = defineStore('lists', () => {
     } else {
       delete currentList.folderId
     }
+    if (isMockAuthEnabled) persistMockLists(lists.value.filter((list) => list.id !== DEFAULT_LIST_ID))
 
     try {
       await trackWrite(() => updateDoc(doc(userCollection('lists'), listId), {
@@ -286,6 +346,7 @@ export const useListStore = defineStore('lists', () => {
 
     const [deletedList] = lists.value.splice(listIndex, 1)
     if (selectedListId.value === listId) selectedListId.value = lists.value[0]?.id ?? null
+    if (isMockAuthEnabled) persistMockLists(lists.value.filter((list) => list.id !== DEFAULT_LIST_ID))
 
     try {
       await trackWrite(() => deleteDoc(doc(userCollection('lists'), listId)))
@@ -293,7 +354,9 @@ export const useListStore = defineStore('lists', () => {
         lists.value.splice(Math.min(listIndex, lists.value.length), 0, deletedList)
         lists.value = sortByOrder(lists.value)
         selectedListId.value = deletedList.id
-        if (!isMockAuthEnabled) {
+        if (isMockAuthEnabled) {
+          persistMockLists(lists.value.filter((list) => list.id !== DEFAULT_LIST_ID))
+        } else {
           void trackWrite(() => setDoc(doc(userCollection('lists'), deletedList.id), {
             name: deletedList.name,
             ...(deletedList.folderId ? { folderId: deletedList.folderId } : {}),
@@ -332,6 +395,10 @@ export const useListStore = defineStore('lists', () => {
       })
     }
     folders.value = folders.value.filter((folder) => folder.id !== folderId)
+    if (isMockAuthEnabled) {
+      persistMockLists(lists.value.filter((list) => list.id !== DEFAULT_LIST_ID))
+      persistMockFolders(folders.value)
+    }
 
     try {
       await trackWrite(async () => {
@@ -360,6 +427,7 @@ export const useListStore = defineStore('lists', () => {
     const previousFolder = { ...currentFolder }
     Object.assign(currentFolder, updates)
     folders.value = sortByOrder(folders.value)
+    if (isMockAuthEnabled) persistMockFolders(folders.value)
 
     try {
       await trackWrite(() => updateDoc(doc(userCollection('folders'), folderId), updates))
