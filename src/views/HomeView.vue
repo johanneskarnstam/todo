@@ -222,9 +222,9 @@ const selectListTheme = (color: string) => {
   listStore.updateListTheme(listId, color)
 }
 
-const requestDeleteList = () => {
-  if (!activeList.value) return
-  pendingDeleteListId.value = activeList.value.id
+const requestDeleteList = (listId = activeList.value?.id) => {
+  if (!listId) return
+  pendingDeleteListId.value = listId
   deleteListTasks.value = false
   isListOptionsOpen.value = false
   if (!preferences.value.confirmDeletes) void confirmDeleteList()
@@ -446,6 +446,7 @@ watch(
         @create-list="handleCreateList"
         @create-folder="handleCreateFolder"
         @move-list="handleMoveList"
+        @delete-list="requestDeleteList"
         @rename-folder="handleRenameFolder"
         @delete-folder="handleDeleteFolder"
       />

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { CalendarDays, Check, ChevronDown, FolderPlus, ListTodo, MoreVertical, Plus, Settings, Star, Sun, Tags, X } from '@lucide/vue'
 import type { Folder, List, SmartView } from '@/types'
 import { DEFAULT_LIST_ID } from '@/stores/listStore'
@@ -29,6 +29,7 @@ interface Emits {
   (event: 'create-list', name: string, folderId?: string | null): void
   (event: 'create-folder', name: string): void
   (event: 'move-list', listId: string, folderId: string | null): void
+  (event: 'delete-list', listId: string): void
   (event: 'rename-folder', folderId: string, name: string): void
   (event: 'delete-folder', folderId: string, deleteLists: boolean): void
 }
@@ -193,6 +194,21 @@ const moveList = (listId: string, folderId: string | null) => {
   emit('move-list', listId, folderId)
   openMoveMenuListId.value = null
 }
+
+const closeListMenusOnOutsideClick = (event: MouseEvent) => {
+  const target = event.target as HTMLElement | null
+  if (target?.closest('[data-sidebar-list-menu], [data-sidebar-list-menu-trigger]')) return
+
+  openMoveMenuListId.value = null
+}
+
+onMounted(() => {
+  document.addEventListener('click', closeListMenusOnOutsideClick)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', closeListMenusOnOutsideClick)
+})
 
 </script>
 
@@ -406,6 +422,7 @@ const moveList = (listId: string, folderId: string | null) => {
                 type="button"
                  :aria-label="`Flytta ${list.name}`"
                 :aria-expanded="openMoveMenuListId === list.id"
+                data-sidebar-list-menu-trigger
                 @click.stop="toggleMoveMenu(list.id)"
                 >
                 <MoreVertical :size="19" :stroke-width="1.8" aria-hidden="true" />
@@ -415,9 +432,10 @@ const moveList = (listId: string, folderId: string | null) => {
                   v-if="openMoveMenuListId === list.id"
                   class="absolute right-1 top-10 z-50 max-h-[70vh] w-56 overflow-y-auto rounded border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-800"
                   role="menu"
-                  :aria-label="`Flytta ${list.name} till mapp`"
+                  :aria-label="`Hantera lista ${list.name}`"
+                  data-sidebar-list-menu
                 >
-                <p class="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Flytta till</p>
+                <p class="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Hantera lista</p>
                 <button
                   class="flex min-h-10 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
                   :class="{ 'font-semibold text-[#2564cf] dark:text-blue-400': !list.folderId }"
@@ -439,6 +457,15 @@ const moveList = (listId: string, folderId: string | null) => {
                   {{ folderOption.folder.name }}
                 </button>
                 <div class="mt-2 border-t border-slate-200 pt-2 dark:border-slate-700">
+                  <button
+                    class="flex min-h-10 w-full items-center rounded px-3 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
+                    type="button"
+                    role="menuitem"
+                    :aria-label="`Ta bort ${list.name}`"
+                    @click="emit('delete-list', list.id); openMoveMenuListId = null"
+                  >
+                    Ta bort lista
+                  </button>
                 </div>
                 </div>
               </Transition>
@@ -518,6 +545,7 @@ const moveList = (listId: string, folderId: string | null) => {
                 type="button"
                 :aria-label="`Flytta ${list.name}`"
                 :aria-expanded="openMoveMenuListId === list.id"
+                data-sidebar-list-menu-trigger
                 @click.stop="toggleMoveMenu(list.id)"
                 >
                 <MoreVertical :size="19" :stroke-width="1.8" aria-hidden="true" />
@@ -527,9 +555,10 @@ const moveList = (listId: string, folderId: string | null) => {
                   v-if="openMoveMenuListId === list.id"
                   class="absolute right-1 top-10 z-50 max-h-[70vh] w-56 overflow-y-auto rounded border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-800"
                   role="menu"
-                  :aria-label="`Flytta ${list.name} till mapp`"
+                  :aria-label="`Hantera lista ${list.name}`"
+                  data-sidebar-list-menu
                 >
-                <p class="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Flytta till</p>
+                <p class="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Hantera lista</p>
                 <button
                   class="flex min-h-10 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
                   type="button"
@@ -549,6 +578,15 @@ const moveList = (listId: string, folderId: string | null) => {
                   {{ folderOption.folder.name }}
                 </button>
                 <div class="mt-2 border-t border-slate-200 pt-2 dark:border-slate-700">
+                  <button
+                    class="flex min-h-10 w-full items-center rounded px-3 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
+                    type="button"
+                    role="menuitem"
+                    :aria-label="`Ta bort ${list.name}`"
+                    @click="emit('delete-list', list.id); openMoveMenuListId = null"
+                  >
+                    Ta bort lista
+                  </button>
                 </div>
                 </div>
               </Transition>

@@ -88,6 +88,29 @@ test('deletes a selected list through its confirmation dialog', async ({ page })
   await expect(page.getByRole('heading', { name: 'Ta bort mig' })).toHaveCount(0)
 })
 
+test('closes a sidebar list menu outside click and deletes from the menu', async ({ page }) => {
+  await page.goto('/')
+  await dismissReleaseNotes(page)
+
+  await page.getByRole('button', { name: 'Ny lista' }).click()
+  await page.getByPlaceholder('Listnamn').fill('Sidomenytest')
+  await page.getByPlaceholder('Listnamn').press('Enter')
+
+  const menuTrigger = page.getByRole('button', { name: 'Flytta Sidomenytest' })
+  await menuTrigger.click()
+  const listMenu = page.getByRole('menu', { name: 'Hantera lista Sidomenytest' })
+  await expect(listMenu).toBeVisible()
+
+  await page.getByRole('heading', { name: 'Sidomenytest' }).click()
+  await expect(listMenu).toHaveCount(0)
+
+  await menuTrigger.click()
+  await page.getByRole('menuitem', { name: 'Ta bort Sidomenytest' }).click()
+  const confirmation = page.getByRole('dialog', { name: 'Ta bort lista?' })
+  await confirmation.getByRole('button', { name: 'Ta bort lista' }).click()
+  await expect(page.getByRole('heading', { name: 'Sidomenytest' })).toHaveCount(0)
+})
+
 test('opens settings and returns to the task list', async ({ page }) => {
   await page.goto('/')
   await dismissReleaseNotes(page)

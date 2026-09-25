@@ -126,10 +126,39 @@ describe('TodoSidebar', () => {
     })
 
     await wrapper.get('button[aria-label="Flytta Arbete"]').trigger('click')
-    const folderOption = wrapper.findAll('[role="menu"][aria-label="Flytta Arbete till mapp"] [role="menuitem"]').find((button) => button.text() === 'Projekt')
+    const folderOption = wrapper.findAll('[role="menu"][aria-label="Hantera lista Arbete"] [role="menuitem"]').find((button) => button.text() === 'Projekt')
     await folderOption?.trigger('click')
 
     expect(wrapper.emitted('move-list')).toEqual([['list-1', 'folder-1']])
+  })
+
+  it('closes a list menu on outside click and emits list deletion', async () => {
+    const wrapper = mount(TodoSidebar, {
+      props: {
+        open: true,
+        activeListId: 'list-1',
+        activeSmartView: null,
+        availableTags: [],
+        selectedTag: '',
+        folders: [],
+        ungroupedLists: [{ id: 'list-1', name: 'Arbete', icon: 'list', order: 0, createdAt: Timestamp.now() }],
+        smartViewCounts: { myDay: 0, important: 0, planned: 0 },
+        listTaskCounts: {},
+      },
+      global: { stubs: { RouterLink: true } },
+    })
+
+    const menuButton = wrapper.get('button[aria-label="Flytta Arbete"]')
+    await menuButton.trigger('click')
+    expect(wrapper.get('[role="menu"][aria-label="Hantera lista Arbete"]')).toBeTruthy()
+
+    document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await nextTick()
+    expect(wrapper.find('[role="menu"][aria-label="Hantera lista Arbete"]').exists()).toBe(false)
+
+    await menuButton.trigger('click')
+    await wrapper.get('button[aria-label="Ta bort Arbete"]').trigger('click')
+    expect(wrapper.emitted('delete-list')).toEqual([['list-1']])
   })
 
   it('opens folder options with right-click and touch long-press', async () => {
