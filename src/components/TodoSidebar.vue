@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { CalendarDays, Check, ChevronDown, FolderPlus, ListTodo, MoreVertical, Plus, Settings, Star, Sun, Tags, X } from '@lucide/vue'
+import { CalendarDays, Check, ChevronDown, FolderOpen, FolderPlus, ListTodo, MoreVertical, Plus, Settings, Star, Sun, Tags, X } from '@lucide/vue'
 import type { Folder, List, SmartView } from '@/types'
 import { DEFAULT_LIST_ID } from '@/stores/listStore'
 
@@ -261,6 +261,15 @@ onUnmounted(() => {
       </div>
 
       <nav class="space-y-1" aria-label="Smarta vyer">
+        <RouterLink
+          class="flex h-9 w-full items-center gap-3 rounded-lg px-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+          active-class="bg-[#eef5fc] text-slate-900 dark:bg-slate-800 dark:text-white"
+          to="/all-lists"
+          @click="emit('close')"
+        >
+          <FolderOpen :size="19" :stroke-width="1.8" class="shrink-0 text-slate-600 dark:text-slate-300" aria-hidden="true" />
+          <span class="flex-1">Alla mappar och listor</span>
+        </RouterLink>
         <button
           v-for="view in smartViews"
           :key="view.key"

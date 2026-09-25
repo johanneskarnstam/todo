@@ -12,7 +12,7 @@ export default defineConfig({
     vueDevTools(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['img/icons/todo-icon.svg'],
+      includeAssets: ['img/icons/todo-icon.svg', 'img/icons/pwa-192x192.png', 'img/icons/pwa-512x512.png'],
       manifest: {
         name: 'Todo',
         short_name: 'Todo',
@@ -22,14 +22,14 @@ export default defineConfig({
         display: 'standalone',
         icons: [
           {
-            src: 'img/icons/todo-icon.svg',
+            src: 'img/icons/pwa-192x192.png',
             sizes: '192x192',
-            type: 'image/svg+xml',
+            type: 'image/png',
           },
           {
-            src: 'img/icons/todo-icon.svg',
+            src: 'img/icons/pwa-512x512.png',
             sizes: '512x512',
-            type: 'image/svg+xml',
+            type: 'image/png',
           },
         ],
       },

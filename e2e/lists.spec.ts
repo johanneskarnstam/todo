@@ -124,6 +124,21 @@ test('opens settings and returns to the task list', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Att göra' })).toBeVisible()
 })
 
+test('opens the overview of all folders and lists', async ({ page }) => {
+  await page.goto('/')
+  await dismissReleaseNotes(page)
+
+  await page.getByRole('link', { name: 'Alla mappar och listor' }).click()
+  await expect(page).toHaveURL(/\/all-lists$/)
+  await expect(page.getByRole('heading', { name: 'Alla mappar och listor' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Utan mapp' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Att göra' })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Att göra' }).click()
+  await expect(page).toHaveURL(/\/todo\/#\/$/)
+  await expect(page.getByRole('heading', { name: 'Att göra' })).toBeVisible()
+})
+
 test('creates a list directly inside a folder', async ({ page }) => {
   await page.goto('/')
   await dismissReleaseNotes(page)

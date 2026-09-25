@@ -10,6 +10,11 @@ const router = createRouter({
       component: () => import('../views/HomeView.vue'),
     },
     {
+      path: '/all-lists',
+      name: 'all-lists',
+      component: () => import('../views/AllListsView.vue'),
+    },
+    {
       path: '/my-day',
       name: 'my-day',
       component: () => import('../views/HomeView.vue'),
