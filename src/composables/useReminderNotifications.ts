@@ -1,5 +1,6 @@
 import { onUnmounted } from 'vue'
 import type { Task } from '@/types'
+import { usePreferences } from '@/composables/usePreferences'
 
 const reminderTimers = new Map<string, ReturnType<typeof setTimeout>>()
 const maxTimeout = 2_147_000_000
@@ -23,6 +24,7 @@ const clearTaskReminder = (taskId: string) => {
 }
 
 export const useReminderNotifications = () => {
+  const { preferences } = usePreferences()
   const isSupported = typeof window !== 'undefined' && 'Notification' in window
 
   const requestPermission = async (): Promise<boolean> => {
@@ -35,7 +37,7 @@ export const useReminderNotifications = () => {
 
   const scheduleTaskReminder = (task: Pick<Task, 'id' | 'title' | 'dueDate' | 'reminder'>) => {
     clearTaskReminder(task.id)
-    if (!isSupported || Notification.permission !== 'granted' || !task.reminder) return
+    if (!preferences.value.notifications || !isSupported || Notification.permission !== 'granted' || !task.reminder) return
 
     const dueAt = reminderTime(task.dueDate)
     const reminderAt = dueAt ? dueAt - task.reminder.offsetMinutes * 60_000 : null

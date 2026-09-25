@@ -11,6 +11,7 @@ import { useTaskStore } from '@/stores/taskStore'
 import { useToastStore } from '@/stores/toastStore'
 import { useReminderNotifications } from '@/composables/useReminderNotifications'
 import { useDragReorder } from '@/composables/useDragReorder'
+import { usePreferences } from '@/composables/usePreferences'
 import type { SmartView, TaskReminder } from '@/types'
 
 const isSidebarOpen = ref(typeof window === 'undefined' ? true : window.innerWidth >= 1024)
@@ -26,6 +27,7 @@ const taskStore = useTaskStore()
 const toastStore = useToastStore()
 const { requestPermission, scheduleTaskReminder, cancelTaskReminder } = useReminderNotifications()
 const { isDark, toggleTheme } = useTheme()
+const { preferences } = usePreferences()
 const route = useRoute()
 const router = useRouter()
 
@@ -57,7 +59,19 @@ const activeListColor = computed(() => activeList.value?.themeColor ?? '#2564cf'
 const themeColors = ['#2564cf', '#107c10', '#d83b01', '#8764b8', '#038387', '#ca5010']
 
 const availableTags = computed(() => [...new Set(taskStore.tasks.flatMap((task) => task.tags ?? []))].sort())
-const filteredVisibleTasks = computed(() => taskStore.visibleTasks)
+const filteredVisibleTasks = computed(() => {
+  const tasks = [...taskStore.visibleTasks]
+  if (preferences.value.taskSort === 'created') {
+    return tasks.sort((first, second) => first.createdAt.toMillis() - second.createdAt.toMillis())
+  }
+  if (preferences.value.taskSort === 'dueDate') {
+    return tasks.sort((first, second) => (dueDateKey(first) || '9999-12-31').localeCompare(dueDateKey(second) || '9999-12-31'))
+  }
+  if (preferences.value.taskSort === 'priority') {
+    return tasks.sort((first, second) => Number(second.important) - Number(first.important) || Number(first.completed) - Number(second.completed))
+  }
+  return tasks
+})
 const filteredActiveTasks = computed(() => taskStore.activeTasks.filter((task) => filteredVisibleTasks.value.some((visibleTask) => visibleTask.id === task.id)))
 const filteredCompletedTasks = computed(() => taskStore.completedTasks.filter((task) => filteredVisibleTasks.value.some((visibleTask) => visibleTask.id === task.id)))
 
@@ -213,6 +227,7 @@ const requestDeleteList = () => {
   pendingDeleteListId.value = activeList.value.id
   deleteListTasks.value = false
   isListOptionsOpen.value = false
+  if (!preferences.value.confirmDeletes) void confirmDeleteList()
 }
 
 const confirmDeleteList = async () => {
@@ -279,15 +294,24 @@ const handleDeleteActiveTask = () => {
   const taskId = taskStore.activeTaskId
   if (!taskId) return
 
-  pendingDeleteTaskId.value = taskId
+  if (preferences.value.confirmDeletes) pendingDeleteTaskId.value = taskId
+  else deleteTaskImmediately(taskId)
 }
 
 const requestDeleteTask = (taskId: string) => {
-  pendingDeleteTaskId.value = taskId
+  if (preferences.value.confirmDeletes) pendingDeleteTaskId.value = taskId
+  else deleteTaskImmediately(taskId)
 }
 
 const cancelDeleteTask = () => {
   pendingDeleteTaskId.value = null
+}
+
+const deleteTaskImmediately = (taskId: string) => {
+  if (!taskId) return
+
+  if (taskStore.activeTaskId === taskId) taskStore.setActiveTask(null)
+  void taskStore.deleteTask(taskId)
 }
 
 const confirmDeleteTask = () => {
@@ -295,8 +319,7 @@ const confirmDeleteTask = () => {
   if (!taskId) return
 
   pendingDeleteTaskId.value = null
-  if (taskStore.activeTaskId === taskId) taskStore.setActiveTask(null)
-  void taskStore.deleteTask(taskId)
+  deleteTaskImmediately(taskId)
 }
 
 const handleSaveStepTitle = (stepId: string, title: string) => {

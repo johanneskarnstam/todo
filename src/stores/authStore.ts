@@ -11,6 +11,7 @@ import {
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
+  updateProfile,
   type User,
 } from 'firebase/auth'
 
@@ -68,6 +69,16 @@ export const useAuthStore = defineStore('auth', () => {
     if (!isMockAuthEnabled) await signOut(auth)
   }
 
+  const updateDisplayName = async (displayName: string) => {
+    if (!auth.currentUser || isMockAuthEnabled) {
+      if (user.value) user.value = { ...user.value, displayName }
+      return
+    }
+
+    await updateProfile(auth.currentUser, { displayName })
+    user.value = { ...auth.currentUser }
+  }
+
   return {
     user,
     loading,
@@ -77,5 +88,6 @@ export const useAuthStore = defineStore('auth', () => {
     registerWithEmail,
     loginWithGoogle,
     logout,
+    updateDisplayName,
   }
 })

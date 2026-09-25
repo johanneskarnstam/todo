@@ -1,20 +1,16 @@
-import { ref } from 'vue'
-
-const themeStorageKey = 'todo-theme'
-
-const readStoredTheme = () => {
-  if (typeof localStorage === 'undefined') return false
-  return localStorage.getItem(themeStorageKey) === 'dark'
-}
+import { computed } from 'vue'
+import { usePreferences } from '@/composables/usePreferences'
 
 export const useTheme = () => {
-  const isDark = ref(readStoredTheme())
+  const { preferences } = usePreferences()
+  const isDark = computed(() => {
+    if (preferences.value.theme === 'dark') return true
+    if (preferences.value.theme === 'light') return false
+    return typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
+  })
 
   const toggleTheme = () => {
-    isDark.value = !isDark.value
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(themeStorageKey, isDark.value ? 'dark' : 'light')
-    }
+    preferences.value.theme = isDark.value ? 'light' : 'dark'
   }
 
   return { isDark, toggleTheme }
