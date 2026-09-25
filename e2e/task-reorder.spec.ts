@@ -17,10 +17,15 @@ test.describe('task drag-and-drop reorder', () => {
     await expect(tasks.first()).toContainText('Kontrollera mobilvyn')
     await expect(tasks.nth(1)).toContainText('Testa dra och släppa uppgifter')
 
+    await tasks.first().focus()
+    await page.keyboard.press('Alt+ArrowDown')
+    await expect(tasks.first()).toContainText('Testa dra och släppa uppgifter')
+    await expect(tasks.nth(1)).toContainText('Kontrollera mobilvyn')
+
     // Ordningen bevaras efter omladdning
     await page.reload()
-    await expect(tasks.first()).toContainText('Kontrollera mobilvyn')
-    await expect(tasks.nth(1)).toContainText('Testa dra och släppa uppgifter')
+    await expect(tasks.first()).toContainText('Testa dra och släppa uppgifter')
+    await expect(tasks.nth(1)).toContainText('Kontrollera mobilvyn')
   })
 
   test('reorders tasks using pointer drag and drop', async ({ page }) => {
@@ -54,6 +59,7 @@ test.describe('task drag-and-drop reorder', () => {
     // Bekräfta att ordningen ändrades
     await expect(tasks.first()).toContainText('Kontrollera mobilvyn')
     await expect(tasks.nth(1)).toContainText('Testa dra och släppa uppgifter')
+    await expect(page.locator('[aria-labelledby="task-details-heading"]')).toHaveCount(0)
   })
 
   test('shows drag handle on hover in list view', async ({ page }) => {

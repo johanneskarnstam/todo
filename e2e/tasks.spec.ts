@@ -17,7 +17,12 @@ test('opens task details from a task row', async ({ page }) => {
 
   await page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' }).click()
 
-  await expect(page.getByRole('dialog', { name: 'Uppgiftsdetaljer' })).toBeVisible()
+  const details = page.getByRole('dialog', { name: 'Uppgiftsdetaljer' })
+  await expect(details).toBeVisible()
+  await expect(details.getByRole('heading', { name: 'Taggar' })).toBeVisible()
+  await expect(details.getByRole('heading', { name: 'Delsteg' })).toBeVisible()
+  await expect(details.getByRole('heading', { name: 'Planering' })).toBeVisible()
+  await expect(details.getByRole('heading', { name: 'Anteckningar' })).toBeVisible()
 })
 
 test('marks a task complete and restores it to active', async ({ page }) => {
@@ -74,7 +79,7 @@ test('adds a tag and uses a quick due-date preset', async ({ page }) => {
   await details.getByLabel('Påminnelse').selectOption('60')
   await expect(details.getByText('Påminnelse aktiv')).toBeVisible()
 
-  await details.getByRole('button', { name: 'Stäng' }).click()
+  await details.getByRole('button', { name: 'Stäng uppgiftsdetaljer' }).click()
   await page.getByRole('button', { name: 'Taggar' }).click()
   await page.getByRole('menuitem', { name: '#arbete' }).click()
 
