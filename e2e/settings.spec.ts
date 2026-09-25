@@ -8,7 +8,7 @@ test('settings exposes preferences and data actions', async ({ page }) => {
   await expect(page.getByLabel('Tema')).toHaveValue('light')
   await expect(page.getByLabel('Sortering')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Exportera data' })).toBeVisible()
-  await expect(page.getByText('Status: Online')).toBeVisible()
+  await expect(page.getByText('Online', { exact: true })).toBeVisible()
 
   await page.getByLabel('Tema').selectOption('dark')
   await expect(page.getByLabel('Tema')).toHaveValue('dark')
