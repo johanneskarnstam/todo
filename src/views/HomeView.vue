@@ -225,8 +225,8 @@ const confirmDeleteList = async () => {
   if (listStore.selectedListId) taskStore.setListView(listStore.selectedListId)
 }
 
-const handleCreateList = (name: string) => {
-  void listStore.createList({ name }).then((createdList) => {
+const handleCreateList = (name: string, folderId?: string | null) => {
+  void listStore.createList({ name, folderId: folderId ?? undefined }).then((createdList) => {
     if (createdList) taskStore.setListView(createdList.id)
   })
 }

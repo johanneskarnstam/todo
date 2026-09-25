@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { CalendarDays, ChevronDown, FolderPlus, ListPlus, ListTodo, MoreVertical, Plus, Settings, Star, Sun, Tags, X } from '@lucide/vue'
+import { CalendarDays, ChevronDown, FolderPlus, ListTodo, MoreVertical, Plus, Settings, Star, Sun, Tags, X } from '@lucide/vue'
 import type { Folder, List, SmartView } from '@/types'
 import { DEFAULT_LIST_ID } from '@/stores/listStore'
 
@@ -26,7 +26,7 @@ interface Emits {
   (event: 'select-list', listId: string): void
   (event: 'select-smart-view', view: SmartView): void
   (event: 'select-tag', tag: string): void
-  (event: 'create-list', name: string): void
+  (event: 'create-list', name: string, folderId?: string | null): void
   (event: 'create-folder', name: string): void
   (event: 'move-list', listId: string, folderId: string | null): void
   (event: 'rename-folder', folderId: string, name: string): void
@@ -64,7 +64,7 @@ const readCollapsedFolders = (): Record<string, boolean> => {
 }
 
 const collapsedFolders = ref<Record<string, boolean>>(readCollapsedFolders())
-const isAddingList = ref(false)
+const addingListFolderId = ref<string | null | false>(false)
 const newListName = ref('')
 const isAddingFolder = ref(false)
 const newFolderName = ref('')
@@ -139,13 +139,32 @@ const submitRenameFolder = () => {
   editingFolderId.value = null
 }
 
-const submitNewList = () => {
+const startAddingList = (folderId: string | null) => {
+  addingListFolderId.value = folderId
+  newListName.value = ''
+  if (folderId) {
+    collapsedFolders.value[folderId] = false
+  } else {
+    collapsedFolders.value[ungroupedSectionId] = false
+  }
+}
+
+const cancelAddingList = () => {
+  addingListFolderId.value = false
+  newListName.value = ''
+}
+
+const submitNewList = (folderId: string | null) => {
   const name = newListName.value.trim()
   if (!name) return
 
-  emit('create-list', name)
+  if (folderId) {
+    emit('create-list', name, folderId)
+  } else {
+    emit('create-list', name)
+  }
   newListName.value = ''
-  isAddingList.value = false
+  addingListFolderId.value = false
 }
 
 const submitNewFolder = () => {
@@ -355,6 +374,7 @@ const moveList = (listId: string, folderId: string | null) => {
             </button>
             <Transition name="sidebar-pop">
               <div v-if="openFolderMenuId === section.folder.id" class="absolute right-0 top-8 z-20 w-56 rounded border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-800">
+              <button class="flex min-h-9 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" aria-label="Ny lista i mapp" @click="startAddingList(section.folder.id); openFolderMenuId = null">Ny lista i mapp</button>
               <button class="flex min-h-9 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" aria-label="Byt namn på mapp" @click="startRenamingFolder(section.folder)">Byt namn på mapp</button>
               <button class="flex min-h-9 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" aria-label="Ta bort mapp, behåll listor" @click="emit('delete-folder', section.folder.id, false); openFolderMenuId = null">Ta bort mapp, behåll listor</button>
               <button class="flex min-h-9 w-full items-center rounded px-3 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950" type="button" aria-label="Ta bort mapp och listor" @click="emit('delete-folder', section.folder.id, true); openFolderMenuId = null">Ta bort mapp och listor</button>
@@ -423,11 +443,37 @@ const moveList = (listId: string, folderId: string | null) => {
                 </div>
               </Transition>
             </div>
+            <div v-if="addingListFolderId === section.folder.id" class="px-2 py-1.5">
+              <form class="flex gap-1.5" @submit.prevent="submitNewList(section.folder.id)">
+                <label class="sr-only" :for="`new-list-name-${section.folder.id}`">Nytt listnamn</label>
+                <input
+                  :id="`new-list-name-${section.folder.id}`"
+                  v-model="newListName"
+                  class="min-w-0 flex-1 rounded-lg border border-blue-400 bg-white px-2.5 py-1.5 text-sm text-slate-800 outline-none ring-2 ring-blue-100 dark:bg-slate-800 dark:text-white dark:ring-blue-900"
+                  type="text"
+                  placeholder="Listnamn"
+                  autofocus
+                  @keydown.escape="cancelAddingList"
+                />
+                <button class="text-sm font-medium text-[#2564cf] dark:text-blue-400" type="submit">Lägg till</button>
+                <button class="text-sm text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300" type="button" @click="cancelAddingList">Avbryt</button>
+              </form>
+            </div>
+            <button
+              v-else
+              class="flex h-10 w-full items-center gap-2 px-7 text-sm font-medium text-[#2564cf] transition hover:bg-blue-50/60 dark:text-blue-400 dark:hover:bg-slate-800/60"
+              type="button"
+              :data-folder-add-list="section.folder.id"
+              @click="startAddingList(section.folder.id)"
+            >
+              <Plus :size="16" :stroke-width="2" aria-hidden="true" />
+              <span>Ny lista +</span>
+            </button>
             </div>
           </Transition>
         </section>
 
-        <section v-if="otherUngroupedLists.length" class="mb-5">
+        <section class="mb-5">
           <div class="relative flex min-h-11 items-center px-3">
             <button
               class="flex min-w-0 flex-1 items-center text-left text-[15px] font-semibold text-slate-800 dark:text-slate-100"
@@ -503,6 +549,32 @@ const moveList = (listId: string, folderId: string | null) => {
                 </div>
               </Transition>
             </div>
+            <div v-if="addingListFolderId === null" class="px-2 py-1.5">
+              <form class="flex gap-1.5" @submit.prevent="submitNewList(null)">
+                <label class="sr-only" for="new-list-name-ungrouped">Nytt listnamn</label>
+                <input
+                  id="new-list-name-ungrouped"
+                  v-model="newListName"
+                  class="min-w-0 flex-1 rounded-lg border border-blue-400 bg-white px-2.5 py-1.5 text-sm text-slate-800 outline-none ring-2 ring-blue-100 dark:bg-slate-800 dark:text-white dark:ring-blue-900"
+                  type="text"
+                  placeholder="Listnamn"
+                  autofocus
+                  @keydown.escape="cancelAddingList"
+                />
+                <button class="text-sm font-medium text-[#2564cf] dark:text-blue-400" type="submit">Lägg till</button>
+                <button class="text-sm text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300" type="button" @click="cancelAddingList">Avbryt</button>
+              </form>
+            </div>
+            <button
+              v-else
+              class="flex h-10 w-full items-center gap-2 px-7 text-sm font-medium text-[#2564cf] transition hover:bg-blue-50/60 dark:text-blue-400 dark:hover:bg-slate-800/60"
+              type="button"
+              data-ungrouped-add-list
+              @click="startAddingList(null)"
+            >
+              <Plus :size="16" :stroke-width="2" aria-hidden="true" />
+              <span>Ny lista +</span>
+            </button>
             </div>
           </Transition>
         </section>
@@ -510,31 +582,8 @@ const moveList = (listId: string, folderId: string | null) => {
 
       <div class="border-t border-slate-200 pt-2 dark:border-slate-700">
         <Transition name="sidebar-expand" mode="out-in">
-          <template v-if="isAddingList">
-            <form class="flex gap-1.5 px-2" @submit.prevent="submitNewList">
-            <label class="sr-only" for="new-list-name">Nytt listnamn</label>
-              <input
-                id="new-list-name"
-                v-model="newListName"
-                class="min-w-0 flex-1 rounded-lg border border-blue-400 bg-white px-2.5 py-1.5 text-sm text-slate-800 outline-none ring-2 ring-blue-100 dark:bg-slate-800 dark:text-white dark:ring-blue-900"
-                type="text"
-                placeholder="Listnamn"
-                autofocus
-              />
-              <button class="text-sm text-[#2564cf] dark:text-blue-400" type="submit">Lägg till</button>
-            </form>
-          </template>
-          <template v-else>
-            <button class="flex h-9 w-full items-center gap-3 px-3 text-sm text-[#2564cf] transition hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-slate-800" type="button" @click="isAddingList = true">
-              <Plus :size="20" :stroke-width="1.8" aria-hidden="true" />
-              <span class="flex-1 text-left">Ny lista</span>
-              <ListPlus :size="18" :stroke-width="1.8" aria-hidden="true" />
-            </button>
-          </template>
-        </Transition>
-        <Transition name="sidebar-expand" mode="out-in">
           <template v-if="isAddingFolder">
-            <form class="mt-1.5 flex gap-1.5 px-2" @submit.prevent="submitNewFolder">
+            <form class="flex gap-1.5 px-2" @submit.prevent="submitNewFolder">
               <label class="sr-only" for="new-folder-name">Nytt mappnamn</label>
               <input
                 id="new-folder-name"
@@ -543,14 +592,17 @@ const moveList = (listId: string, folderId: string | null) => {
                 type="text"
                 placeholder="Mappnamn"
                 autofocus
+                @keydown.escape="isAddingFolder = false"
               />
-              <button class="text-sm text-[#2564cf] dark:text-blue-400" type="submit">Lägg till</button>
+              <button class="text-sm font-medium text-[#2564cf] dark:text-blue-400" type="submit">Lägg till</button>
+              <button class="text-sm text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300" type="button" @click="isAddingFolder = false">Avbryt</button>
             </form>
           </template>
           <template v-else>
-            <button class="mt-0.5 flex h-9 w-full items-center gap-3 rounded-lg px-3 text-sm text-[#2564cf] transition hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-slate-800" type="button" @click="isAddingFolder = true">
-              <FolderPlus :size="20" :stroke-width="1.8" aria-hidden="true" />
+            <button class="flex h-9 w-full items-center gap-3 rounded-lg px-3 text-sm text-[#2564cf] transition hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-slate-800" type="button" @click="isAddingFolder = true">
+              <Plus :size="20" :stroke-width="1.8" aria-hidden="true" />
               <span class="flex-1 text-left">Ny mapp</span>
+              <FolderPlus :size="18" :stroke-width="1.8" aria-hidden="true" />
             </button>
           </template>
         </Transition>

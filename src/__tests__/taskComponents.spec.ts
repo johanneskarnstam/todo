@@ -83,6 +83,32 @@ describe('TodoSidebar', () => {
     expect(wrapper.emitted('create-folder')).toEqual([['Resor']])
   })
 
+  it('emits create-list with folderId when creating a list inside a folder', async () => {
+    const wrapper = mount(TodoSidebar, {
+      props: {
+        open: true,
+        activeListId: null,
+        activeSmartView: null,
+        availableTags: [],
+        selectedTag: '',
+        folders: [{ folder: { id: 'folder-1', name: 'Projekt', order: 0 }, lists: [] }],
+        ungroupedLists: [],
+        smartViewCounts: { myDay: 0, important: 0, planned: 0 },
+        listTaskCounts: {},
+      },
+      global: { stubs: { RouterLink: true } },
+    })
+
+    const addListButton = wrapper.get('button[data-folder-add-list="folder-1"]')
+    await addListButton.trigger('click')
+
+    const input = wrapper.get('input[id="new-list-name-folder-1"]')
+    await input.setValue('Nytt projekt')
+    await wrapper.find('form').trigger('submit')
+
+    expect(wrapper.emitted('create-list')).toEqual([['Nytt projekt', 'folder-1']])
+  })
+
   it('emits the selected folder when moving a list', async () => {
     const wrapper = mount(TodoSidebar, {
       props: {

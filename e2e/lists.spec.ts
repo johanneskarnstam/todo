@@ -100,3 +100,23 @@ test('opens settings and returns to the task list', async ({ page }) => {
   await expect(page).toHaveURL(/\/todo\/#\/$/)
   await expect(page.getByRole('heading', { name: 'Att göra' })).toBeVisible()
 })
+
+test('creates a list directly inside a folder', async ({ page }) => {
+  await page.goto('/')
+  await dismissReleaseNotes(page)
+
+  await page.getByRole('button', { name: 'Ny mapp' }).click()
+  await page.getByPlaceholder('Mappnamn').fill('Mapp Direkt')
+  await page.getByPlaceholder('Mappnamn').press('Enter')
+
+  const folderHeader = page.locator('[data-folder-header]').filter({ hasText: 'Mapp Direkt' })
+  await expect(folderHeader).toBeVisible()
+  const folderSection = folderHeader.locator('..')
+  await folderSection.getByRole('button', { name: /Ny lista/ }).click()
+
+  await folderSection.getByPlaceholder('Listnamn').fill('Direktlistan')
+  await folderSection.getByPlaceholder('Listnamn').press('Enter')
+
+  await expect(page.getByRole('heading', { name: 'Direktlistan' })).toBeVisible()
+  await expect(folderSection.getByRole('button', { name: 'Direktlistan', exact: true })).toBeVisible()
+})
