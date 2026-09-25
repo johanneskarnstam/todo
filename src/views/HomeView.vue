@@ -45,7 +45,7 @@ const currentTitle = computed(() => {
 
   const view = taskStore.activeView
   if (view?.type === 'smart') {
-    if (view.smartView === 'important') return 'Viktigt'
+    if (view.smartView === 'important') return 'Stjärnmärkt'
     if (view.smartView === 'planned') return 'Planerat'
     return 'Min dag'
   }

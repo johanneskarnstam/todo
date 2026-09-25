@@ -128,9 +128,9 @@ test('opens the overview of all folders and lists', async ({ page }) => {
   await page.goto('/')
   await dismissReleaseNotes(page)
 
-  await page.getByRole('link', { name: 'Alla mappar och listor' }).click()
+  await page.getByRole('link', { name: 'Alla listor' }).click()
   await expect(page).toHaveURL(/\/all-lists$/)
-  await expect(page.getByRole('heading', { name: 'Alla mappar och listor' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Alla listor' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Utan mapp' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Att göra' })).toBeVisible()
 

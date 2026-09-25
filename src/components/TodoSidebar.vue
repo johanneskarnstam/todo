@@ -86,7 +86,7 @@ watch(collapsedFolders, (value) => {
 
 const smartViewLabel = (key: string) => ({
   myDay: 'Min dag',
-  important: 'Viktigt',
+  important: 'Stjärnmärkt',
   planned: 'Planerat',
 }[key] ?? key)
 
@@ -268,7 +268,7 @@ onUnmounted(() => {
           @click="emit('close')"
         >
           <FolderOpen :size="19" :stroke-width="1.8" class="shrink-0 text-slate-600 dark:text-slate-300" aria-hidden="true" />
-          <span class="flex-1">Alla mappar och listor</span>
+          <span class="flex-1">Alla listor</span>
         </RouterLink>
         <button
           v-for="view in smartViews"
@@ -501,12 +501,11 @@ onUnmounted(() => {
             </div>
             <button
               v-else
-              class="flex h-10 w-full items-center gap-2 px-7 text-sm font-medium text-[#2564cf] transition hover:bg-blue-50/60 dark:text-blue-400 dark:hover:bg-slate-800/60"
+              class="flex h-7 w-full items-center px-7 text-xs text-[#2564cf] transition hover:bg-blue-50/60 dark:text-blue-400 dark:hover:bg-slate-800/60"
               type="button"
               :data-folder-add-list="section.folder.id"
               @click="startAddingList(section.folder.id)"
             >
-              <Plus :size="16" :stroke-width="2" aria-hidden="true" />
               <span>Ny lista +</span>
             </button>
             </div>
@@ -622,12 +621,11 @@ onUnmounted(() => {
             </div>
             <button
               v-else
-              class="flex h-10 w-full items-center gap-2 px-7 text-sm font-medium text-[#2564cf] transition hover:bg-blue-50/60 dark:text-blue-400 dark:hover:bg-slate-800/60"
+              class="flex h-7 w-full items-center px-7 text-xs text-[#2564cf] transition hover:bg-blue-50/60 dark:text-blue-400 dark:hover:bg-slate-800/60"
               type="button"
               data-ungrouped-add-list
               @click="startAddingList(null)"
             >
-              <Plus :size="16" :stroke-width="2" aria-hidden="true" />
               <span>Ny lista +</span>
             </button>
             </div>

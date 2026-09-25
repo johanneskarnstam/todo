@@ -52,7 +52,7 @@ const messages: Record<Locale, Record<TranslationKey, string>> = {
     appName: 'To Do',
     search: 'Sök',
     myDay: 'Min dag',
-    important: 'Viktigt',
+    important: 'Stjärnmärkt',
     planned: 'Planerat',
     overdue: 'Försenat',
     today: 'Idag',

@@ -39,7 +39,7 @@ test('smart views are reachable from their routes', async ({ page }) => {
   await page.goto('#/important')
 
   await expect(page).toHaveURL(/\/todo\/#\/important$/)
-  await expect(page.getByRole('heading', { name: 'Viktigt' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Stjärnmärkt' })).toBeVisible()
   await expect(page.getByText('Testa dra och släppa uppgifter')).toBeVisible()
 })
 

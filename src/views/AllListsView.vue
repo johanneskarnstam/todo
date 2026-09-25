@@ -31,12 +31,12 @@ onMounted(() => void listStore.fetchLists())
         </RouterLink>
         <div class="min-w-0">
           <p class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Organisering</p>
-          <h1 class="truncate text-xl font-semibold tracking-tight">Alla mappar och listor</h1>
+          <h1 class="truncate text-xl font-semibold tracking-tight">Alla listor</h1>
         </div>
       </header>
 
       <div v-if="!listStore.isLoaded" class="rounded-xl border border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
-        Läser in mappar och listor...
+        Läser in listor...
       </div>
 
       <div v-else class="space-y-4">

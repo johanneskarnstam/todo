@@ -37,14 +37,14 @@ test('marks a task complete and restores it to active', async ({ page }) => {
   await expect(task.getByRole('button', { name: 'Markera uppgift som slutförd' })).toBeVisible()
 })
 
-test('marks a task important and finds it in Viktigt', async ({ page }) => {
+test('marks a task important and finds it in Stjärnmärkt', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: 'Jag har sett detta' }).click()
 
   const task = page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' })
   await task.getByRole('button', { name: 'Uppgiftsåtgärder' }).click()
   await page.getByRole('button', { name: 'Stjärnmarkera', exact: true }).click()
-  await page.getByRole('button', { name: 'Viktigt' }).click()
+  await page.getByRole('button', { name: 'Stjärnmärkt' }).click()
 
   await expect(page).toHaveURL(/\/important$/)
   await expect(page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' })).toBeVisible()
