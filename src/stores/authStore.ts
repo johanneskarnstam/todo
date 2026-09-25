@@ -1,7 +1,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { auth } from '@/firebase'
-import { isMockAuthEnabled, MOCK_USER_ID } from '@/devMode'
+import { isMockAuthEnabled, isUnauthenticatedTestMode, MOCK_USER_ID } from '@/devMode'
 import { useListStore } from '@/stores/listStore'
 import { useTaskStore } from '@/stores/taskStore'
 import {
@@ -25,6 +25,14 @@ export const useAuthStore = defineStore('auth', () => {
 
   const initAuth = (): Promise<void> => {
     if (initialization) return initialization
+
+    if (isUnauthenticatedTestMode) {
+      user.value = null
+      previousUserId = null
+      loading.value = false
+      initialization = Promise.resolve()
+      return initialization
+    }
 
     if (isMockAuthEnabled) {
       user.value = { uid: MOCK_USER_ID, email: 'local@example.test', displayName: 'Lokal användare' } as User

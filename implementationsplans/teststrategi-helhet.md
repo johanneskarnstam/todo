@@ -34,6 +34,7 @@ Testerna ska vara:
   - Functions: 73,23 %
   - Lines: 81,25 %
 - Senaste fullständiga validering: 31 godkända E2E-tester och godkänt produktionsbygge.
+  - Privat auth-gating är verifierad i en separat Playwright-svit utan Firebase-credentials.
 
 Baslinjen är ett regressionsskydd, inte ett bevis på testkvalitet. Täckningen ska därför inte höjas eller sänkas utan motsvarande beteendetester och en dokumenterad motivering.
 
@@ -247,7 +248,6 @@ När Firebase Emulator Suite införs ska den separata sviten:
 
 Följande är de viktigaste dokumenterade luckorna:
 
-- privat route-gating utan mock-auth
 - kontrollerade E2E-write-fel och browserbaserad cache-fallback
 - gemensamma testhelpers när dupliceringen blir märkbar
 - kompletterande dragfall för samma task, drag efter mål och separata completed-sektioner
@@ -270,18 +270,19 @@ Strategin är genomförd när:
 
 ## Prioriterad ordning
 
-1. Slutför privat auth-gating i separat testläge.
-2. Lägg till kontrollerade E2E-felvägar och cache-fallback.
-3. Komplettera drag-and-drop med återstående gränsfall.
-4. Inför helpers när testduplicering motiverar det.
-5. Dokumentera och kör Firebase Emulator Suite separat.
-6. Lägg till bredare browser- och visuell regression vid behov.
+1. Lägg till kontrollerade E2E-felvägar och cache-fallback.
+2. Komplettera drag-and-drop med återstående gränsfall.
+3. Inför helpers när testduplicering motiverar det.
+4. Dokumentera och kör Firebase Emulator Suite separat.
+5. Lägg till bredare browser- och visuell regression vid behov.
 
 ## Implementeringssteg för återstående arbete
 
 ### Steg 1: Isolera privat auth-gating
 
 **Mål:** verifiera att privata routes skyddas utan att påverka mock-auth-sviten.
+
+**Status:** Genomförd med separat `npm run test:e2e:auth`-svit och `VITE_E2E_AUTH_STATE=unauthenticated`.
 
 - Lägg till ett separat Playwright-testläge utan `VITE_DEV_AUTH_BYPASS`.
 - Mocka eller ersätt Firebase-auth-initieringen deterministiskt så testet inte kräver ett riktigt konto.
