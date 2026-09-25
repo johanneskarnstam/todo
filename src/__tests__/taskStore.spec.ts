@@ -13,6 +13,7 @@ const firestoreMocks = vi.hoisted(() => ({
   getDocsFromCache: vi.fn(),
   serverTimestamp: vi.fn(() => 'server-timestamp'),
   updateDoc: vi.fn(),
+  writeBatch: vi.fn(),
 }))
 
 vi.mock('@/firebase', () => ({
@@ -52,6 +53,10 @@ describe('useTaskStore', () => {
     firestoreMocks.addDoc.mockResolvedValue({ id: 'persisted-id' })
     firestoreMocks.updateDoc.mockResolvedValue(undefined)
     firestoreMocks.deleteDoc.mockResolvedValue(undefined)
+    firestoreMocks.writeBatch.mockReturnValue({
+      update: vi.fn(),
+      commit: vi.fn().mockResolvedValue(undefined),
+    })
   })
 
   it('clears tasks, steps, and active view on logout', () => {
@@ -420,5 +425,52 @@ describe('useTaskStore', () => {
 
     expect(store.activeSteps[0].completed).toBe(false)
     expect(store.error).toBe('step update failed')
+  })
+
+  it('reorders tasks optimistically and commits batch update to Firestore', async () => {
+    const store = useTaskStore()
+    const createdAt = Timestamp.now()
+    store.activeView = { type: 'list', listId: 'list-1' }
+    store.tasks.push(
+      { id: 'task-1', listId: 'list-1', title: 'Task 1', completed: false, important: false, myDay: false, order: 0, createdAt },
+      { id: 'task-2', listId: 'list-1', title: 'Task 2', completed: false, important: false, myDay: false, order: 1, createdAt },
+    )
+
+    const batchUpdate = vi.fn()
+    const batchCommit = vi.fn().mockResolvedValue(undefined)
+    firestoreMocks.writeBatch.mockReturnValue({
+      update: batchUpdate,
+      commit: batchCommit,
+    })
+
+    await store.reorderTasks('list-1', ['task-2', 'task-1'])
+
+    expect(store.activeTasks[0].id).toBe('task-2')
+    expect(store.activeTasks[1].id).toBe('task-1')
+    expect(batchUpdate).toHaveBeenCalledWith(expect.anything(), { order: 0 })
+    expect(batchUpdate).toHaveBeenCalledWith(expect.anything(), { order: 1 })
+    expect(batchCommit).toHaveBeenCalled()
+  })
+
+  it('rolls back task order if Firestore batch commit rejects', async () => {
+    const store = useTaskStore()
+    const createdAt = Timestamp.now()
+    store.activeView = { type: 'list', listId: 'list-1' }
+    store.tasks.push(
+      { id: 'task-1', listId: 'list-1', title: 'Task 1', completed: false, important: false, myDay: false, order: 0, createdAt },
+      { id: 'task-2', listId: 'list-1', title: 'Task 2', completed: false, important: false, myDay: false, order: 1, createdAt },
+    )
+
+    const batchCommit = vi.fn().mockRejectedValue(new Error('batch commit error'))
+    firestoreMocks.writeBatch.mockReturnValue({
+      update: vi.fn(),
+      commit: batchCommit,
+    })
+
+    await store.reorderTasks('list-1', ['task-2', 'task-1'])
+
+    expect(store.activeTasks[0].id).toBe('task-1')
+    expect(store.activeTasks[1].id).toBe('task-2')
+    expect(store.error).toBe('batch commit error')
   })
 })

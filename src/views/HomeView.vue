@@ -10,6 +10,7 @@ import { DEFAULT_LIST_ID, useListStore } from '@/stores/listStore'
 import { useTaskStore } from '@/stores/taskStore'
 import { useToastStore } from '@/stores/toastStore'
 import { useReminderNotifications } from '@/composables/useReminderNotifications'
+import { useDragReorder } from '@/composables/useDragReorder'
 import type { SmartView, TaskReminder } from '@/types'
 
 const isSidebarOpen = ref(typeof window === 'undefined' ? true : window.innerWidth >= 1024)
@@ -59,6 +60,31 @@ const availableTags = computed(() => [...new Set(taskStore.tasks.flatMap((task) 
 const filteredVisibleTasks = computed(() => taskStore.visibleTasks)
 const filteredActiveTasks = computed(() => taskStore.activeTasks.filter((task) => filteredVisibleTasks.value.some((visibleTask) => visibleTask.id === task.id)))
 const filteredCompletedTasks = computed(() => taskStore.completedTasks.filter((task) => filteredVisibleTasks.value.some((visibleTask) => visibleTask.id === task.id)))
+
+const taskListContainer = ref<HTMLElement | null>(null)
+const canDrag = computed(() => taskStore.activeView?.type === 'list')
+
+useDragReorder({
+  containerRef: taskListContainer,
+  items: filteredActiveTasks,
+  onReorder: (orderedIds) => {
+    const listId = taskStore.activeView?.type === 'list' ? taskStore.activeView.listId : null
+    if (listId) void taskStore.reorderTasks(listId, orderedIds)
+  },
+  enabled: canDrag,
+})
+
+const handleMoveTask = (taskId: string, direction: -1 | 1) => {
+  const ids = filteredActiveTasks.value.map((t) => t.id)
+  const index = ids.indexOf(taskId)
+  if (index < 0) return
+  const targetIndex = index + direction
+  if (targetIndex < 0 || targetIndex >= ids.length) return
+  const [removed] = ids.splice(index, 1)
+  ids.splice(targetIndex, 0, removed)
+  const listId = taskStore.activeView?.type === 'list' ? taskStore.activeView.listId : null
+  if (listId) void taskStore.reorderTasks(listId, ids)
+}
 const dueDateKey = (task: (typeof taskStore.tasks)[number]) => {
   if (!task.dueDate) return ''
   if (typeof task.dueDate === 'string') return task.dueDate.slice(0, 10)
@@ -459,18 +485,20 @@ watch(
 
           <section v-else-if="filteredActiveTasks.length" class="mt-6" aria-labelledby="active-tasks-heading">
             <h2 id="active-tasks-heading" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Uppgifter</h2>
-            <div class="overflow-hidden rounded-xl border border-slate-200 shadow-sm dark:border-slate-700">
+            <div ref="taskListContainer" class="overflow-hidden rounded-xl border border-slate-200 shadow-sm dark:border-slate-700">
               <TaskRow
-                  v-for="task in filteredActiveTasks"
+                v-for="task in filteredActiveTasks"
                 :key="task.id"
                 :task="task"
                 :step-count="taskStore.taskStepCounts.get(task.id) ?? null"
                 :list-name="taskStore.activeView?.type === 'smart' && taskStore.activeView.smartView === 'important' ? taskListName(task.listId) : null"
+                :draggable="canDrag"
                 @select="taskStore.setActiveTask(task.id)"
                 @toggle-completed="taskStore.toggleCompleted(task.id)"
                 @toggle-important="taskStore.toggleImportant(task.id)"
                 @toggle-my-day="taskStore.toggleMyDay(task.id)"
                 @delete="requestDeleteTask(task.id)"
+                @move="(direction) => handleMoveTask(task.id, direction)"
               />
             </div>
           </section>

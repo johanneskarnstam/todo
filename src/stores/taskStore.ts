@@ -12,6 +12,7 @@ import {
   setDoc,
   Timestamp,
   updateDoc,
+  writeBatch,
 } from 'firebase/firestore'
 import { auth, db } from '@/firebase'
 import { isMockAuthEnabled, MOCK_USER_ID } from '@/devMode'
@@ -325,7 +326,7 @@ export const useTaskStore = defineStore('tasks', () => {
 
   const updateTask = async (
     taskId: string,
-    updates: Partial<Pick<Task, 'completed' | 'important' | 'myDay' | 'title' | 'dueDate' | 'note' | 'tags'>> & { reminder?: TaskReminder | null },
+    updates: Partial<Pick<Task, 'completed' | 'important' | 'myDay' | 'title' | 'dueDate' | 'note' | 'tags' | 'order'>> & { reminder?: TaskReminder | null },
   ) => {
     const currentTask = tasks.value.find((task) => task.id === taskId)
     if (!currentTask) return
@@ -536,6 +537,39 @@ export const useTaskStore = defineStore('tasks', () => {
     }
   }
 
+  const reorderTasks = async (listId: string, orderedIds: string[]) => {
+    const previousOrders = new Map(tasks.value.map((task) => [task.id, task.order]))
+    const orderMap = new Map(orderedIds.map((id, index) => [id, index]))
+
+    for (const task of tasks.value) {
+      const newOrder = orderMap.get(task.id)
+      if (newOrder !== undefined) task.order = newOrder
+    }
+    tasks.value = sortTasks(tasks.value)
+    error.value = null
+
+    if (isMockAuthEnabled) {
+      persistMockTasks(tasks.value)
+      return
+    }
+
+    try {
+      const batch = writeBatch(db)
+      for (const [id, order] of orderMap) {
+        batch.update(doc(userCollection(), id), { order })
+      }
+      await trackWrite(() => batch.commit())
+    } catch (reorderError) {
+      for (const task of tasks.value) {
+        if (previousOrders.has(task.id)) {
+          task.order = previousOrders.get(task.id)
+        }
+      }
+      tasks.value = sortTasks(tasks.value)
+      reportWriteError(reorderError, 'Sorteringsordningen kunde inte sparas.')
+    }
+  }
+
   return {
     tasks,
     steps: allSteps,
@@ -572,5 +606,6 @@ export const useTaskStore = defineStore('tasks', () => {
     deleteStep,
     deleteTask,
     deleteTasksForLists,
+    reorderTasks,
   }
 })

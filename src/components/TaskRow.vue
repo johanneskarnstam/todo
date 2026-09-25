@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
-import { CalendarDays, CalendarPlus, CheckCircle2, ListTodo, MoreVertical, Star, Trash2 } from '@lucide/vue'
+import { CalendarDays, CalendarPlus, CheckCircle2, GripVertical, ListTodo, MoreVertical, Star, Trash2 } from '@lucide/vue'
 import type { StepCount, Task } from '@/types'
 
 const rowInteractionResets = new Set<() => void>()
@@ -10,6 +10,7 @@ interface Props {
   stepCount?: StepCount | null
   listName?: string | null
   showDueDate?: boolean
+  draggable?: boolean
 }
 
 interface Emits {
@@ -18,6 +19,7 @@ interface Emits {
   (event: 'toggle-important'): void
   (event: 'toggle-my-day'): void
   (event: 'delete'): void
+  (event: 'move', direction: -1 | 1): void
 }
 
 const props = defineProps<Props>()
@@ -86,6 +88,8 @@ const handleGlobalTouchStart = (event: TouchEvent) => {
 }
 
 const handleTouchStart = (event: TouchEvent) => {
+  const target = event.target as HTMLElement | null
+  if (target?.closest('[data-drag-handle]')) return
   rowInteractionResets.forEach((reset) => {
     if (reset !== resetRowInteraction) reset()
   })
@@ -137,7 +141,10 @@ onUnmounted(() => {
 })
 
 const handleKeydown = (event: KeyboardEvent) => {
-  if (event.key === 'Enter') {
+  if (event.altKey && props.draggable && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+    event.preventDefault()
+    emit('move', event.key === 'ArrowUp' ? -1 : 1)
+  } else if (event.key === 'Enter') {
     event.preventDefault()
     emit('select')
   } else if (event.key === ' ') {
@@ -168,6 +175,7 @@ const dueDateText = computed(() => {
     tabindex="0"
     :data-task-id="task.id"
     :aria-label="`Uppgift: ${task.title}`"
+    :aria-roledescription="draggable ? 'Sorterbar uppgift' : undefined"
     @click="handleRowClick"
     @keydown="handleKeydown"
     @touchstart="handleTouchStart"
@@ -184,6 +192,17 @@ const dueDateText = computed(() => {
     </div>
 
     <div class="relative flex min-h-14 w-full items-center gap-3 rounded-lg bg-white px-4 py-2 transition-transform dark:bg-slate-900" :style="{ transform: `translateX(${swipeOffset}px)` }">
+      <span
+        v-if="draggable"
+        class="inline-flex shrink-0 cursor-grab touch-none text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
+        aria-hidden="true"
+        data-drag-handle
+        title="Dra för att ändra ordning"
+        @click.stop
+      >
+        <GripVertical :size="18" />
+      </span>
+
       <button
         class="grid size-6 shrink-0 place-items-center rounded-full border border-slate-400 text-xs text-white transition hover:border-[#2564cf] dark:border-slate-500"
         :class="{ 'border-[#2564cf] bg-[#2564cf] dark:border-blue-400 dark:bg-blue-400': task.completed }"
