@@ -11,17 +11,20 @@ export interface ReleaseNote {
 export const appVersion = packageJson.version
 
 // Keep newest releases first. Add a new entry when the app version changes.
+// IMPORTANT: Always hardcode the version string for each release note entry.
+// Using `appVersion` here would break localStorage "seen" tracking because the
+// version changes on every bump, making previously-seen entries appear new again.
 export const releaseNotes: ReleaseNote[] = [
   {
-    version: appVersion,
-    date: '2026-09-24',
-    title: 'Mjukare och tydligare To Do',
-    summary: 'Sidomenyn har fått bättre övergångar och en mer sammanhållen visning av taggar.',
+    version: '0.19.0',
+    date: '2026-09-25',
+    title: 'Ny lista-hantering och sidomenyn',
+    summary: 'Sidomenyn har fått finputsade namn, kompaktare knappar och dynamisk versionsinformation.',
     items: [
-      'Utfällbara menyer, mappar och sektioner öppnas mjukare.',
-      'Taggar visas som mindre färgkodade pills.',
-      'Alla chevrons i sidomenyn använder samma ikon.',
-      'Appen har fått bättre testskydd för nya förändringar.',
+      '"Alla mappar och listor" heter nu "Alla listor".',
+      '"Viktigt" har bytt namn till "Stjärnmärkt".',
+      '"Ny lista +"-knappen har fått en mer kompakt stil.',
+      'Sidomenyn visar nu senast uppdaterat och version längst ner.',
     ],
   },
 ]
