@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { ChevronDown } from '@lucide/vue'
 import { useRoute, useRouter } from 'vue-router'
 import TodoHeader from '@/components/TodoHeader.vue'
 import TodoSidebar from '@/components/TodoSidebar.vue'
@@ -57,6 +58,29 @@ const canAddTask = computed(() => taskStore.activeView?.type === 'list')
 const activeList = computed(() => taskStore.activeView?.type === 'list' ? listStore.selectedList : null)
 const activeListColor = computed(() => activeList.value?.themeColor ?? '#2564cf')
 const themeColors = ['#2564cf', '#107c10', '#d83b01', '#8764b8', '#038387', '#ca5010']
+const readCollapsedCompletedLists = (): Record<string, boolean> => {
+  if (typeof localStorage === 'undefined') return {}
+
+  try {
+    return JSON.parse(localStorage.getItem('todo-collapsed-completed-lists') ?? '{}') as Record<string, boolean>
+  } catch {
+    return {}
+  }
+}
+const collapsedCompletedLists = ref<Record<string, boolean>>(readCollapsedCompletedLists())
+const areCompletedTasksVisible = computed(() => {
+  const listId = activeList.value?.id
+  return !listId || !collapsedCompletedLists.value[listId]
+})
+
+watch(collapsedCompletedLists, (value) => {
+  if (typeof localStorage !== 'undefined') localStorage.setItem('todo-collapsed-completed-lists', JSON.stringify(value))
+}, { deep: true })
+
+const toggleCompletedTasks = () => {
+  const listId = activeList.value?.id
+  if (listId) collapsedCompletedLists.value[listId] = !collapsedCompletedLists.value[listId]
+}
 
 const availableTags = computed(() => [...new Set(taskStore.tasks.flatMap((task) => task.tags ?? []))].sort())
 const filteredVisibleTasks = computed(() => {
@@ -537,8 +561,21 @@ watch(
           </section>
 
           <section v-if="!isPlannedView && filteredCompletedTasks.length" class="mt-7" aria-labelledby="completed-tasks-heading">
-            <h2 id="completed-tasks-heading" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Slutförda</h2>
-            <div class="overflow-hidden rounded-xl border border-slate-200 shadow-sm dark:border-slate-700">
+            <h2 id="completed-tasks-heading" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              <button
+                v-if="activeList"
+                class="inline-flex min-h-8 items-center gap-1 rounded text-left transition hover:text-slate-800 dark:hover:text-slate-100"
+                type="button"
+                :aria-label="areCompletedTasksVisible ? 'Dölj slutförda uppgifter' : 'Visa slutförda uppgifter'"
+                :aria-expanded="areCompletedTasksVisible"
+                @click="toggleCompletedTasks"
+              >
+                Slutförda
+                <ChevronDown :size="16" :class="{ '-rotate-90': !areCompletedTasksVisible }" aria-hidden="true" />
+              </button>
+              <span v-else>Slutförda</span>
+            </h2>
+            <div v-if="areCompletedTasksVisible" class="overflow-hidden rounded-xl border border-slate-200 shadow-sm dark:border-slate-700">
               <TaskRow
                   v-for="task in filteredCompletedTasks"
                 :key="task.id"

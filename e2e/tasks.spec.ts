@@ -37,6 +37,31 @@ test('marks a task complete and restores it to active', async ({ page }) => {
   await expect(task.getByRole('button', { name: 'Markera uppgift som slutförd' })).toBeVisible()
 })
 
+test('hides and shows completed tasks in the active list', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Jag har sett detta' }).click()
+
+  const title = `E2E-completed-${Date.now()}`
+  const input = page.getByPlaceholder('Lägg till en uppgift')
+  await input.fill(title)
+  await input.press('Enter')
+
+  const task = page.getByRole('group', { name: `Uppgift: ${title}` })
+  await task.getByRole('button', { name: 'Markera uppgift som slutförd' }).click()
+  await expect(page.getByRole('button', { name: 'Dölj slutförda uppgifter' })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Dölj slutförda uppgifter' }).click()
+  await expect(task).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Visa slutförda uppgifter' })).toHaveAttribute('aria-expanded', 'false')
+
+  await page.reload()
+  await expect(page.getByRole('button', { name: 'Visa slutförda uppgifter' })).toBeVisible()
+  await expect(task).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Visa slutförda uppgifter' }).click()
+  await expect(task).toBeVisible()
+})
+
 test('marks a task important and finds it in Stjärnmärkt', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: 'Jag har sett detta' }).click()
