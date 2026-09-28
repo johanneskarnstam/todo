@@ -13,7 +13,9 @@ import { useToastStore } from '@/stores/toastStore'
 import { useReminderNotifications } from '@/composables/useReminderNotifications'
 import { useDragReorder } from '@/composables/useDragReorder'
 import { usePreferences } from '@/composables/usePreferences'
-import type { SmartView, TaskReminder } from '@/types'
+import { sortTasksForMode } from '@/utils/taskSorting'
+import { isTaskCompleted } from '@/utils/taskStatus'
+import type { ListSortMode, SmartView, TaskReminder } from '@/types'
 
 const isSidebarOpen = ref(typeof window === 'undefined' ? true : window.innerWidth >= 1024)
 const isSearchOpen = ref(false)
@@ -57,6 +59,8 @@ const currentTitle = computed(() => {
 const canAddTask = computed(() => taskStore.activeView?.type === 'list')
 const activeList = computed(() => taskStore.activeView?.type === 'list' ? listStore.selectedList : null)
 const activeListColor = computed(() => activeList.value?.themeColor ?? '#2564cf')
+const activeListSortMode = computed<ListSortMode>(() => activeList.value?.sortMode ?? preferences.value.taskSort)
+const activeListTaskStatusMode = computed(() => activeList.value?.taskStatusMode ?? 'binary')
 const themeColors = ['#2564cf', '#107c10', '#d83b01', '#8764b8', '#038387', '#ca5010']
 const readCollapsedCompletedLists = (): Record<string, boolean> => {
   if (typeof localStorage === 'undefined') return {}
@@ -84,23 +88,14 @@ const toggleCompletedTasks = () => {
 
 const availableTags = computed(() => [...new Set(taskStore.tasks.flatMap((task) => task.tags ?? []))].sort())
 const filteredVisibleTasks = computed(() => {
-  const tasks = [...taskStore.visibleTasks]
-  if (preferences.value.taskSort === 'created') {
-    return tasks.sort((first, second) => first.createdAt.toMillis() - second.createdAt.toMillis())
-  }
-  if (preferences.value.taskSort === 'dueDate') {
-    return tasks.sort((first, second) => (dueDateKey(first) || '9999-12-31').localeCompare(dueDateKey(second) || '9999-12-31'))
-  }
-  if (preferences.value.taskSort === 'priority') {
-    return tasks.sort((first, second) => Number(second.important) - Number(first.important) || Number(first.completed) - Number(second.completed))
-  }
-  return tasks
+  const sortMode = taskStore.activeView?.type === 'list' ? activeListSortMode.value : preferences.value.taskSort
+  return sortTasksForMode(taskStore.visibleTasks, sortMode)
 })
-const filteredActiveTasks = computed(() => taskStore.activeTasks.filter((task) => filteredVisibleTasks.value.some((visibleTask) => visibleTask.id === task.id)))
-const filteredCompletedTasks = computed(() => taskStore.completedTasks.filter((task) => filteredVisibleTasks.value.some((visibleTask) => visibleTask.id === task.id)))
+const filteredActiveTasks = computed(() => filteredVisibleTasks.value.filter((task) => !isTaskCompleted(task)))
+const filteredCompletedTasks = computed(() => filteredVisibleTasks.value.filter((task) => isTaskCompleted(task)))
 
 const taskListContainer = ref<HTMLElement | null>(null)
-const canDrag = computed(() => taskStore.activeView?.type === 'list')
+const canDrag = computed(() => taskStore.activeView?.type === 'list' && activeListSortMode.value === 'manual')
 
 useDragReorder({
   containerRef: taskListContainer,
@@ -121,7 +116,7 @@ const handleMoveTask = (taskId: string, direction: -1 | 1) => {
   const [removed] = ids.splice(index, 1)
   ids.splice(targetIndex, 0, removed)
   const listId = taskStore.activeView?.type === 'list' ? taskStore.activeView.listId : null
-  if (listId) void taskStore.reorderTasks(listId, ids)
+  if (listId && canDrag.value) void taskStore.reorderTasks(listId, ids)
 }
 const dueDateKey = (task: (typeof taskStore.tasks)[number]) => {
   if (!task.dueDate) return ''
@@ -244,6 +239,13 @@ const selectListTheme = (color: string) => {
   const listId = activeList.value?.id
   if (!listId) return
   listStore.updateListTheme(listId, color)
+}
+
+const openListSettings = () => {
+  const listId = activeList.value?.id
+  if (!listId) return
+  isListOptionsOpen.value = false
+  void router.push({ name: 'list-settings', params: { listId } })
 }
 
 const requestDeleteList = (listId = activeList.value?.id) => {
@@ -425,7 +427,7 @@ watch(
   () => taskStore.tasks,
   (tasks) => {
     for (const task of tasks) {
-      if (task.completed || !task.dueDate) {
+      if (isTaskCompleted(task) || !task.dueDate) {
         cancelTaskReminder(task.id)
       } else {
         scheduleTaskReminder(task)
@@ -485,6 +487,7 @@ watch(
               <button class="grid size-9 place-items-center rounded-lg text-xl text-slate-500 transition hover:bg-slate-200 dark:hover:bg-slate-800" type="button" aria-label="Fler listalternativ" :aria-expanded="isListOptionsOpen" @click="isListOptionsOpen = !isListOptionsOpen">⋯</button>
               <div v-if="isListOptionsOpen" class="absolute right-0 top-10 z-20 w-64 rounded-xl border border-slate-200 bg-white p-3 shadow-xl dark:border-slate-700 dark:bg-slate-800">
                 <button class="flex min-h-9 w-full items-center rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="startRenameList">Byt namn på lista</button>
+                <button class="mt-1 flex min-h-9 w-full items-center rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="openListSettings">Listinställningar</button>
                 <div class="mt-2 border-t border-slate-200 pt-2 dark:border-slate-700">
                   <p class="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Listfärg</p>
                   <div class="flex gap-2 px-3 py-2">
@@ -526,6 +529,7 @@ watch(
                   :step-count="taskStore.taskStepCounts.get(task.id) ?? null"
                   :list-name="taskListName(task.listId)"
                   :show-due-date="true"
+                  task-status-mode="binary"
                   :available-lists="listStore.lists"
                   @select="taskStore.setActiveTask(task.id)"
                   @toggle-completed="taskStore.toggleCompleted(task.id)"
@@ -548,9 +552,11 @@ watch(
                 :step-count="taskStore.taskStepCounts.get(task.id) ?? null"
                 :list-name="taskStore.activeView?.type === 'smart' && taskStore.activeView.smartView === 'important' ? taskListName(task.listId) : null"
                 :draggable="canDrag"
+                :task-status-mode="activeListTaskStatusMode"
                 :available-lists="listStore.lists"
                 @select="taskStore.setActiveTask(task.id)"
                 @toggle-completed="taskStore.toggleCompleted(task.id)"
+                @set-status="taskStore.setTaskStatus(task.id, $event, activeListTaskStatusMode)"
                 @toggle-important="taskStore.toggleImportant(task.id)"
                 @toggle-my-day="taskStore.toggleMyDay(task.id)"
                 @delete="requestDeleteTask(task.id)"
@@ -582,9 +588,11 @@ watch(
                 :task="task"
                 :step-count="taskStore.taskStepCounts.get(task.id) ?? null"
                 :list-name="taskStore.activeView?.type === 'smart' && taskStore.activeView.smartView === 'important' ? taskListName(task.listId) : null"
+                :task-status-mode="activeListTaskStatusMode"
                 :available-lists="listStore.lists"
                 @select="taskStore.setActiveTask(task.id)"
                 @toggle-completed="taskStore.toggleCompleted(task.id)"
+                @set-status="taskStore.setTaskStatus(task.id, $event, activeListTaskStatusMode)"
                 @toggle-important="taskStore.toggleImportant(task.id)"
                 @toggle-my-day="taskStore.toggleMyDay(task.id)"
                 @delete="requestDeleteTask(task.id)"

@@ -18,7 +18,9 @@ import { auth, db } from '@/firebase'
 import { isMockAuthEnabled, MOCK_USER_ID } from '@/devMode'
 import { useToastStore } from '@/stores/toastStore'
 import { isBrowserOffline } from '@/composables/useNetworkStatus'
-import type { SmartView, Step, StepCount, Task, TaskReminder, TaskView } from '@/types'
+import type { SmartView, Step, StepCount, Task, TaskReminder, TaskStatus, TaskStatusMode, TaskView } from '@/types'
+import { sortTasksForMode } from '@/utils/taskSorting'
+import { getTaskStatus, isTaskCompleted, isTaskStatusAllowed, taskStatusToCompleted } from '@/utils/taskStatus'
 
 interface NewTaskInput {
   listId: string
@@ -30,15 +32,7 @@ interface NewStepInput {
   title: string
 }
 
-const sortTasks = (tasks: Task[]): Task[] =>
-  [...tasks].sort((first, second) => {
-    if (first.listId === second.listId) {
-      const firstOrder = first.order ?? Number.MAX_SAFE_INTEGER
-      const secondOrder = second.order ?? Number.MAX_SAFE_INTEGER
-      if (firstOrder !== secondOrder) return firstOrder - secondOrder
-    }
-    return first.createdAt.toMillis() - second.createdAt.toMillis()
-  })
+const sortTasks = (tasks: Task[]): Task[] => sortTasksForMode(tasks, 'manual')
 
 const sortSteps = (steps: Step[]): Step[] =>
   [...steps].sort((first, second) => {
@@ -125,8 +119,8 @@ export const useTaskStore = defineStore('tasks', () => {
     return tasks.value.filter((task) => task.myDay)
   })
 
-  const activeTasks = computed(() => sortTasks(visibleTasks.value.filter((task) => !task.completed)))
-  const completedTasks = computed(() => sortTasks(visibleTasks.value.filter((task) => task.completed)))
+  const activeTasks = computed(() => sortTasks(visibleTasks.value.filter((task) => !isTaskCompleted(task))))
+  const completedTasks = computed(() => sortTasks(visibleTasks.value.filter((task) => isTaskCompleted(task))))
   const activeTask = computed(() => tasks.value.find((task) => task.id === activeTaskId.value) ?? null)
   const activeSteps = computed(() => sortSteps(allSteps.value.filter((step) => step.taskId === activeTaskId.value)))
   const taskStepCounts = computed(() => {
@@ -142,12 +136,12 @@ export const useTaskStore = defineStore('tasks', () => {
     return counts
   })
   const smartViewCounts = computed<Record<SmartView, number>>(() => ({
-    myDay: tasks.value.filter((task) => task.myDay && !task.completed).length,
-    important: tasks.value.filter((task) => task.important && !task.completed).length,
-    planned: tasks.value.filter((task) => Boolean(task.dueDate) && !task.completed).length,
+    myDay: tasks.value.filter((task) => task.myDay && !isTaskCompleted(task)).length,
+    important: tasks.value.filter((task) => task.important && !isTaskCompleted(task)).length,
+    planned: tasks.value.filter((task) => Boolean(task.dueDate) && !isTaskCompleted(task)).length,
   }))
   const listTaskCounts = computed<Record<string, number>>(() => tasks.value.reduce<Record<string, number>>((counts, task) => {
-    if (!task.completed) counts[task.listId] = (counts[task.listId] ?? 0) + 1
+    if (!isTaskCompleted(task)) counts[task.listId] = (counts[task.listId] ?? 0) + 1
     return counts
   }, {}))
 
@@ -290,6 +284,7 @@ export const useTaskStore = defineStore('tasks', () => {
       listId: input.listId,
       title,
       completed: false,
+      status: 'todo',
       important: false,
       myDay: false,
       createdAt: Timestamp.now(),
@@ -309,6 +304,7 @@ export const useTaskStore = defineStore('tasks', () => {
         listId: optimisticTask.listId,
         title: optimisticTask.title,
         completed: optimisticTask.completed,
+        status: optimisticTask.status,
         important: optimisticTask.important,
         myDay: optimisticTask.myDay,
         order: optimisticTask.order,
@@ -326,7 +322,7 @@ export const useTaskStore = defineStore('tasks', () => {
 
   const updateTask = async (
     taskId: string,
-    updates: Partial<Pick<Task, 'completed' | 'important' | 'myDay' | 'title' | 'dueDate' | 'note' | 'tags' | 'order'>> & { reminder?: TaskReminder | null },
+    updates: Partial<Pick<Task, 'completed' | 'status' | 'important' | 'myDay' | 'title' | 'dueDate' | 'note' | 'tags' | 'order'>> & { reminder?: TaskReminder | null },
   ) => {
     const currentTask = tasks.value.find((task) => task.id === taskId)
     if (!currentTask) return
@@ -346,7 +342,17 @@ export const useTaskStore = defineStore('tasks', () => {
 
   const toggleCompleted = (taskId: string) => {
     const task = tasks.value.find((item) => item.id === taskId)
-    if (task) void updateTask(taskId, { completed: !task.completed })
+    if (task) {
+      const nextStatus: TaskStatus = isTaskCompleted(task) ? 'todo' : 'completed'
+      void setTaskStatus(taskId, nextStatus, 'binary')
+    }
+  }
+
+  const setTaskStatus = (taskId: string, status: TaskStatus, mode: TaskStatusMode = 'threeStep') => {
+    const task = tasks.value.find((item) => item.id === taskId)
+    if (!task || !isTaskStatusAllowed(status, mode)) return
+
+    void updateTask(taskId, { status, completed: taskStatusToCompleted(status) })
   }
 
   const toggleImportant = (taskId: string) => {
@@ -498,6 +504,7 @@ export const useTaskStore = defineStore('tasks', () => {
           listId: task.listId,
           title: task.title,
           completed: task.completed,
+          status: getTaskStatus(task),
           important: task.important,
           myDay: task.myDay,
           ...(task.dueDate ? { dueDate: task.dueDate } : {}),
@@ -631,6 +638,7 @@ export const useTaskStore = defineStore('tasks', () => {
     createStep,
     updateTask,
     toggleCompleted,
+    setTaskStatus,
     toggleImportant,
     toggleMyDay,
     setDueDate,

@@ -286,7 +286,7 @@ describe('useTaskStore', () => {
     store.toggleMyDay('task-1')
 
     expect(store.tasks[0]).toMatchObject({ completed: true, important: true, myDay: true })
-    expect(firestoreMocks.updateDoc).toHaveBeenCalledWith(expect.anything(), { completed: true })
+    expect(firestoreMocks.updateDoc).toHaveBeenCalledWith(expect.anything(), { completed: true, status: 'completed' })
     expect(firestoreMocks.updateDoc).toHaveBeenCalledWith(expect.anything(), { important: true })
     expect(firestoreMocks.updateDoc).toHaveBeenCalledWith(expect.anything(), { myDay: true })
   })

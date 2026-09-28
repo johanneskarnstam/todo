@@ -49,6 +49,39 @@ test('changes the selected list theme', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Färgtest' })).toHaveCSS('color', 'rgb(16, 124, 16)')
 })
 
+test('configures list sorting and a three-step task workflow', async ({ page }) => {
+  await page.goto('/')
+  await dismissReleaseNotes(page)
+
+  await page.getByRole('button', { name: 'Ny lista' }).click()
+  await page.getByPlaceholder('Listnamn').fill('Arbetsflöde')
+  await page.getByPlaceholder('Listnamn').press('Enter')
+
+  await page.getByRole('button', { name: 'Fler listalternativ' }).click()
+  await page.getByRole('button', { name: 'Listinställningar' }).click()
+  await expect(page).toHaveURL(/\/lists\/[^/]+\/settings$/)
+
+  await page.getByLabel('Sortering').selectOption('priority')
+  await expect(page.getByRole('status')).toContainText('Sorteringen har sparats.')
+  await page.getByLabel('Arbetsflöde').selectOption('threeStep')
+  await expect(page.getByRole('status')).toContainText('Arbetsflödet har sparats.')
+
+  await page.getByRole('button', { name: 'Tillbaka till listan' }).click()
+  await expect(page.getByRole('heading', { name: 'Arbetsflöde' })).toBeVisible()
+
+  const taskTitle = 'Pågående arbetsuppgift'
+  await page.getByPlaceholder('Lägg till en uppgift').fill(taskTitle)
+  await page.getByPlaceholder('Lägg till en uppgift').press('Enter')
+  const task = page.getByRole('group', { name: `Uppgift: ${taskTitle}` })
+  await task.getByLabel('Uppgiftens status').selectOption('inProgress')
+  await expect(task.getByLabel('Uppgiftens status')).toHaveValue('inProgress')
+
+  await page.reload()
+  await page.goto('/')
+  await page.getByRole('button', { name: /^Arbetsflöde/ }).click()
+  await expect(page.getByRole('group', { name: `Uppgift: ${taskTitle}` }).getByLabel('Uppgiftens status')).toHaveValue('inProgress')
+})
+
 test('renames a list and a folder', async ({ page }) => {
   await page.goto('/')
   await dismissReleaseNotes(page)
