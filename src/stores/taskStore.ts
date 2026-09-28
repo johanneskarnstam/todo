@@ -577,6 +577,41 @@ export const useTaskStore = defineStore('tasks', () => {
     }
   }
 
+  const reorderSteps = async (taskId: string, orderedIds: string[]) => {
+    const taskSteps = allSteps.value.filter((step) => step.taskId === taskId)
+    const stepIds = new Set(taskSteps.map((step) => step.id))
+    if (orderedIds.length !== taskSteps.length || orderedIds.some((id) => !stepIds.has(id))) return
+
+    const previousOrders = new Map(taskSteps.map((step) => [step.id, step.order]))
+    const orderMap = new Map(orderedIds.map((id, index) => [id, index]))
+    allSteps.value = allSteps.value.map((step) => {
+      const order = orderMap.get(step.id)
+      return order === undefined ? step : { ...step, order }
+    })
+    error.value = null
+
+    if (isMockAuthEnabled) return
+
+    try {
+      const batch = writeBatch(db)
+      for (const [id, order] of orderMap) {
+        batch.update(doc(taskStepsCollection(taskId), id), { order })
+      }
+      await trackWrite(() => batch.commit())
+    } catch (reorderError) {
+      allSteps.value = allSteps.value.map((step) => {
+        if (!previousOrders.has(step.id)) return step
+        const previousOrder = previousOrders.get(step.id)
+        if (previousOrder === undefined) {
+          const { order: _order, ...stepWithoutOrder } = step
+          return stepWithoutOrder
+        }
+        return { ...step, order: previousOrder }
+      })
+      reportWriteError(reorderError, 'Delstegens ordning kunde inte sparas.')
+    }
+  }
+
   const moveTask = async (taskId: string, targetListId: string, targetListName?: string, announce = true) => {
     const task = tasks.value.find((item) => item.id === taskId)
     if (!task || task.listId === targetListId) return
@@ -649,6 +684,7 @@ export const useTaskStore = defineStore('tasks', () => {
     deleteTask,
     deleteTasksForLists,
     reorderTasks,
+    reorderSteps,
     moveTask,
   }
 })

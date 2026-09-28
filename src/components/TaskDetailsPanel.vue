@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
-import { ArrowLeft, CalendarPlus, ExternalLink } from '@lucide/vue'
+import { ArrowLeft, CalendarPlus, ExternalLink, GripVertical } from '@lucide/vue'
+import { useDragReorder } from '@/composables/useDragReorder'
 import type { List, Step, Task, TaskReminder } from '@/types'
 import { createGoogleCalendarUrl } from '@/utils/googleCalendar'
 
@@ -14,6 +15,7 @@ interface Emits {
   (event: 'close'): void
   (event: 'save-title', title: string): void
   (event: 'add-step', title: string): void
+  (event: 'reorder-steps', orderedIds: string[]): void
   (event: 'save-step-title', stepId: string, title: string): void
   (event: 'toggle-step', stepId: string): void
   (event: 'delete-step', stepId: string): void
@@ -37,6 +39,17 @@ const editingStepId = ref<string | null>(null)
 const editingStepTitle = ref('')
 const titleInput = ref<HTMLInputElement | null>(null)
 const reminderOffset = ref(String(props.task.reminder?.offsetMinutes ?? ''))
+const stepsContainer = ref<HTMLElement | null>(null)
+const stepItems = computed(() => props.steps.map((step) => ({ id: step.id })))
+
+useDragReorder({
+  containerRef: stepsContainer,
+  items: stepItems,
+  onReorder: (orderedIds) => emit('reorder-steps', orderedIds),
+  enabled: computed(() => props.steps.length > 1),
+  itemSelector: '[data-step-id]',
+  handleSelector: '[data-step-drag-handle]',
+})
 
 const dueDate = computed(() => {
   if (typeof props.task.dueDate === 'string') return props.task.dueDate.slice(0, 10)
@@ -174,25 +187,13 @@ const saveStepTitle = () => {
         />
       </section>
 
-      <section class="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-900" aria-labelledby="tags-heading">
-        <h2 id="tags-heading" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Taggar</h2>
-        <div class="flex flex-wrap gap-2">
-          <span v-for="tag in tags" :key="tag" class="inline-flex items-center gap-1 rounded-full bg-blue-50 px-3 py-1 text-xs text-[#2564cf] dark:bg-blue-950/40 dark:text-blue-300">
-            #{{ tag }}
-            <button type="button" :aria-label="`Ta bort taggen ${tag}`" @click="removeTag(tag)">×</button>
-          </span>
-        </div>
-        <form class="mt-2 flex gap-2" @submit.prevent="addTag">
-          <label class="sr-only" for="new-task-tag">Ny tagg</label>
-          <input id="new-task-tag" v-model="tagTitle" class="min-w-0 flex-1 rounded-lg border border-slate-200 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#2564cf] dark:border-slate-700" type="text" placeholder="Lägg till tagg" />
-          <button class="rounded-lg bg-[#2564cf] px-3 text-sm text-white" type="submit">Lägg till</button>
-        </form>
-      </section>
-
-      <section class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-800/40" aria-labelledby="steps-heading">
+      <section class="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-900" aria-labelledby="steps-heading">
         <h2 id="steps-heading" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Delsteg</h2>
-        <div class="space-y-1">
-          <label v-for="step in steps" :key="step.id" class="flex min-h-10 items-center gap-3 rounded-lg px-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800">
+        <div ref="stepsContainer" class="space-y-1">
+          <div v-for="step in steps" :key="step.id" class="flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800" role="group" :aria-label="`Delsteg: ${step.title}`" :data-step-id="step.id">
+            <button v-if="steps.length > 1" class="grid size-7 shrink-0 cursor-grab touch-none place-items-center rounded text-slate-400 transition hover:bg-slate-200 hover:text-slate-700 active:cursor-grabbing dark:hover:bg-slate-700 dark:hover:text-slate-200" type="button" :aria-label="`Dra delsteg: ${step.title}`" title="Dra för att ändra ordning" data-step-drag-handle @click.stop>
+              <GripVertical :size="16" aria-hidden="true" />
+            </button>
             <input
               class="size-4 accent-[#2564cf]"
               type="checkbox"
@@ -228,12 +229,27 @@ const saveStepTitle = () => {
             >
               ×
             </button>
-          </label>
+          </div>
         </div>
         <form class="mt-2 flex items-center gap-2 border-b border-slate-200 px-2 py-2 dark:border-slate-700" @submit.prevent="addStep">
           <span class="text-lg text-[#2564cf] dark:text-blue-400" aria-hidden="true">＋</span>
           <label class="sr-only" for="new-step-title">Lägg till delsteg</label>
           <input id="new-step-title" v-model="stepTitle" class="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-500" type="text" placeholder="Lägg till delsteg" />
+        </form>
+      </section>
+
+      <section class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-800/40" aria-labelledby="tags-heading">
+        <h2 id="tags-heading" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Taggar</h2>
+        <div class="flex flex-wrap gap-2">
+          <span v-for="tag in tags" :key="tag" class="inline-flex items-center gap-1 rounded-full bg-blue-50 px-3 py-1 text-xs text-[#2564cf] dark:bg-blue-950/40 dark:text-blue-300">
+            #{{ tag }}
+            <button type="button" :aria-label="`Ta bort taggen ${tag}`" @click="removeTag(tag)">×</button>
+          </span>
+        </div>
+        <form class="mt-2 flex gap-2" @submit.prevent="addTag">
+          <label class="sr-only" for="new-task-tag">Ny tagg</label>
+          <input id="new-task-tag" v-model="tagTitle" class="min-w-0 flex-1 rounded-lg border border-slate-200 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#2564cf] dark:border-slate-700" type="text" placeholder="Lägg till tagg" />
+          <button class="rounded-lg bg-[#2564cf] px-3 text-sm text-white" type="submit">Lägg till</button>
         </form>
       </section>
 

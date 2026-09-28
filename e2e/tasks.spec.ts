@@ -25,6 +25,39 @@ test('opens task details from a task row', async ({ page }) => {
   await expect(details.getByRole('heading', { name: 'Anteckningar' })).toBeVisible()
 })
 
+test('reorders task steps with pointer drag and drop', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Jag har sett detta' }).click()
+  await page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' }).click()
+
+  const details = page.getByRole('dialog', { name: 'Uppgiftsdetaljer' })
+  const stepInput = details.getByPlaceholder('Lägg till delsteg')
+  await stepInput.fill('Första delsteget')
+  await stepInput.press('Enter')
+  await stepInput.fill('Andra delsteget')
+  await stepInput.press('Enter')
+
+  const stepRows = details.getByRole('group', { name: /^Delsteg:/ })
+  await expect(stepRows).toHaveCount(2)
+  const firstRow = stepRows.nth(0)
+  const secondRow = stepRows.nth(1)
+  const dragHandle = firstRow.getByRole('button', { name: 'Dra delsteg: Första delsteget' })
+  const handleBox = await dragHandle.boundingBox()
+  const secondBox = await secondRow.boundingBox()
+  expect(handleBox).not.toBeNull()
+  expect(secondBox).not.toBeNull()
+
+  if (handleBox && secondBox) {
+    await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(secondBox.x + secondBox.width / 2, secondBox.y + secondBox.height - 2, { steps: 8 })
+    await page.mouse.up()
+  }
+
+  await expect(stepRows.nth(0)).toHaveAttribute('aria-label', 'Delsteg: Andra delsteget')
+  await expect(stepRows.nth(1)).toHaveAttribute('aria-label', 'Delsteg: Första delsteget')
+})
+
 test('opens a prefilled Google Calendar event from task details', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: 'Jag har sett detta' }).click()

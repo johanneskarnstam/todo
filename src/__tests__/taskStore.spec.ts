@@ -483,6 +483,48 @@ describe('useTaskStore', () => {
     expect(batchCommit).toHaveBeenCalled()
   })
 
+  it('reorders steps within one task and commits their new order', async () => {
+    const store = useTaskStore()
+    store.activeTaskId = 'task-1'
+    const createdAt = Timestamp.now()
+    store.allSteps.push(
+      { id: 'step-1', taskId: 'task-1', title: 'First', completed: false, order: 0, createdAt },
+      { id: 'step-2', taskId: 'task-1', title: 'Second', completed: false, order: 1, createdAt },
+      { id: 'other-step', taskId: 'task-2', title: 'Other', completed: false, order: 0, createdAt },
+    )
+    const batchUpdate = vi.fn()
+    const batchCommit = vi.fn().mockResolvedValue(undefined)
+    firestoreMocks.writeBatch.mockReturnValue({ update: batchUpdate, commit: batchCommit })
+
+    await store.reorderSteps('task-1', ['step-2', 'step-1'])
+
+    expect(store.activeSteps.map((step) => step.id)).toEqual(['step-2', 'step-1'])
+    expect(batchUpdate).toHaveBeenCalledTimes(2)
+    expect(batchUpdate).toHaveBeenCalledWith(expect.anything(), { order: 0 })
+    expect(batchUpdate).toHaveBeenCalledWith(expect.anything(), { order: 1 })
+    expect(batchCommit).toHaveBeenCalled()
+    expect(store.allSteps.find((step) => step.id === 'other-step')?.order).toBe(0)
+  })
+
+  it('rolls back step order when Firestore batch commit fails', async () => {
+    const store = useTaskStore()
+    store.activeTaskId = 'task-1'
+    const createdAt = Timestamp.now()
+    store.allSteps.push(
+      { id: 'step-1', taskId: 'task-1', title: 'First', completed: false, order: 0, createdAt },
+      { id: 'step-2', taskId: 'task-1', title: 'Second', completed: false, order: 1, createdAt },
+    )
+    firestoreMocks.writeBatch.mockReturnValue({
+      update: vi.fn(),
+      commit: vi.fn().mockRejectedValue(new Error('step batch failed')),
+    })
+
+    await store.reorderSteps('task-1', ['step-2', 'step-1'])
+
+    expect(store.activeSteps.map((step) => step.id)).toEqual(['step-1', 'step-2'])
+    expect(store.error).toBe('step batch failed')
+  })
+
   it('rolls back task order if Firestore batch commit rejects', async () => {
     const store = useTaskStore()
     const createdAt = Timestamp.now()
