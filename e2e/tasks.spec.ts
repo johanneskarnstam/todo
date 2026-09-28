@@ -25,6 +25,22 @@ test('opens task details from a task row', async ({ page }) => {
   await expect(details.getByRole('heading', { name: 'Anteckningar' })).toBeVisible()
 })
 
+test('opens a prefilled Google Calendar event from task details', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Jag har sett detta' }).click()
+  await page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' }).click()
+
+  const details = page.getByRole('dialog', { name: 'Uppgiftsdetaljer' })
+  await details.getByLabel('Uppgiftens förfallodatum').fill('2026-10-01')
+  const calendarLink = details.getByRole('link', { name: 'Lägg till i Google Kalender' })
+  await expect(calendarLink).toHaveAttribute('href', /calendar\.google\.com\/calendar\/render\?/)
+
+  const calendarUrl = new URL(await calendarLink.getAttribute('href') ?? '')
+  expect(calendarUrl.searchParams.get('text')).toBe('Kontrollera mobilvyn')
+  expect(calendarUrl.searchParams.get('dates')).toBe('20261001/20261002')
+  await expect(calendarLink).toHaveAttribute('target', '_blank')
+})
+
 test('marks a task complete and restores it to active', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: 'Jag har sett detta' }).click()
