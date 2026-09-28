@@ -235,6 +235,29 @@ describe('TodoSidebar', () => {
 })
 
 describe('TaskRow', () => {
+  it('cycles the three-step checkbox through todo, in progress, and completed', async () => {
+    const wrapper = mount(TaskRow, { props: { task, taskStatusMode: 'threeStep' } })
+    const statusButton = wrapper.get('[role="checkbox"]')
+
+    expect(statusButton.attributes('aria-checked')).toBe('false')
+    await statusButton.trigger('click')
+    expect(wrapper.emitted('set-status')).toEqual([['inProgress']])
+
+    await wrapper.setProps({ task: { ...task, status: 'inProgress' } })
+    expect(statusButton.classes()).toContain('bg-orange-500')
+    expect(statusButton.attributes('aria-checked')).toBe('mixed')
+    expect(statusButton.attributes('aria-label')).toBe('Markera uppgift som klar')
+    expect(statusButton.find('svg').exists()).toBe(true)
+    await statusButton.trigger('click')
+    expect(wrapper.emitted('set-status')).toEqual([['inProgress'], ['completed']])
+
+    await wrapper.setProps({ task: { ...task, status: 'completed', completed: true } })
+    expect(statusButton.attributes('aria-checked')).toBe('true')
+    await statusButton.trigger('click')
+    expect(wrapper.emitted('set-status')).toEqual([['inProgress'], ['completed'], ['todo']])
+    expect(wrapper.emitted('select')).toBeUndefined()
+  })
+
   it('opens details from the row and keeps inline controls independent', async () => {
     const wrapper = mount(TaskRow, { props: { task } })
 

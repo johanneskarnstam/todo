@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
-import { CalendarDays, CalendarPlus, CheckCircle2, GripVertical, ListTodo, MoreVertical, Star, Trash2 } from '@lucide/vue'
+import { CalendarDays, CalendarPlus, Check, CheckCircle2, GripVertical, ListTodo, MoreVertical, Play, Star, Trash2 } from '@lucide/vue'
 import type { List, StepCount, Task, TaskStatus, TaskStatusMode } from '@/types'
 import { getTaskStatus } from '@/utils/taskStatus'
 
@@ -154,6 +154,8 @@ onUnmounted(() => {
 })
 
 const handleKeydown = (event: KeyboardEvent) => {
+  if (event.target !== event.currentTarget) return
+
   if (event.altKey && props.draggable && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
     event.preventDefault()
     emit('move', event.key === 'ArrowUp' ? -1 : 1)
@@ -162,13 +164,22 @@ const handleKeydown = (event: KeyboardEvent) => {
     emit('select')
   } else if (event.key === ' ') {
     event.preventDefault()
-    emit('toggle-completed')
+    if (props.taskStatusMode === 'threeStep') {
+      advanceTaskStatus()
+    } else {
+      emit('toggle-completed')
+    }
   }
 }
 
-const handleStatusChange = (event: Event) => {
-  const status = (event.target as HTMLSelectElement).value as TaskStatus
-  emit('set-status', status)
+const advanceTaskStatus = () => {
+  const currentStatus = getTaskStatus(props.task)
+  const nextStatus: TaskStatus = currentStatus === 'todo'
+    ? 'inProgress'
+    : currentStatus === 'inProgress'
+      ? 'completed'
+      : 'todo'
+  emit('set-status', nextStatus)
 }
 
 const dueDateText = computed(() => {
@@ -221,18 +232,32 @@ const dueDateText = computed(() => {
         <GripVertical :size="18" />
       </span>
 
-      <select
+      <button
         v-if="taskStatusMode === 'threeStep'"
-        class="h-8 max-w-28 shrink-0 rounded-md border border-slate-300 bg-white px-1 text-xs text-slate-700 outline-none focus:border-[#2564cf] focus:ring-1 focus:ring-[#2564cf] dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
-        :value="getTaskStatus(task)"
-        aria-label="Uppgiftens status"
-        @click.stop
-        @change.stop="handleStatusChange"
+        class="grid size-6 shrink-0 place-items-center rounded-md border text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2564cf] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900"
+        :class="{
+          'border-slate-400 bg-transparent hover:border-orange-500 dark:border-slate-500': getTaskStatus(task) === 'todo',
+          'border-orange-500 bg-orange-500 hover:bg-orange-600': getTaskStatus(task) === 'inProgress',
+          'border-[#2564cf] bg-[#2564cf] hover:bg-blue-700 dark:border-blue-400 dark:bg-blue-400': getTaskStatus(task) === 'completed',
+        }"
+        role="checkbox"
+        :aria-checked="getTaskStatus(task) === 'inProgress' ? 'mixed' : getTaskStatus(task) === 'completed'"
+        :aria-label="{
+          todo: 'Markera uppgift som pågående',
+          inProgress: 'Markera uppgift som klar',
+          completed: 'Återställ uppgift till att göra',
+        }[getTaskStatus(task)]"
+        :title="{
+          todo: 'Att göra',
+          inProgress: 'Pågående',
+          completed: 'Klart',
+        }[getTaskStatus(task)]"
+        type="button"
+        @click.stop="advanceTaskStatus"
       >
-        <option value="todo">Att göra</option>
-        <option value="inProgress">Pågående</option>
-        <option value="completed">Klart</option>
-      </select>
+        <Play v-if="getTaskStatus(task) === 'inProgress'" :size="12" fill="currentColor" aria-hidden="true" />
+        <Check v-else-if="getTaskStatus(task) === 'completed'" :size="14" aria-hidden="true" />
+      </button>
       <button
         v-else
         class="grid size-6 shrink-0 place-items-center rounded-full border border-slate-400 text-xs text-white transition hover:border-[#2564cf] dark:border-slate-500"
