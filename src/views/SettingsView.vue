@@ -128,15 +128,7 @@ const handleLogout = async () => {
 
       <section class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-800/40 sm:px-5" aria-labelledby="tasks-heading">
         <h2 id="tasks-heading" class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Uppgifter</h2>
-        <label class="flex min-h-11 items-center gap-3 rounded-lg px-2 text-sm text-slate-700 dark:text-slate-200" for="task-sort">
-          <span class="flex-1">Sortering</span>
-          <select id="task-sort" v-model="preferences.taskSort" class="max-w-44 bg-transparent text-right text-sm text-slate-600 outline-none dark:text-slate-300">
-          <option value="manual">Min ordning</option>
-          <option value="created">Skapade först</option>
-          <option value="dueDate">Förfallodatum</option>
-          <option value="priority">Prioritet</option>
-          </select>
-        </label>
+        <p class="rounded-lg px-2 py-2 text-sm text-slate-600 dark:text-slate-300">Sortering och arbetsflöde ställs in per lista.</p>
         <label class="mt-1 flex min-h-11 items-center gap-3 rounded-lg px-2 text-sm text-slate-700 dark:text-slate-200">
           <input v-model="preferences.confirmDeletes" class="h-4 w-4" type="checkbox" />
           Bekräfta innan uppgifter och listor tas bort

@@ -6,6 +6,10 @@ export interface Folder {
   order: number
 }
 
+export type ListSortMode = 'manual' | 'created' | 'dueDate' | 'priority'
+export type TaskStatus = 'todo' | 'inProgress' | 'completed'
+export type TaskStatusMode = 'binary' | 'threeStep'
+
 export interface List {
   id: string
   name: string
@@ -14,6 +18,8 @@ export interface List {
   order: number
   createdAt: Timestamp
   themeColor?: string
+  sortMode?: ListSortMode
+  taskStatusMode?: TaskStatusMode
 }
 
 export interface TaskReminder {
@@ -33,6 +39,7 @@ export interface Task {
   tags?: string[]
   createdAt: Timestamp
   order?: number
+  status?: TaskStatus
 }
 
 export interface Step {

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { CalendarDays, CalendarPlus, CheckCircle2, GripVertical, ListTodo, MoreVertical, Star, Trash2 } from '@lucide/vue'
-import type { List, StepCount, Task } from '@/types'
+import type { List, StepCount, Task, TaskStatus, TaskStatusMode } from '@/types'
+import { getTaskStatus } from '@/utils/taskStatus'
 
 const rowInteractionResets = new Set<() => void>()
 
@@ -11,12 +12,14 @@ interface Props {
   listName?: string | null
   showDueDate?: boolean
   draggable?: boolean
+  taskStatusMode?: TaskStatusMode
   availableLists?: List[]
 }
 
 interface Emits {
   (event: 'select'): void
   (event: 'toggle-completed'): void
+  (event: 'set-status', status: TaskStatus): void
   (event: 'toggle-important'): void
   (event: 'toggle-my-day'): void
   (event: 'delete'): void
@@ -163,6 +166,11 @@ const handleKeydown = (event: KeyboardEvent) => {
   }
 }
 
+const handleStatusChange = (event: Event) => {
+  const status = (event.target as HTMLSelectElement).value as TaskStatus
+  emit('set-status', status)
+}
+
 const dueDateText = computed(() => {
   if (!props.task.dueDate) return ''
 
@@ -213,17 +221,30 @@ const dueDateText = computed(() => {
         <GripVertical :size="18" />
       </span>
 
+      <select
+        v-if="taskStatusMode === 'threeStep'"
+        class="h-8 max-w-28 shrink-0 rounded-md border border-slate-300 bg-white px-1 text-xs text-slate-700 outline-none focus:border-[#2564cf] focus:ring-1 focus:ring-[#2564cf] dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+        :value="getTaskStatus(task)"
+        aria-label="Uppgiftens status"
+        @click.stop
+        @change.stop="handleStatusChange"
+      >
+        <option value="todo">Att göra</option>
+        <option value="inProgress">Pågående</option>
+        <option value="completed">Klart</option>
+      </select>
       <button
+        v-else
         class="grid size-6 shrink-0 place-items-center rounded-full border border-slate-400 text-xs text-white transition hover:border-[#2564cf] dark:border-slate-500"
-        :class="{ 'border-[#2564cf] bg-[#2564cf] dark:border-blue-400 dark:bg-blue-400': task.completed }"
+        :class="{ 'border-[#2564cf] bg-[#2564cf] dark:border-blue-400 dark:bg-blue-400': getTaskStatus(task) === 'completed' }"
         type="button"
-        :aria-label="task.completed ? 'Markera uppgift som aktiv' : 'Markera uppgift som slutförd'"
+        :aria-label="getTaskStatus(task) === 'completed' ? 'Markera uppgift som aktiv' : 'Markera uppgift som slutförd'"
         @click.stop="emit('toggle-completed')"
       >
-        <span v-if="task.completed" aria-hidden="true">✓</span>
+        <span v-if="getTaskStatus(task) === 'completed'" aria-hidden="true">✓</span>
       </button>
 
-      <span class="min-w-0 flex-1 text-sm text-black dark:text-slate-100" :class="{ 'text-slate-400 line-through dark:text-slate-500': task.completed }">
+      <span class="min-w-0 flex-1 text-sm text-black dark:text-slate-100" :class="{ 'text-slate-400 line-through dark:text-slate-500': getTaskStatus(task) === 'completed' }">
         {{ task.title }}
         <span v-if="stepCount && stepCount.total > 0" class="ml-2 text-xs text-slate-500 dark:text-slate-400" :aria-label="`${stepCount.completed} av ${stepCount.total} delsteg klara`">({{ stepCount.completed }}/{{ stepCount.total }})</span>
         <span v-if="listName" class="ml-2 text-xs text-slate-500 dark:text-slate-400">{{ listName }}</span>
@@ -249,7 +270,7 @@ const dueDateText = computed(() => {
     <Teleport to="body">
       <div v-if="isMenuOpen" ref="actionsMenu" class="fixed z-[75] w-56 rounded-xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-800" :data-task-menu-id="task.id" :style="menuStyle" @click.stop>
         <button class="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="emit('select'); closeMenu()"><ListTodo :size="17" aria-hidden="true" />Visa detaljer</button>
-        <button class="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="emit('toggle-completed'); closeMenu()"><CheckCircle2 :size="17" aria-hidden="true" />{{ task.completed ? 'Markera som aktiv' : 'Markera som slutförd' }}</button>
+        <button class="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="emit('toggle-completed'); closeMenu()"><CheckCircle2 :size="17" aria-hidden="true" />{{ getTaskStatus(task) === 'completed' ? 'Markera som aktiv' : 'Markera som slutförd' }}</button>
         <button class="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="emit('toggle-important'); closeMenu()"><Star :size="17" :fill="task.important ? 'currentColor' : 'none'" aria-hidden="true" />{{ task.important ? 'Ta bort stjärnmarkering' : 'Stjärnmarkera' }}</button>
         <button class="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="emit('toggle-my-day'); closeMenu()"><CalendarPlus :size="17" aria-hidden="true" />{{ task.myDay ? 'Ta bort från Min dag' : 'Lägg till i Min dag' }}</button>
         <template v-if="availableLists && availableLists.length > 1">
