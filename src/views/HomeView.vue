@@ -627,6 +627,7 @@ watch(
         @close="taskStore.setActiveTask(null)"
         @save-title="taskStore.updateTask(taskStore.activeTaskId!, { title: $event })"
         @add-step="taskStore.createStep({ taskId: taskStore.activeTaskId!, title: $event })"
+        @reorder-steps="taskStore.reorderSteps(taskStore.activeTaskId!, $event)"
         @save-step-title="handleSaveStepTitle"
         @toggle-step="taskStore.toggleStep($event)"
         @delete-step="taskStore.deleteStep($event)"

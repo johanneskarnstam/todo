@@ -441,8 +441,8 @@ describe('TaskDetailsPanel', () => {
     expect(sections.map((section) => section.attributes('aria-labelledby'))).toEqual([
       'task-details-heading',
       'title-heading',
-      'tags-heading',
       'steps-heading',
+      'tags-heading',
       'planning-heading',
       'notes-heading',
     ])

@@ -5,10 +5,19 @@ interface DragReorderOptions {
   items: Ref<{ id: string }[]>
   onReorder: (orderedIds: string[]) => void
   enabled: Ref<boolean>
+  itemSelector?: string
+  handleSelector?: string
 }
 
 export function useDragReorder(options: DragReorderOptions) {
-  const { containerRef, items, onReorder, enabled } = options
+  const {
+    containerRef,
+    items,
+    onReorder,
+    enabled,
+    itemSelector = '[data-task-id]',
+    handleSelector = '[data-drag-handle]',
+  } = options
 
   const isDragging = ref(false)
   const dragIndex = ref(-1)
@@ -28,7 +37,7 @@ export function useDragReorder(options: DragReorderOptions) {
   const getItemElements = (): HTMLElement[] => {
     const container = containerRef.value
     if (!container) return []
-    return Array.from(container.querySelectorAll<HTMLElement>('[data-task-id]'))
+    return Array.from(container.querySelectorAll<HTMLElement>(itemSelector))
   }
 
   const calculateDropIndex = (clientY: number): number => {
@@ -83,10 +92,10 @@ export function useDragReorder(options: DragReorderOptions) {
 
   const handlePointerDown = (event: PointerEvent) => {
     if (!enabled.value) return
-    const handle = (event.target as HTMLElement).closest('[data-drag-handle]') as HTMLElement | null
+    const handle = (event.target as HTMLElement).closest(handleSelector) as HTMLElement | null
     if (!handle) return
 
-    const taskEl = handle.closest('[data-task-id]') as HTMLElement | null
+    const taskEl = handle.closest(itemSelector) as HTMLElement | null
     if (!taskEl) return
 
     const els = getItemElements()

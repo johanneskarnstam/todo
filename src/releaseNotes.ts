@@ -16,6 +16,16 @@ export const appVersion = packageJson.version
 // version changes on every bump, making previously-seen entries appear new again.
 export const releaseNotes: ReleaseNote[] = [
   {
+    version: '0.22.0',
+    date: '2026-09-28',
+    title: 'Delsteg före taggar',
+    summary: 'Delsteg ligger nu först i uppgiftsdetaljerna och kan sorteras med drag och släpp.',
+    items: [
+      'Dra delsteg upp eller ner för att ändra ordning.',
+      'Ändringar av delstegens ordning sparas automatiskt.',
+    ],
+  },
+  {
     version: '0.21.0',
     date: '2026-09-28',
     title: 'Uppgifter till Google Kalender',
