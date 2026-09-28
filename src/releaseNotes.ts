@@ -16,6 +16,17 @@ export const appVersion = packageJson.version
 // version changes on every bump, making previously-seen entries appear new again.
 export const releaseNotes: ReleaseNote[] = [
   {
+    version: '0.20.2',
+    date: '2026-09-28',
+    title: 'Tydligare listinställningar',
+    summary: 'Listans utseende och sortering är enklare att hitta och förstå.',
+    items: [
+      'Byt namn genom att klicka på listans titel.',
+      'Ställ in listfärgen på listans inställningssida.',
+      'Sorteringsläget visar när drag och släpp är avstängt.',
+    ],
+  },
+  {
     version: '0.20.1',
     date: '2026-09-28',
     title: 'Snabbare statusväxling',

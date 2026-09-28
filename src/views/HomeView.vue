@@ -25,6 +25,7 @@ const pendingDeleteListId = ref<string | null>(null)
 const deleteListTasks = ref(false)
 const isListOptionsOpen = ref(false)
 const listRenameTitle = ref('')
+const isRenamingList = ref(false)
 const listStore = useListStore()
 const taskStore = useTaskStore()
 const toastStore = useToastStore()
@@ -58,10 +59,16 @@ const currentTitle = computed(() => {
 
 const canAddTask = computed(() => taskStore.activeView?.type === 'list')
 const activeList = computed(() => taskStore.activeView?.type === 'list' ? listStore.selectedList : null)
+const canRenameActiveList = computed(() => Boolean(activeList.value && activeList.value.id !== DEFAULT_LIST_ID))
 const activeListColor = computed(() => activeList.value?.themeColor ?? '#2564cf')
 const activeListSortMode = computed<ListSortMode>(() => activeList.value?.sortMode ?? preferences.value.taskSort)
+const activeListSortLabel = computed(() => ({
+  manual: 'Min ordning',
+  created: 'Skapade först',
+  dueDate: 'Förfallodatum',
+  priority: 'Prioritet',
+}[activeListSortMode.value]))
 const activeListTaskStatusMode = computed(() => activeList.value?.taskStatusMode ?? 'binary')
-const themeColors = ['#2564cf', '#107c10', '#d83b01', '#8764b8', '#038387', '#ca5010']
 const readCollapsedCompletedLists = (): Record<string, boolean> => {
   if (typeof localStorage === 'undefined') return {}
 
@@ -222,24 +229,33 @@ const closeSearch = () => {
 }
 
 const startRenameList = () => {
-  listRenameTitle.value = activeList.value?.name ?? ''
-  isListOptionsOpen.value = false
+  if (!canRenameActiveList.value || !activeList.value) return
+  listRenameTitle.value = activeList.value.name
+  isRenamingList.value = true
 }
 
 const saveListRename = () => {
   const listId = activeList.value?.id
   const name = listRenameTitle.value.trim()
-  if (!listId || !name) return
+  if (!listId || listId === DEFAULT_LIST_ID) return
+  if (!name) {
+    isRenamingList.value = false
+    return
+  }
 
   void listStore.updateList(listId, { name })
   listRenameTitle.value = ''
+  isRenamingList.value = false
 }
 
-const selectListTheme = (color: string) => {
-  const listId = activeList.value?.id
-  if (!listId) return
-  listStore.updateListTheme(listId, color)
+const cancelRenameList = () => {
+  isRenamingList.value = false
+  listRenameTitle.value = ''
 }
+
+watch(() => activeList.value?.id, (listId, previousListId) => {
+  if (listId !== previousListId) cancelRenameList()
+})
 
 const openListSettings = () => {
   const listId = activeList.value?.id
@@ -480,33 +496,31 @@ watch(
       <main class="min-w-0 flex-1 overflow-y-auto rounded-t-2xl bg-[#faf9f8] dark:bg-slate-950 sm:rounded-t-none">
         <div class="mx-auto w-full max-w-5xl px-4 pb-12 pt-7 sm:px-8 lg:px-12">
           <div class="flex items-center gap-4">
-            <h1 class="min-w-0 flex-1 truncate text-2xl font-semibold tracking-tight sm:text-3xl" :style="{ color: activeListColor }">
-              {{ currentTitle }}
-            </h1>
+            <div class="min-w-0 flex-1">
+              <form v-if="isRenamingList && canRenameActiveList" class="flex min-w-0 items-center gap-2" @submit.prevent="saveListRename">
+                <label class="sr-only" for="rename-list-title">Listnamn</label>
+                <input id="rename-list-title" v-model="listRenameTitle" class="min-w-0 flex-1 rounded-md border border-blue-400 bg-white px-2 py-1 text-xl font-semibold outline-none focus:ring-2 focus:ring-blue-200 dark:bg-slate-900 sm:text-2xl" type="text" autofocus @keydown.esc.prevent="cancelRenameList" />
+                <button class="min-h-9 rounded-md bg-[#2564cf] px-3 text-sm text-white" type="submit">Spara</button>
+                <button class="min-h-9 rounded-md px-3 text-sm text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-800" type="button" @click="cancelRenameList">Avbryt</button>
+              </form>
+              <h1 v-else class="truncate text-2xl font-semibold tracking-tight sm:text-3xl" :style="{ color: activeListColor }">
+                <button v-if="canRenameActiveList" class="max-w-full truncate text-left hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2564cf]" type="button" :aria-label="`Byt namn på listan ${currentTitle}`" @click="startRenameList">{{ currentTitle }}</button>
+                <span v-else>{{ currentTitle }}</span>
+              </h1>
+              <p v-if="activeList && activeListSortMode !== 'manual'" class="mt-1 text-xs text-slate-600 dark:text-slate-400" role="note">
+                Sorterad efter {{ activeListSortLabel }}. Dra och släpp är avstängt.
+              </p>
+            </div>
             <div v-if="activeList" class="relative">
               <button class="grid size-9 place-items-center rounded-lg text-xl text-slate-500 transition hover:bg-slate-200 dark:hover:bg-slate-800" type="button" aria-label="Fler listalternativ" :aria-expanded="isListOptionsOpen" @click="isListOptionsOpen = !isListOptionsOpen">⋯</button>
               <div v-if="isListOptionsOpen" class="absolute right-0 top-10 z-20 w-64 rounded-xl border border-slate-200 bg-white p-3 shadow-xl dark:border-slate-700 dark:bg-slate-800">
-                <button class="flex min-h-9 w-full items-center rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="startRenameList">Byt namn på lista</button>
-                <button class="mt-1 flex min-h-9 w-full items-center rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="openListSettings">Listinställningar</button>
-                <div class="mt-2 border-t border-slate-200 pt-2 dark:border-slate-700">
-                  <p class="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Listfärg</p>
-                  <div class="flex gap-2 px-3 py-2">
-                    <button v-for="color in themeColors" :key="color" class="size-6 rounded-full border-2 border-white ring-1 ring-slate-300" :style="{ backgroundColor: color }" type="button" :aria-label="`Använd listfärg ${color}`" @click="selectListTheme(color)" />
-                  </div>
-                </div>
-                <button class="mt-2 flex min-h-9 w-full items-center rounded-lg px-3 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950" type="button" @click="requestDeleteList()">Ta bort lista</button>
+                <button class="flex min-h-9 w-full items-center rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="openListSettings">Listinställningar</button>
+                <button v-if="activeList.id !== DEFAULT_LIST_ID" class="mt-1 flex min-h-9 w-full items-center rounded-lg px-3 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950" type="button" @click="requestDeleteList()">Ta bort lista</button>
               </div>
             </div>
             <div v-else class="size-9" aria-hidden="true" />
-            <button class="grid size-9 place-items-center rounded text-lg text-[#2564cf] transition hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-slate-800" type="button" aria-label="Byt listvy">▤</button>
             <button class="hidden size-9 place-items-center rounded text-lg text-[#2564cf] transition hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-slate-800 sm:grid" type="button" aria-label="Sortera uppgifter">☷</button>
           </div>
-
-          <form v-if="listRenameTitle" class="mt-3 flex gap-2" @submit.prevent="saveListRename">
-            <label class="sr-only" for="rename-list-title">Byt namn på lista</label>
-            <input id="rename-list-title" v-model="listRenameTitle" class="min-w-0 flex-1 rounded-lg border border-blue-400 bg-white px-3 py-2 text-sm outline-none dark:bg-slate-900" type="text" autofocus />
-            <button class="rounded-lg bg-[#2564cf] px-3 text-sm text-white" type="submit">Spara</button>
-          </form>
 
           <p v-if="listStore.error" class="mt-3 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200" role="alert">
             {{ listStore.error }}
