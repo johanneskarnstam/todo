@@ -73,13 +73,14 @@ test('configures list sorting and a three-step task workflow', async ({ page }) 
   await page.getByPlaceholder('Lägg till en uppgift').fill(taskTitle)
   await page.getByPlaceholder('Lägg till en uppgift').press('Enter')
   const task = page.getByRole('group', { name: `Uppgift: ${taskTitle}` })
-  await task.getByLabel('Uppgiftens status').selectOption('inProgress')
-  await expect(task.getByLabel('Uppgiftens status')).toHaveValue('inProgress')
+  const statusButton = task.getByRole('checkbox', { name: 'Markera uppgift som pågående' })
+  await statusButton.click()
+  await expect(task.getByRole('checkbox', { name: 'Markera uppgift som klar' })).toHaveAttribute('aria-checked', 'mixed')
 
   await page.reload()
   await page.goto('/')
   await page.getByRole('button', { name: /^Arbetsflöde/ }).click()
-  await expect(page.getByRole('group', { name: `Uppgift: ${taskTitle}` }).getByLabel('Uppgiftens status')).toHaveValue('inProgress')
+  await expect(page.getByRole('group', { name: `Uppgift: ${taskTitle}` }).getByRole('checkbox', { name: 'Markera uppgift som klar' })).toHaveAttribute('aria-checked', 'mixed')
 })
 
 test('renames a list and a folder', async ({ page }) => {
