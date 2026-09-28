@@ -36,7 +36,7 @@ test('creates a folder and moves a list into it', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Reselista', exact: true })).toBeVisible()
 })
 
-test('changes the selected list theme', async ({ page }) => {
+test('changes the selected list theme from its settings', async ({ page }) => {
   await page.goto('/')
   await dismissReleaseNotes(page)
 
@@ -45,7 +45,10 @@ test('changes the selected list theme', async ({ page }) => {
   await page.getByPlaceholder('Listnamn').press('Enter')
 
   await page.getByRole('button', { name: 'Fler listalternativ' }).click()
+  await page.getByRole('button', { name: 'Listinställningar' }).click()
   await page.getByRole('button', { name: 'Använd listfärg #107c10' }).click()
+  await expect(page.getByRole('status')).toContainText('Listfärgen har sparats.')
+  await page.getByRole('button', { name: 'Tillbaka till listan' }).click()
   await expect(page.getByRole('heading', { name: 'Färgtest' })).toHaveCSS('color', 'rgb(16, 124, 16)')
 })
 
@@ -68,6 +71,7 @@ test('configures list sorting and a three-step task workflow', async ({ page }) 
 
   await page.getByRole('button', { name: 'Tillbaka till listan' }).click()
   await expect(page.getByRole('heading', { name: 'Arbetsflöde' })).toBeVisible()
+  await expect(page.getByText('Sorterad efter Prioritet. Dra och släpp är avstängt.')).toBeVisible()
 
   const taskTitle = 'Pågående arbetsuppgift'
   await page.getByPlaceholder('Lägg till en uppgift').fill(taskTitle)
@@ -90,10 +94,9 @@ test('renames a list and a folder', async ({ page }) => {
   await page.getByRole('button', { name: 'Ny lista' }).click()
   await page.getByPlaceholder('Listnamn').fill('Gammal lista')
   await page.getByPlaceholder('Listnamn').press('Enter')
-  await page.getByRole('button', { name: 'Fler listalternativ' }).click()
-  await page.getByRole('button', { name: 'Byt namn på lista' }).click()
-  await page.getByLabel('Byt namn på lista').fill('Ny lista')
-  await page.getByLabel('Byt namn på lista').press('Enter')
+  await page.getByRole('button', { name: 'Byt namn på listan Gammal lista' }).click()
+  await page.getByLabel('Listnamn').fill('Ny lista')
+  await page.getByLabel('Listnamn').press('Enter')
   await expect(page.getByRole('heading', { name: 'Ny lista' })).toBeVisible()
 
   await page.getByRole('button', { name: 'Ny mapp' }).click()
@@ -105,6 +108,17 @@ test('renames a list and a folder', async ({ page }) => {
   await page.getByLabel('Byt namn på mapp').fill('Ny mapp')
   await page.getByLabel('Byt namn på mapp').press('Enter')
   await expect(page.locator('[data-folder-header]').filter({ hasText: 'Ny mapp' })).toBeVisible()
+})
+
+test('protects the default Att göra list from renaming and deletion', async ({ page }) => {
+  await page.goto('/')
+  await dismissReleaseNotes(page)
+
+  const heading = page.getByRole('heading', { name: 'Att göra' })
+  await expect(heading.getByRole('button')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Fler listalternativ' }).click()
+  await expect(page.getByRole('button', { name: 'Byt namn på lista' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Ta bort lista' })).toHaveCount(0)
 })
 
 test('deletes a selected list through its confirmation dialog', async ({ page }) => {

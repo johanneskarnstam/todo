@@ -19,6 +19,7 @@ const sortMode = ref<ListSortMode>('manual')
 const taskStatusMode = ref<TaskStatusMode>('binary')
 const statusMessage = ref('')
 const isInitialized = ref(false)
+const themeColors = ['#2564cf', '#107c10', '#d83b01', '#8764b8', '#038387', '#ca5010']
 
 const listId = computed(() => typeof route.params.listId === 'string' ? route.params.listId : '')
 const currentList = computed(() => listStore.lists.find((list) => list.id === listId.value) ?? null)
@@ -40,6 +41,12 @@ const saveSortMode = async (event: Event) => {
   statusMessage.value = ''
   await listStore.updateList(listId.value, { sortMode: nextSortMode })
   if (!listStore.error) statusMessage.value = 'Sorteringen har sparats.'
+}
+
+const saveThemeColor = async (themeColor: string) => {
+  statusMessage.value = ''
+  await listStore.updateList(listId.value, { themeColor })
+  if (!listStore.error) statusMessage.value = 'Listfärgen har sparats.'
 }
 
 const saveTaskStatusMode = async (event: Event) => {
@@ -80,9 +87,32 @@ onMounted(() => void initialize())
         <Check :size="16" aria-hidden="true" />{{ statusMessage }}
       </p>
 
-      <section v-if="isInitialized && currentList" class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-5" aria-labelledby="list-settings-heading">
-        <h2 id="list-settings-heading" class="text-base font-semibold">Uppgifter</h2>
-        <div class="mt-4 divide-y divide-slate-200 dark:divide-slate-700">
+      <template v-if="isInitialized && currentList">
+        <section class="mb-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-5" aria-labelledby="list-appearance-heading">
+          <h2 id="list-appearance-heading" class="text-base font-semibold">Utseende</h2>
+          <fieldset class="mt-4">
+            <legend class="text-sm font-medium">Listfärg</legend>
+            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Färgen används på listans rubrik.</p>
+            <div class="mt-3 flex flex-wrap gap-3">
+              <button
+                v-for="color in themeColors"
+                :key="color"
+                class="grid size-9 place-items-center rounded-full border-2 border-white shadow-sm ring-1 ring-slate-300 transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 dark:border-slate-900 dark:ring-slate-600"
+                :style="{ backgroundColor: color }"
+                type="button"
+                :aria-label="`Använd listfärg ${color}`"
+                :aria-pressed="(currentList.themeColor ?? '#2564cf') === color"
+                @click="saveThemeColor(color)"
+              >
+                <Check v-if="(currentList.themeColor ?? '#2564cf') === color" :size="17" class="text-white drop-shadow" aria-hidden="true" />
+              </button>
+            </div>
+          </fieldset>
+        </section>
+
+        <section class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-5" aria-labelledby="list-tasks-heading">
+          <h2 id="list-tasks-heading" class="text-base font-semibold">Uppgifter</h2>
+          <div class="mt-4 divide-y divide-slate-200 dark:divide-slate-700">
           <label class="flex min-h-14 items-center gap-4 py-2 text-sm" for="list-sort-mode">
             <span class="flex-1">
               <span class="block font-medium">Sortering</span>
@@ -106,8 +136,9 @@ onMounted(() => void initialize())
               <option value="threeStep">Att göra, pågående eller klart</option>
             </select>
           </label>
-        </div>
-      </section>
+          </div>
+        </section>
+      </template>
 
       <section v-else-if="isInitialized" class="rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100" role="alert">
         Listan kunde inte hittas.
