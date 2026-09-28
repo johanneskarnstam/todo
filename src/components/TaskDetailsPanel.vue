@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
-import { ArrowLeft } from '@lucide/vue'
+import { ArrowLeft, CalendarPlus, ExternalLink } from '@lucide/vue'
 import type { List, Step, Task, TaskReminder } from '@/types'
+import { createGoogleCalendarUrl } from '@/utils/googleCalendar'
 
 interface Props {
   task: Task
@@ -46,6 +47,12 @@ const dueTime = computed(() => {
   if (typeof props.task.dueDate === 'string' && props.task.dueDate.length >= 16) return props.task.dueDate.slice(11, 16)
   return ''
 })
+
+const googleCalendarUrl = computed(() => createGoogleCalendarUrl({
+  title: title.value,
+  note: note.value,
+  dueDate: props.task.dueDate,
+}))
 
 watch(
   () => props.task.id,
@@ -233,6 +240,11 @@ const saveStepTitle = () => {
       <section class="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-900" aria-labelledby="planning-heading">
         <h2 id="planning-heading" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Planering</h2>
         <div class="space-y-2">
+        <a class="flex min-h-11 w-full items-center gap-3 rounded-lg px-2 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800" :href="googleCalendarUrl" target="_blank" rel="noopener noreferrer" aria-label="Lägg till i Google Kalender" title="Öppnar ett eventutkast i Google Kalender">
+          <CalendarPlus :size="18" class="shrink-0 text-[#2564cf] dark:text-blue-400" aria-hidden="true" />
+          <span class="flex-1">Lägg till i Google Kalender</span>
+          <ExternalLink :size="15" class="shrink-0 text-slate-400" aria-hidden="true" />
+        </a>
         <button class="flex min-h-11 w-full items-center gap-3 rounded-lg px-2 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800" type="button" @click="emit('toggle-my-day')">
           <span class="text-xl" :class="task.myDay ? 'text-[#2564cf] dark:text-blue-400' : 'text-slate-500'" aria-hidden="true">☼</span>
           <span class="flex-1">{{ task.myDay ? 'Ta bort från Min dag' : 'Lägg till i Min dag' }}</span>

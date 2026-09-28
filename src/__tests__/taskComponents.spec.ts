@@ -415,6 +415,23 @@ describe('TaskDetailsPanel', () => {
     },
   ]
 
+  it('links the active task to a prefilled Google Calendar event', () => {
+    const wrapper = mount(TaskDetailsPanel, {
+      props: { task: { ...task, dueDate: '2026-10-01', note: 'Review checklist' }, steps },
+    })
+    const calendarLink = wrapper.get('a[aria-label="Lägg till i Google Kalender"]')
+    const href = calendarLink.attributes('href')
+    expect(href).toBeTruthy()
+    const params = new URL(href ?? '').searchParams
+
+    expect(params.get('action')).toBe('TEMPLATE')
+    expect(params.get('text')).toBe(task.title)
+    expect(params.get('details')).toBe('Review checklist')
+    expect(params.get('dates')).toBe('20261001/20261002')
+    expect(calendarLink.attributes('target')).toBe('_blank')
+    expect(calendarLink.attributes('rel')).toBe('noopener noreferrer')
+  })
+
   it('uses alternating backgrounds for detail sections', () => {
     const wrapper = mount(TaskDetailsPanel, { props: { task, steps } })
     const sections = wrapper.findAll('[aria-labelledby]')
