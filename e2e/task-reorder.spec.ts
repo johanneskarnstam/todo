@@ -74,7 +74,7 @@ test.describe('task drag-and-drop reorder', () => {
   test('does not show drag handle in smart views', async ({ page }) => {
     await page.goto('/')
     await page.getByRole('button', { name: 'Jag har sett detta' }).click()
-    await page.getByRole('button', { name: 'Stjärnmärkt' }).click()
+    await page.getByRole('button', { name: 'Viktigt' }).click()
 
     const task = page.getByRole('group', { name: /Uppgift:/ }).first()
     await task.hover()

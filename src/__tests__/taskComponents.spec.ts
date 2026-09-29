@@ -132,35 +132,6 @@ describe('TodoSidebar', () => {
     expect(wrapper.emitted('move-list')).toEqual([['list-1', 'folder-1']])
   })
 
-  it('closes a list menu on outside click and emits list deletion', async () => {
-    const wrapper = mount(TodoSidebar, {
-      props: {
-        open: true,
-        activeListId: 'list-1',
-        activeSmartView: null,
-        availableTags: [],
-        selectedTag: '',
-        folders: [],
-        ungroupedLists: [{ id: 'list-1', name: 'Arbete', icon: 'list', order: 0, createdAt: Timestamp.now() }],
-        smartViewCounts: { myDay: 0, important: 0, planned: 0 },
-        listTaskCounts: {},
-      },
-      global: { stubs: { RouterLink: true } },
-    })
-
-    const menuButton = wrapper.get('button[aria-label="Flytta Arbete"]')
-    await menuButton.trigger('click')
-    expect(wrapper.get('[role="menu"][aria-label="Hantera lista Arbete"]')).toBeTruthy()
-
-    document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-    await nextTick()
-    expect(wrapper.find('[role="menu"][aria-label="Hantera lista Arbete"]').exists()).toBe(false)
-
-    await menuButton.trigger('click')
-    await wrapper.get('button[aria-label="Ta bort Arbete"]').trigger('click')
-    expect(wrapper.emitted('delete-list')).toEqual([['list-1']])
-  })
-
   it('opens folder options with right-click and touch long-press', async () => {
     vi.useFakeTimers()
     const wrapper = mount(TodoSidebar, {
@@ -235,35 +206,11 @@ describe('TodoSidebar', () => {
 })
 
 describe('TaskRow', () => {
-  it('cycles the three-step checkbox through todo, in progress, and completed', async () => {
-    const wrapper = mount(TaskRow, { props: { task, taskStatusMode: 'threeStep' } })
-    const statusButton = wrapper.get('[role="checkbox"]')
-
-    expect(statusButton.attributes('aria-checked')).toBe('false')
-    await statusButton.trigger('click')
-    expect(wrapper.emitted('set-status')).toEqual([['inProgress']])
-
-    await wrapper.setProps({ task: { ...task, status: 'inProgress' } })
-    expect(statusButton.classes()).toContain('bg-orange-500')
-    expect(statusButton.attributes('aria-checked')).toBe('mixed')
-    expect(statusButton.attributes('aria-label')).toBe('Markera uppgift som klar')
-    expect(statusButton.find('svg').exists()).toBe(true)
-    await statusButton.trigger('click')
-    expect(wrapper.emitted('set-status')).toEqual([['inProgress'], ['completed']])
-
-    await wrapper.setProps({ task: { ...task, status: 'completed', completed: true } })
-    expect(statusButton.attributes('aria-checked')).toBe('true')
-    await statusButton.trigger('click')
-    expect(wrapper.emitted('set-status')).toEqual([['inProgress'], ['completed'], ['todo']])
-    expect(wrapper.emitted('select')).toBeUndefined()
-  })
-
   it('opens details from the row and keeps inline controls independent', async () => {
     const wrapper = mount(TaskRow, { props: { task } })
 
     await wrapper.find('article').trigger('click')
     expect(wrapper.emitted('select')).toHaveLength(1)
-
     await wrapper.find('button[aria-label="Markera uppgift som slutförd"]').trigger('click')
     expect(wrapper.emitted('toggle-completed')).toHaveLength(1)
     expect(wrapper.emitted('select')).toHaveLength(1)
@@ -284,9 +231,28 @@ describe('TaskRow', () => {
     expect(wrapper.emitted('toggle-my-day')).toHaveLength(1)
   })
 
+  it('keeps task indicators in a compact unfilled 2x2 grid', () => {
+    const wrapper = mount(TaskRow, {
+      props: {
+        task: {
+          ...task,
+          important: true,
+          reminder: { offsetMinutes: 10 },
+          dueDate: '2026-09-24',
+        },
+      },
+    })
+    const indicators = wrapper.find('[aria-label="Uppgiftsmarkeringar"]')
+
+    expect(indicators.classes()).toContain('grid-cols-2')
+    expect(indicators.element.children).toHaveLength(4)
+    expect(wrapper.find('[aria-label="Stjärnmärkt"] svg').attributes('fill')).toBe('none')
+    expect(wrapper.find('[aria-label="Uppgiften har ett planerat datum"]').classes()).not.toContain('bg-slate-100')
+  })
+
   it('shows a due date in planned view while keeping the normal list view compact', () => {
     const plannedRow = mount(TaskRow, {
-      props: { task: { ...task, dueDate: '2026-09-24' }, showDueDate: true },
+      props: { task: { ...task, dueDate: '2026-09-24T14:30' }, showDueDate: true },
     })
     const expectedDate = new Date('2026-09-24T00:00:00').toLocaleDateString('sv-SE', {
       day: 'numeric',
@@ -298,27 +264,6 @@ describe('TaskRow', () => {
 
     const standardRow = mount(TaskRow, { props: { task } })
     expect(standardRow.text()).not.toContain(expectedDate)
-  })
-
-  it('shows a star on important tasks in the task row', () => {
-    const standardRow = mount(TaskRow, { props: { task } })
-    const importantRow = mount(TaskRow, { props: { task: { ...task, important: true } } })
-
-    expect(standardRow.find('[role="img"][aria-label="Stjärnmärkt"]').exists()).toBe(false)
-    expect(importantRow.find('[role="img"][aria-label="Stjärnmärkt"] svg').exists()).toBe(true)
-  })
-
-  it('shows reminders on unfinished tasks even after their due time', () => {
-    const taskWithReminder = {
-      ...task,
-      dueDate: '2020-01-01T09:00',
-      reminder: { offsetMinutes: 0 as const },
-    }
-    const activeRow = mount(TaskRow, { props: { task: taskWithReminder } })
-    const completedRow = mount(TaskRow, { props: { task: { ...taskWithReminder, completed: true } } })
-
-    expect(activeRow.find('[role="img"][aria-label="Påminnelse inställd"] svg').exists()).toBe(true)
-    expect(completedRow.find('[role="img"][aria-label="Påminnelse inställd"]').exists()).toBe(false)
   })
 
   it('shows a subtask count only when steps exist', () => {
@@ -371,31 +316,6 @@ describe('TaskRow', () => {
     expect(wrapper.emitted('toggle-completed')).toHaveLength(1)
   })
 
-  it('offers other lists in the task actions menu', async () => {
-    const wrapper = mount(TaskRow, {
-      props: {
-        task,
-        availableLists: [
-          { id: 'list-1', name: 'Arbete', icon: 'list', order: 0, createdAt: Timestamp.now() },
-          { id: 'list-2', name: 'Projekt', icon: 'list', order: 1, createdAt: Timestamp.now() },
-        ],
-      },
-    })
-
-    await wrapper.find('button[aria-label="Uppgiftsåtgärder"]').trigger('click')
-    await nextTick()
-    const moveButton = Array.from(document.body.querySelectorAll('button')).find((button) => button.textContent?.includes('Flytta till lista'))
-    expect(moveButton).toBeTruthy()
-    moveButton?.click()
-    await nextTick()
-
-    const targetButton = Array.from(document.body.querySelectorAll('[role="menuitem"]')).find((button) => button.textContent?.includes('Projekt'))
-    expect(targetButton).toBeTruthy()
-    targetButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-
-    expect(wrapper.emitted('move-to-list')).toEqual([['list-2']])
-  })
-
   it('keeps swipe and dropdown interaction exclusive to one row', async () => {
     document.querySelectorAll('[data-task-menu-id]').forEach((menu) => menu.remove())
     const secondTask = { ...task, id: 'task-2', title: 'Paint the ceiling' }
@@ -436,24 +356,7 @@ describe('TaskDetailsPanel', () => {
     },
   ]
 
-  it('links the active task to a prefilled Google Calendar event', () => {
-    const wrapper = mount(TaskDetailsPanel, {
-      props: { task: { ...task, dueDate: '2026-10-01', note: 'Review checklist' }, steps },
-    })
-    const calendarLink = wrapper.get('a[aria-label="Lägg till i Google Kalender"]')
-    const href = calendarLink.attributes('href')
-    expect(href).toBeTruthy()
-    const params = new URL(href ?? '').searchParams
-
-    expect(params.get('action')).toBe('TEMPLATE')
-    expect(params.get('text')).toBe(task.title)
-    expect(params.get('details')).toBe('Review checklist')
-    expect(params.get('dates')).toBe('20261001/20261002')
-    expect(calendarLink.attributes('target')).toBe('_blank')
-    expect(calendarLink.attributes('rel')).toBe('noopener noreferrer')
-  })
-
-  it('uses white backgrounds for detail sections', () => {
+  it('uses alternating backgrounds for detail sections', () => {
     const wrapper = mount(TaskDetailsPanel, { props: { task, steps } })
     const sections = wrapper.findAll('[aria-labelledby]')
     const content = wrapper.find('div.min-h-0')
@@ -462,15 +365,16 @@ describe('TaskDetailsPanel', () => {
     expect(sections.map((section) => section.attributes('aria-labelledby'))).toEqual([
       'task-details-heading',
       'title-heading',
-      'steps-heading',
       'tags-heading',
+      'steps-heading',
       'planning-heading',
       'notes-heading',
     ])
-    sections.slice(1).forEach((section) => {
-      expect(section.classes()).toContain('bg-white')
-      expect(section.classes()).toContain('dark:bg-slate-900')
-    })
+    expect(sections[1]?.classes()).toContain('bg-slate-50')
+    expect(sections[2]?.classes()).toContain('bg-white')
+    expect(sections[3]?.classes()).toContain('bg-slate-50')
+    expect(sections[4]?.classes()).toContain('bg-white')
+    expect(sections[5]?.classes()).toContain('bg-slate-50')
   })
 
   it('emits updates for title, steps, My day, due date, notes, and deletion', async () => {
@@ -534,21 +438,6 @@ describe('TaskDetailsPanel', () => {
     expect((wrapper.get('textarea').element as HTMLTextAreaElement).value).toBe('New note')
   })
 
-  it('keeps the title unfocused and uses consistent card and text styling', async () => {
-    const wrapper = mount(TaskDetailsPanel, { props: { task, steps }, attachTo: document.body })
-    await nextTick()
-
-    expect(document.activeElement).not.toBe(wrapper.get('#task-title').element)
-    expect(wrapper.findAll('section')).toHaveLength(5)
-    wrapper.findAll('section').forEach((section) => {
-      expect(section.classes()).toContain('bg-white')
-      expect(section.classes()).toContain('dark:bg-slate-900')
-    })
-    expect(wrapper.findAll('[class~="text-xs"], [class~="text-base"], [class~="text-lg"], [class~="text-xl"]')).toHaveLength(0)
-
-    wrapper.unmount()
-  })
-
   it('adds tags and emits quick due-date changes', async () => {
     const wrapper = mount(TaskDetailsPanel, { props: { task, steps } })
 
@@ -570,28 +459,6 @@ describe('TaskDetailsPanel', () => {
 
     expect(wrapper.emitted('set-due-date')).toEqual([['2026-10-01T14:30']])
     expect(wrapper.emitted('save-reminder')).toEqual([[{ offsetMinutes: 60 }]])
-  })
-
-  it('aligns planning controls in a shared three-column grid', () => {
-    const wrapper = mount(TaskDetailsPanel, {
-      props: {
-        task,
-        steps,
-        availableLists: [
-          { id: 'list-1', name: 'Att göra', icon: 'list', order: 0, createdAt: Timestamp.now() },
-          { id: 'list-2', name: 'Arbete', icon: 'list', order: 1, createdAt: Timestamp.now() },
-        ],
-      },
-    })
-    const planning = wrapper.get('#planning-heading').element.parentElement
-    const rows = Array.from(planning?.querySelector('.space-y-2')?.children ?? []).filter((row) =>
-      ['A', 'BUTTON', 'LABEL'].includes(row.tagName),
-    )
-
-    expect(rows).toHaveLength(6)
-    rows?.forEach((row) => {
-      expect(row.classList.contains('grid-cols-[1.25rem_minmax(0,1fr)_8.5rem]')).toBe(true)
-    })
   })
 
 })

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowLeft, Download, LogOut, RefreshCw, Trash2 } from '@lucide/vue'
+import { ArrowLeft, ChevronDown, Download, LogOut, RefreshCw, Trash2 } from '@lucide/vue'
 import { useAuthStore } from '@/stores/auth'
 import { useListStore } from '@/stores/listStore'
 import { useTaskStore } from '@/stores/taskStore'
@@ -10,6 +10,38 @@ import { usePreferences } from '@/composables/usePreferences'
 import { usePushNotifications } from '@/composables/usePushNotifications'
 import { useReminderNotifications } from '@/composables/useReminderNotifications'
 import { useTheme } from '@/composables/useTheme'
+import type { TaskReminder, TaskStatus } from '@/types'
+
+interface ImportedTask {
+  title: string
+  completed?: boolean
+  status?: TaskStatus
+  important?: boolean
+  myDay?: boolean
+  dueDate?: string
+  dueTimeZone?: string
+  reminder?: TaskReminder | null
+  note?: string
+  tags?: string[]
+}
+
+const isJsonObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+const isReminderOffset = (value: unknown): value is TaskReminder['offsetMinutes'] =>
+  value === 0 || value === 10 || value === 60 || value === 1440
+
+const isValidDueDate = (value: string) => {
+  const match = /^(\d{4}-\d{2}-\d{2})(?:T(\d{2}):(\d{2}))?$/.exec(value)
+  if (!match?.[1]) return false
+
+  const date = new Date(`${match[1]}T00:00:00.000Z`)
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== match[1]) return false
+
+  return match[2] === undefined || (Number(match[2]) <= 23 && Number(match[3]) <= 59)
+}
+
+const CREATE_NEW_LIST_OPTION = '__create_new_import_list__'
 
 const authStore = useAuthStore()
 const listStore = useListStore()
@@ -23,8 +55,17 @@ const { requestPermission } = useReminderNotifications()
 const displayName = ref(authStore.user?.displayName ?? '')
 const isRefreshing = ref(false)
 const statusMessage = ref('')
+const importListId = ref('')
+const newImportListName = ref('')
+const importJson = ref('')
+const isImporting = ref(false)
+const importError = ref('')
+const isImportFormatOpen = ref(false)
 
-onMounted(() => void listStore.fetchLists())
+onMounted(async () => {
+  await listStore.fetchLists()
+  importListId.value = listStore.lists[0]?.id ?? CREATE_NEW_LIST_OPTION
+})
 
 const saveDisplayName = async () => {
   const name = displayName.value.trim()
@@ -72,6 +113,176 @@ const exportData = () => {
   link.click()
   URL.revokeObjectURL(url)
   statusMessage.value = 'Data exporterad.'
+}
+
+const loadImportFile = async (event: Event) => {
+  const input = event.currentTarget as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+
+  importError.value = ''
+  statusMessage.value = ''
+  if (file.size > 1_000_000) {
+    importError.value = 'Filen får vara högst 1 MB.'
+    return
+  }
+
+  try {
+    importJson.value = await file.text()
+  } catch {
+    importError.value = 'Filen kunde inte läsas.'
+  }
+}
+
+const importTasks = async () => {
+  statusMessage.value = ''
+  importError.value = ''
+
+  const createNewList = importListId.value === CREATE_NEW_LIST_OPTION
+  const requestedListName = newImportListName.value.trim()
+  if (createNewList && !requestedListName) {
+    importError.value = 'Ange ett namn på den nya listan.'
+    return
+  }
+  if (!createNewList && (!importListId.value || !listStore.lists.some((list) => list.id === importListId.value))) {
+    importError.value = 'Välj en lista att importera uppgifterna till.'
+    return
+  }
+  if (new TextEncoder().encode(importJson.value).length > 1_000_000) {
+    importError.value = 'JSON-texten får vara högst 1 MB.'
+    return
+  }
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(importJson.value)
+  } catch {
+    importError.value = 'Filen innehåller inte giltig JSON.'
+    return
+  }
+
+  const rows = Array.isArray(parsed)
+    ? parsed
+    : typeof parsed === 'object' && parsed !== null && 'tasks' in parsed && Array.isArray(parsed.tasks)
+      ? parsed.tasks
+      : null
+
+  if (!rows?.length) {
+    importError.value = 'JSON-filen måste innehålla en lista med uppgifter.'
+    return
+  }
+  if (rows.length > 500) {
+    importError.value = 'Du kan importera högst 500 uppgifter åt gången.'
+    return
+  }
+
+  const importedTasks: ImportedTask[] = []
+  for (const [index, row] of rows.entries()) {
+    if (!isJsonObject(row)) {
+      importError.value = `Uppgift ${index + 1} måste vara ett JSON-objekt.`
+      return
+    }
+
+    const title = typeof row.title === 'string' ? row.title.trim() : ''
+    if (!title) {
+      importError.value = `Uppgift ${index + 1} saknar en titel.`
+      return
+    }
+
+    for (const field of ['completed', 'important', 'myDay'] as const) {
+      if (field in row && typeof row[field] !== 'boolean') {
+        importError.value = `Fältet ${field} i uppgift ${index + 1} måste vara true eller false.`
+        return
+      }
+    }
+    if ('status' in row && row.status !== 'todo' && row.status !== 'inProgress' && row.status !== 'completed') {
+      importError.value = `Fältet status i uppgift ${index + 1} måste vara todo, inProgress eller completed.`
+      return
+    }
+    if (typeof row.status === 'string' && typeof row.completed === 'boolean' && (row.status === 'completed') !== row.completed) {
+      importError.value = `Fältet completed stämmer inte med status i uppgift ${index + 1}.`
+      return
+    }
+    if ('dueDate' in row && (typeof row.dueDate !== 'string' || !isValidDueDate(row.dueDate))) {
+      importError.value = `Fältet dueDate i uppgift ${index + 1} måste ha formatet ÅÅÅÅ-MM-DD eller ÅÅÅÅ-MM-DDTHH:mm.`
+      return
+    }
+    if ('dueTimeZone' in row && typeof row.dueTimeZone !== 'string') {
+      importError.value = `Fältet dueTimeZone i uppgift ${index + 1} måste vara text.`
+      return
+    }
+    if ('note' in row && typeof row.note !== 'string') {
+      importError.value = `Fältet note i uppgift ${index + 1} måste vara text.`
+      return
+    }
+    if ('tags' in row && (!Array.isArray(row.tags) || !row.tags.every((tag) => typeof tag === 'string'))) {
+      importError.value = `Fältet tags i uppgift ${index + 1} måste vara en lista med texter.`
+      return
+    }
+
+    let reminder: TaskReminder | null | undefined
+    if ('reminder' in row) {
+      if (row.reminder === null) {
+        reminder = null
+      } else if (isJsonObject(row.reminder) && isReminderOffset(row.reminder.offsetMinutes)) {
+        reminder = { offsetMinutes: row.reminder.offsetMinutes }
+      } else {
+        importError.value = `Fältet reminder i uppgift ${index + 1} måste ha offsetMinutes 0, 10, 60 eller 1440.`
+        return
+      }
+    }
+
+    importedTasks.push({
+      title,
+      ...(typeof row.completed === 'boolean' ? { completed: row.completed } : {}),
+      ...(row.status === 'todo' || row.status === 'inProgress' || row.status === 'completed' ? { status: row.status } : {}),
+      ...(typeof row.important === 'boolean' ? { important: row.important } : {}),
+      ...(typeof row.myDay === 'boolean' ? { myDay: row.myDay } : {}),
+      ...(typeof row.dueDate === 'string' ? { dueDate: row.dueDate } : {}),
+      ...(typeof row.dueTimeZone === 'string' ? { dueTimeZone: row.dueTimeZone } : {}),
+      ...(reminder !== undefined ? { reminder } : {}),
+      ...(typeof row.note === 'string' ? { note: row.note } : {}),
+      ...(Array.isArray(row.tags) ? { tags: row.tags.map((tag) => (tag as string).trim()).filter(Boolean) } : {}),
+    })
+  }
+
+  isImporting.value = true
+  try {
+    if (!taskStore.isLoaded) await taskStore.fetchTasks()
+    if (!taskStore.isLoaded) {
+      importError.value = taskStore.error ?? 'Uppgifterna kunde inte läsas in inför importen.'
+      return
+    }
+
+    let targetListId = importListId.value
+    let targetListName = listStore.lists.find((list) => list.id === targetListId)?.name ?? 'listan'
+    if (createNewList) {
+      const createdList = await listStore.createList({ name: requestedListName })
+      if (!createdList || listStore.error) {
+        importError.value = listStore.error ?? 'Den nya listan kunde inte skapas.'
+        return
+      }
+      targetListId = createdList.id
+      targetListName = createdList.name
+    }
+
+    let importedCount = 0
+    for (let index = 0; index < importedTasks.length; index += 20) {
+      const batch = importedTasks.slice(index, index + 20)
+      const results = await Promise.all(batch.map((task) => taskStore.createTask({ listId: targetListId, ...task })))
+      importedCount += results.filter(Boolean).length
+    }
+
+    if (importedCount) {
+      statusMessage.value = `${importedCount} ${importedCount === 1 ? 'uppgift importerad' : 'uppgifter importerade'} till ${targetListName}.`
+    }
+    if (importedCount < importedTasks.length) {
+      importError.value = `${importedTasks.length - importedCount} uppgifter kunde inte sparas.`
+    }
+  } finally {
+    isImporting.value = false
+  }
 }
 
 const clearLocalData = () => {
@@ -149,6 +360,55 @@ const handleLogout = async () => {
           <input :checked="preferences.notifications" class="h-4 w-4" type="checkbox" @change="setNotifications(($event.target as HTMLInputElement).checked)" />
           Tillåt aviseringar för påminnelser
         </label>
+      </section>
+
+      <section class="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:px-5" aria-labelledby="import-heading">
+        <h2 id="import-heading" class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Importera uppgifter</h2>
+        <label class="block text-sm text-slate-700 dark:text-slate-200" for="import-list">Importera till</label>
+        <select id="import-list" v-model="importListId" class="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" :disabled="isImporting">
+          <option v-for="list in listStore.lists" :key="list.id" :value="list.id">{{ list.name }}</option>
+          <option :value="CREATE_NEW_LIST_OPTION">Skapa ny lista</option>
+        </select>
+        <div v-if="importListId === CREATE_NEW_LIST_OPTION" class="mt-3">
+          <label class="block text-sm text-slate-700 dark:text-slate-200" for="new-import-list-name">Namn på ny lista</label>
+          <input id="new-import-list-name" v-model="newImportListName" class="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" type="text" placeholder="Listnamn" :disabled="isImporting" />
+        </div>
+        <label class="mt-3 block text-sm text-slate-700 dark:text-slate-200" for="import-json">Klistra in JSON</label>
+        <textarea id="import-json" v-model="importJson" class="mt-1 min-h-40 w-full resize-y rounded-lg border border-slate-200 bg-white p-3 font-mono text-xs text-slate-700 outline-none focus:border-[#2564cf] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200" placeholder='[{ "title": "Handla mjölk" }]' :disabled="isImporting" />
+        <label class="mt-3 block text-sm text-slate-700 dark:text-slate-200" for="import-file">Eller fyll textfältet från JSON-fil</label>
+        <input id="import-file" class="mt-1 block w-full text-sm text-slate-600 file:mr-3 file:min-h-9 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:text-sm file:font-medium file:text-slate-700 hover:file:bg-slate-200 dark:text-slate-300 dark:file:bg-slate-800 dark:file:text-slate-200 dark:hover:file:bg-slate-700" type="file" accept=".json,application/json" :disabled="isImporting" @change="loadImportFile" />
+        <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">Titel är obligatorisk. Anteckning, datum, påminnelse, taggar och status är valfria. En fullständig export från appen fungerar också. Högst 500 uppgifter per fil.</p>
+        <button class="mt-3 min-h-10 rounded-lg bg-[#2564cf] px-4 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50" type="button" :disabled="isImporting || !importJson.trim()" @click="importTasks">
+          {{ isImporting ? 'Importerar...' : 'Importera uppgifter' }}
+        </button>
+        <p v-if="isImporting" class="mt-2 text-sm text-slate-500 dark:text-slate-400" role="status">Importerar uppgifter...</p>
+        <p v-if="importError" class="mt-2 text-sm text-red-700 dark:text-red-300" role="alert">{{ importError }}</p>
+        <div class="mt-3 border-t border-slate-200 dark:border-slate-700">
+          <h3>
+            <button id="import-format-heading" class="flex min-h-11 w-full items-center justify-between gap-3 py-2 text-left text-sm font-medium text-slate-700 transition hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#2564cf] dark:text-slate-200 dark:hover:text-white" type="button" aria-controls="import-format-panel" :aria-expanded="isImportFormatOpen" @click="isImportFormatOpen = !isImportFormatOpen">
+              <span>Visa exempel på JSON-format och fält</span>
+              <ChevronDown :size="18" class="shrink-0 transition-transform" :class="{ 'rotate-180': isImportFormatOpen }" aria-hidden="true" />
+            </button>
+          </h3>
+          <div v-if="isImportFormatOpen" id="import-format-panel" class="border-t border-slate-200 pb-1 pt-3 dark:border-slate-700" role="region" aria-labelledby="import-format-heading">
+          <pre class="overflow-x-auto rounded-md bg-slate-50 p-3 text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-200">[
+  {
+    "title": "Förbered rapport",
+    "note": "Ta med de senaste siffrorna",
+    "dueDate": "2026-10-01T14:30",
+    "dueTimeZone": "Europe/Stockholm",
+    "reminder": { "offsetMinutes": 60 },
+    "tags": ["arbete", "rapport"],
+    "important": true,
+    "myDay": false,
+    "completed": false,
+    "status": "todo"
+  },
+  { "title": "Boka möte" }
+]</pre>
+          <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">Förfallodatum skrivs ÅÅÅÅ-MM-DD eller med tid som ÅÅÅÅ-MM-DDTHH:mm. Påminnelse väljer minuter före förfallodatum: 0, 10, 60 eller 1440. Status är todo, inProgress eller completed; completed ska stämma med status.</p>
+          </div>
+        </div>
       </section>
 
       <section class="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:px-5" aria-labelledby="sync-heading">

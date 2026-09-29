@@ -186,7 +186,7 @@ const dueDateText = computed(() => {
   if (!props.task.dueDate) return ''
 
   const dueDate = typeof props.task.dueDate === 'string'
-    ? new Date(`${props.task.dueDate}T00:00:00`)
+    ? new Date(/^\d{4}-\d{2}-\d{2}$/.test(props.task.dueDate) ? `${props.task.dueDate}T00:00:00` : props.task.dueDate)
     : props.task.dueDate.toDate()
 
   return dueDate.toLocaleDateString('sv-SE', {
@@ -280,19 +280,22 @@ const dueDateText = computed(() => {
         </span>
       </span>
 
-      <div class="flex items-center gap-2">
-        <span v-if="task.important" class="grid size-6 shrink-0 place-items-center text-amber-500 dark:text-amber-400" role="img" aria-label="Stjärnmärkt" title="Stjärnmärkt">
-          <Star :size="16" fill="currentColor" aria-hidden="true" />
+      <div class="grid size-10 shrink-0 grid-cols-2 grid-rows-2 place-items-center gap-0.5" role="group" aria-label="Uppgiftsmarkeringar">
+        <span v-if="task.important" class="grid size-5 place-items-center text-amber-500 dark:text-amber-400" role="img" aria-label="Stjärnmärkt" title="Stjärnmärkt">
+          <Star :size="14" fill="none" aria-hidden="true" />
         </span>
-        <span v-if="task.reminder && getTaskStatus(task) !== 'completed'" class="grid size-6 shrink-0 place-items-center text-slate-500 dark:text-slate-400" role="img" aria-label="Påminnelse inställd" title="Påminnelse inställd">
-          <Bell :size="16" aria-hidden="true" />
+        <span v-else class="size-5" aria-hidden="true" />
+        <span v-if="task.reminder && getTaskStatus(task) !== 'completed'" class="grid size-5 place-items-center text-slate-500 dark:text-slate-400" role="img" aria-label="Påminnelse inställd" title="Påminnelse inställd">
+          <Bell :size="14" aria-hidden="true" />
         </span>
-        <div v-if="task.dueDate && !showDueDate" class="grid size-6 place-items-center rounded-full bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-200" aria-label="Uppgiften har ett planerat datum">
+        <span v-else class="size-5" aria-hidden="true" />
+        <span v-if="task.dueDate && !showDueDate" class="grid size-5 place-items-center text-slate-500 dark:text-slate-400" role="img" aria-label="Uppgiften har ett planerat datum" title="Uppgiften har ett planerat datum">
           <CalendarDays :size="14" aria-hidden="true" />
-        </div>
+        </span>
+        <span v-else class="size-5" aria-hidden="true" />
         <div class="relative shrink-0">
-          <button ref="actionsButton" class="grid size-9 place-items-center rounded-full text-slate-500 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700" type="button" aria-label="Uppgiftsåtgärder" :aria-expanded="isMenuOpen" @click.stop="updateMenuPlacement">
-            <MoreVertical :size="20" aria-hidden="true" />
+          <button ref="actionsButton" class="grid size-6 place-items-center rounded-full text-slate-500 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700" type="button" aria-label="Uppgiftsåtgärder" :aria-expanded="isMenuOpen" @click.stop="updateMenuPlacement">
+            <MoreVertical :size="16" aria-hidden="true" />
           </button>
         </div>
       </div>

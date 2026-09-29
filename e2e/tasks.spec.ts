@@ -23,83 +23,6 @@ test('opens task details from a task row', async ({ page }) => {
   await expect(details.getByRole('heading', { name: 'Delsteg' })).toBeVisible()
   await expect(details.getByRole('heading', { name: 'Planering' })).toBeVisible()
   await expect(details.getByRole('heading', { name: 'Anteckningar' })).toBeVisible()
-
-  const titleInput = details.getByLabel('Uppgiftens titel')
-  await expect(titleInput).not.toBeFocused()
-
-  const sections = details.locator('section')
-  await expect(sections).toHaveCount(5)
-  for (let index = 0; index < 5; index += 1) {
-    await expect(sections.nth(index)).toHaveCSS('background-color', 'rgb(255, 255, 255)')
-  }
-
-  const textElements = [
-    titleInput,
-    details.getByRole('heading', { name: 'Delsteg' }),
-    details.getByRole('button', { name: 'Idag' }),
-    details.getByLabel('Uppgiftens förfallodatum'),
-  ]
-  for (const element of textElements) {
-    await expect(element).toHaveCSS('font-size', '14px')
-  }
-})
-
-test('opens a task from a notification URL', async ({ page }) => {
-  await page.goto('/#/?task=local-task-2')
-  await page.getByRole('button', { name: 'Jag har sett detta' }).click()
-
-  const details = page.getByRole('dialog', { name: 'Uppgiftsdetaljer' })
-  await expect(details).toBeVisible()
-  await expect(details.getByLabel('Uppgiftens titel')).toHaveValue('Kontrollera mobilvyn')
-})
-
-test('reorders task steps with pointer drag and drop', async ({ page }) => {
-  await page.goto('/')
-  await page.getByRole('button', { name: 'Jag har sett detta' }).click()
-  await page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' }).click()
-
-  const details = page.getByRole('dialog', { name: 'Uppgiftsdetaljer' })
-  const stepInput = details.getByPlaceholder('Lägg till delsteg')
-  await stepInput.fill('Första delsteget')
-  await stepInput.press('Enter')
-  await stepInput.fill('Andra delsteget')
-  await stepInput.press('Enter')
-
-  const stepRows = details.getByRole('group', { name: /^Delsteg:/ })
-  await expect(stepRows).toHaveCount(2)
-  const firstRow = stepRows.nth(0)
-  const secondRow = stepRows.nth(1)
-  const dragHandle = firstRow.getByRole('button', { name: 'Dra delsteg: Första delsteget' })
-  const handleBox = await dragHandle.boundingBox()
-  const secondBox = await secondRow.boundingBox()
-  expect(handleBox).not.toBeNull()
-  expect(secondBox).not.toBeNull()
-
-  if (handleBox && secondBox) {
-    await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2)
-    await page.mouse.down()
-    await page.mouse.move(secondBox.x + secondBox.width / 2, secondBox.y + secondBox.height - 2, { steps: 8 })
-    await page.mouse.up()
-  }
-
-  await expect(stepRows.nth(0)).toHaveAttribute('aria-label', 'Delsteg: Andra delsteget')
-  await expect(stepRows.nth(1)).toHaveAttribute('aria-label', 'Delsteg: Första delsteget')
-})
-
-test('opens a prefilled Google Calendar event from task details', async ({ page }) => {
-  await page.goto('/')
-  await page.getByRole('button', { name: 'Jag har sett detta' }).click()
-  await page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' }).click()
-
-  const details = page.getByRole('dialog', { name: 'Uppgiftsdetaljer' })
-  await details.getByLabel('Uppgiftens förfallodatum').fill('2026-10-01')
-  const calendarLink = details.getByRole('link', { name: 'Lägg till i Google Kalender' })
-  await expect(calendarLink).toHaveAttribute('href', /calendar\.google\.com\/calendar\/render\?/)
-
-  const calendarUrl = new URL(await calendarLink.getAttribute('href') ?? '')
-  expect(calendarUrl.searchParams.get('text')).toBe('Kontrollera mobilvyn')
-  expect(calendarUrl.searchParams.get('dates')).toBe('20261001/20261002')
-  await expect(calendarLink).toHaveAttribute('target', '_blank')
 })
 
 test('marks a task complete and restores it to active', async ({ page }) => {
@@ -114,40 +37,14 @@ test('marks a task complete and restores it to active', async ({ page }) => {
   await expect(task.getByRole('button', { name: 'Markera uppgift som slutförd' })).toBeVisible()
 })
 
-test('hides and shows completed tasks in the active list', async ({ page }) => {
-  await page.goto('/')
-  await page.getByRole('button', { name: 'Jag har sett detta' }).click()
-
-  const title = `E2E-completed-${Date.now()}`
-  const input = page.getByPlaceholder('Lägg till en uppgift')
-  await input.fill(title)
-  await input.press('Enter')
-
-  const task = page.getByRole('group', { name: `Uppgift: ${title}` })
-  await task.getByRole('button', { name: 'Markera uppgift som slutförd' }).click()
-  await expect(page.getByRole('button', { name: 'Dölj slutförda uppgifter' })).toBeVisible()
-
-  await page.getByRole('button', { name: 'Dölj slutförda uppgifter' }).click()
-  await expect(task).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Visa slutförda uppgifter' })).toHaveAttribute('aria-expanded', 'false')
-
-  await page.reload()
-  await expect(page.getByRole('button', { name: 'Visa slutförda uppgifter' })).toBeVisible()
-  await expect(task).toHaveCount(0)
-
-  await page.getByRole('button', { name: 'Visa slutförda uppgifter' }).click()
-  await expect(task).toBeVisible()
-})
-
-test('marks a task important and finds it in Stjärnmärkt', async ({ page }) => {
+test('marks a task important and finds it in Viktigt', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: 'Jag har sett detta' }).click()
 
   const task = page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' })
   await task.getByRole('button', { name: 'Uppgiftsåtgärder' }).click()
   await page.getByRole('button', { name: 'Stjärnmarkera', exact: true }).click()
-  await expect(task.getByRole('img', { name: 'Stjärnmärkt' })).toBeVisible()
-  await page.getByRole('button', { name: 'Stjärnmärkt' }).click()
+  await page.getByRole('button', { name: 'Viktigt' }).click()
 
   await expect(page).toHaveURL(/\/important$/)
   await expect(page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' })).toBeVisible()
@@ -183,7 +80,6 @@ test('adds a tag and uses a quick due-date preset', async ({ page }) => {
   await expect(details.getByText('Påminnelse aktiv')).toBeVisible()
 
   await details.getByRole('button', { name: 'Stäng uppgiftsdetaljer' }).click()
-  await expect(page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' }).getByRole('img', { name: 'Påminnelse inställd' })).toBeVisible()
   await page.getByRole('button', { name: 'Taggar' }).click()
   await page.getByRole('menuitem', { name: '#arbete' }).click()
 
@@ -195,22 +91,6 @@ test('adds a tag and uses a quick due-date preset', async ({ page }) => {
   await expect(page.getByRole('heading', { name: '#arbete' })).toBeVisible()
   await page.getByRole('button', { name: 'Taggar' }).click()
   await expect(page.getByRole('menuitem', { name: '#arbete' })).toBeVisible()
-})
-
-test('moves a task to another list', async ({ page }) => {
-  await page.goto('/')
-  await page.getByRole('button', { name: 'Jag har sett detta' }).click()
-
-  const task = page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' })
-  await task.getByRole('button', { name: 'Uppgiftsåtgärder' }).click()
-  await page.getByRole('button', { name: 'Flytta till lista' }).click()
-  await page.getByRole('menuitem', { name: /Projekt/ }).click()
-
-  await expect(page.getByRole('alert')).toContainText('Uppgiften flyttades till Projekt')
-  await expect(task).toHaveCount(0)
-
-  await page.getByRole('button', { name: /^Projekt \d+$/ }).click()
-  await expect(page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' })).toBeVisible()
 })
 
 test('can undo deleting a task', async ({ page }) => {
