@@ -236,6 +236,52 @@ describe('useTaskStore', () => {
     )
   })
 
+  it('persists optional task fields when creating a task', async () => {
+    const store = useTaskStore()
+    const reminder = { offsetMinutes: 60 as const }
+
+    await store.createTask({
+      listId: 'list-1',
+      title: 'Review brief',
+      note: 'Check the attached notes',
+      dueDate: '2026-10-01',
+      dueTimeZone: 'Europe/Stockholm',
+      reminder,
+      tags: ['work', 'review'],
+      important: true,
+      myDay: true,
+      completed: false,
+      status: 'inProgress',
+    })
+
+    expect(store.tasks[0]).toMatchObject({
+      title: 'Review brief',
+      note: 'Check the attached notes',
+      dueDate: '2026-10-01',
+      dueTimeZone: 'Europe/Stockholm',
+      reminder,
+      tags: ['work', 'review'],
+      important: true,
+      myDay: true,
+      completed: false,
+      status: 'inProgress',
+    })
+    expect(firestoreMocks.addDoc).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        note: 'Check the attached notes',
+        dueDate: '2026-10-01',
+        dueTimeZone: 'Europe/Stockholm',
+        reminder,
+        tags: ['work', 'review'],
+        important: true,
+        myDay: true,
+        completed: false,
+        status: 'inProgress',
+      }),
+    )
+  })
+
   it('rolls back an optimistic completion when Firestore rejects the update', async () => {
     const createdAt = Timestamp.now()
     firestoreMocks.getDocs.mockResolvedValueOnce(

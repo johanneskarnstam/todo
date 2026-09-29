@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { CalendarDays, Check, ChevronDown, FolderOpen, FolderPlus, ListTodo, MoreVertical, Plus, Settings, Star, Sun, Tags, X } from '@lucide/vue'
 import type { Folder, List, SmartView } from '@/types'
 import { DEFAULT_LIST_ID } from '@/stores/listStore'
@@ -30,7 +30,6 @@ interface Emits {
   (event: 'create-list', name: string, folderId?: string | null): void
   (event: 'create-folder', name: string): void
   (event: 'move-list', listId: string, folderId: string | null): void
-  (event: 'delete-list', listId: string): void
   (event: 'rename-folder', folderId: string, name: string): void
   (event: 'delete-folder', folderId: string, deleteLists: boolean): void
 }
@@ -87,7 +86,7 @@ watch(collapsedFolders, (value) => {
 
 const smartViewLabel = (key: string) => ({
   myDay: 'Min dag',
-  important: 'Stjärnmärkt',
+  important: 'Viktigt',
   planned: 'Planerat',
 }[key] ?? key)
 
@@ -196,390 +195,452 @@ const moveList = (listId: string, folderId: string | null) => {
   openMoveMenuListId.value = null
 }
 
-const closeListMenusOnOutsideClick = (event: MouseEvent) => {
-  const target = event.target as HTMLElement | null
-  if (target?.closest('[data-sidebar-list-menu], [data-sidebar-list-menu-trigger]')) return
-
-  openMoveMenuListId.value = null
-}
-
-onMounted(() => {
-  document.addEventListener('click', closeListMenusOnOutsideClick)
-})
-
-onUnmounted(() => {
-  document.removeEventListener('click', closeListMenusOnOutsideClick)
-})
-
 </script>
 
 <template>
-  <Transition enter-active-class="transition-opacity duration-300 ease-out" enter-from-class="opacity-0"
-    enter-to-class="opacity-100" leave-active-class="transition-opacity duration-300 ease-in"
-    leave-from-class="opacity-100" leave-to-class="opacity-0">
-    <div v-if="open" data-sidebar-overlay class="fixed inset-0 z-[70] bg-slate-950/30 lg:hidden" aria-hidden="true"
-      @click="emit('close')" />
+  <Transition
+    enter-active-class="transition-opacity duration-300 ease-out"
+    enter-from-class="opacity-0"
+    enter-to-class="opacity-100"
+    leave-active-class="transition-opacity duration-300 ease-in"
+    leave-from-class="opacity-100"
+    leave-to-class="opacity-0"
+  >
+    <div
+      v-if="open"
+      data-sidebar-overlay
+      class="fixed inset-0 z-[70] bg-slate-950/30 lg:hidden"
+      aria-hidden="true"
+      @click="emit('close')"
+    />
   </Transition>
 
-  <Transition enter-active-class="transition-transform duration-300 ease-out" enter-from-class="-translate-x-full"
-    enter-to-class="translate-x-0" leave-active-class="transition-transform duration-300 ease-in"
-    leave-from-class="translate-x-0" leave-to-class="-translate-x-full">
-    <aside v-show="open"
+  <Transition
+    enter-active-class="transition-transform duration-300 ease-out"
+    enter-from-class="-translate-x-full"
+    enter-to-class="translate-x-0"
+    leave-active-class="transition-transform duration-300 ease-in"
+    leave-from-class="translate-x-0"
+    leave-to-class="-translate-x-full"
+  >
+    <aside
+      v-show="open"
       class="fixed inset-y-0 left-0 z-[80] flex w-[340px] flex-col rounded-r-xl border-r border-slate-200 bg-white shadow-xl transition-[width] duration-300 ease-out dark:border-slate-700 dark:bg-slate-900 lg:static lg:z-auto lg:rounded-r-2xl lg:shadow-none"
       :class="open ? 'lg:w-[340px]' : 'lg:w-0 lg:overflow-hidden lg:border-transparent lg:px-0'"
-      aria-label="Uppgiftsnavigering">
-      <div class="flex h-full flex-col px-2 py-3">
-        <div class="mb-3 flex h-10 items-center justify-between lg:hidden">
-          <div class="flex items-center gap-2 px-1">
-            <img class="size-8 rounded-lg shadow-sm" :src="iconUrl" alt="" aria-hidden="true" />
-            <span class="text-lg font-semibold tracking-tight text-slate-800 dark:text-slate-100">To Do</span>
-          </div>
-          <button
-            class="grid size-9 place-items-center rounded-lg text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-            type="button" aria-label="Stäng navigeringsmeny" @click="emit('close')">
-            <X :size="20" :stroke-width="1.8" aria-hidden="true" />
-          </button>
+      aria-label="Uppgiftsnavigering"
+    >
+    <div class="flex h-full flex-col px-2 py-3">
+      <div class="mb-3 flex h-10 items-center justify-between lg:hidden">
+        <div class="flex items-center gap-2 px-1">
+          <img class="size-8 rounded-lg shadow-sm" :src="iconUrl" alt="" aria-hidden="true" />
+          <span class="text-lg font-semibold tracking-tight text-slate-800 dark:text-slate-100">To Do</span>
         </div>
+        <button
+          class="grid size-9 place-items-center rounded-lg text-xl text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+          type="button"
+          aria-label="Stäng navigeringsmeny"
+          @click="emit('close')"
+        >
+          <X :size="20" :stroke-width="1.8" aria-hidden="true" />
+        </button>
+      </div>
 
-        <nav class="space-y-1" aria-label="Smarta vyer">
-          <RouterLink
-            class="flex h-9 w-full items-center gap-3 rounded-lg px-2.5 text-left text-base text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-            active-class="bg-[#eef5fc] text-slate-900 dark:bg-slate-800 dark:text-white" to="/all-lists"
-            @click="emit('close')">
-            <FolderOpen :size="19" :stroke-width="1.8" class="shrink-0 text-slate-600 dark:text-slate-300"
-              aria-hidden="true" />
-            <span class="flex-1">Alla listor</span>
-          </RouterLink>
-          <button v-for="view in smartViews" :key="view.key"
-            class="flex h-9 w-full items-center gap-3 rounded-lg px-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-            :class="{ 'bg-[#eef5fc] text-slate-900 dark:bg-slate-800 dark:text-white': activeSmartView === view.view }"
-            type="button" @click="selectSmartView(view.view)">
-            <component :is="view.icon" :size="19" :stroke-width="1.8"
-              class="shrink-0 text-slate-600 dark:text-slate-300" aria-hidden="true" />
-            <span class="flex-1">{{ smartViewLabel(view.key) }}</span>
-            <span v-if="view.view" class="min-w-5 text-right text-sm text-slate-500 dark:text-slate-400">{{
-              smartViewCounts[view.view] }}</span>
-          </button>
-        </nav>
+      <nav class="space-y-1" aria-label="Smarta vyer">
+        <RouterLink
+          class="flex h-9 w-full items-center gap-3 rounded-lg px-2.5 text-left text-base text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+          active-class="bg-[#eef5fc] text-slate-900 dark:bg-slate-800 dark:text-white"
+          to="/all-lists"
+          @click="emit('close')"
+        >
+          <FolderOpen :size="19" :stroke-width="1.8" class="shrink-0 text-slate-600 dark:text-slate-300" aria-hidden="true" />
+          <span class="flex-1">Alla listor</span>
+        </RouterLink>
+        <button
+          v-for="view in smartViews"
+          :key="view.key"
+          class="flex h-9 w-full items-center gap-3 rounded-lg px-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+          :class="{ 'bg-[#eef5fc] text-slate-900 dark:bg-slate-800 dark:text-white': activeSmartView === view.view }"
+          type="button"
+          @click="selectSmartView(view.view)"
+        >
+          <component :is="view.icon" :size="19" :stroke-width="1.8" class="shrink-0 text-slate-600 dark:text-slate-300" aria-hidden="true" />
+          <span class="flex-1">{{ smartViewLabel(view.key) }}</span>
+          <span v-if="view.view" class="min-w-5 text-right text-xs text-slate-500 dark:text-slate-400">{{ smartViewCounts[view.view] }}</span>
+        </button>
+      </nav>
 
-        <div class="mb-3">
+      <div class="mb-3">
+        <button
+          class="flex h-9 w-full items-center gap-3 rounded-lg px-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+          type="button"
+          aria-controls="sidebar-tags-menu"
+          :aria-expanded="isTagsOpen"
+          @click="isTagsOpen = !isTagsOpen"
+        >
+          <Tags :size="19" :stroke-width="1.8" class="shrink-0 text-slate-600 dark:text-slate-300" aria-hidden="true" />
+          <span class="flex-1">Taggar</span>
+          <ChevronDown
+            :size="20"
+            :stroke-width="1.75"
+            class="text-slate-500 transition-transform duration-200 ease-out"
+            :class="{ '-rotate-90': !isTagsOpen }"
+            aria-hidden="true"
+          />
+        </button>
+        <Transition name="sidebar-expand">
+          <div v-if="isTagsOpen" id="sidebar-tags-menu" class="mt-2 flex flex-wrap gap-2 pl-1" role="menu" aria-label="Välj tagg">
           <button
-            class="flex h-9 w-full items-center gap-3 rounded-lg px-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-            type="button" aria-controls="sidebar-tags-menu" :aria-expanded="isTagsOpen"
-            @click="isTagsOpen = !isTagsOpen">
-            <Tags :size="19" :stroke-width="1.8" class="shrink-0 text-slate-600 dark:text-slate-300"
-              aria-hidden="true" />
-            <span class="flex-1">Taggar</span>
-            <ChevronDown :size="20" :stroke-width="1.75"
-              class="text-slate-500 transition-transform duration-200 ease-out" :class="{ '-rotate-90': !isTagsOpen }"
-              aria-hidden="true" />
+            class="inline-flex min-h-6 items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+            :class="{ 'font-semibold ring-2 ring-[#2564cf] ring-offset-1 dark:ring-blue-400 dark:ring-offset-slate-900': !selectedTag }"
+            type="button"
+            role="menuitem"
+            @click="selectTag('')"
+          >
+            Alla taggar
           </button>
+          <button
+            v-for="tag in availableTags"
+            :key="tag"
+            class="inline-flex min-h-6 items-center rounded-full border px-2 py-0.5 text-[10px] font-medium transition"
+            :class="[tagTone(tag), { 'font-semibold ring-2 ring-[#2564cf] ring-offset-1 dark:ring-blue-400 dark:ring-offset-slate-900': selectedTag === tag }]"
+            type="button"
+            role="menuitem"
+            @click="selectTag(tag)"
+          >
+            #{{ tag }}
+          </button>
+          <p v-if="!availableTags.length" class="px-3 py-2 text-sm text-slate-500 dark:text-slate-400">Inga taggar ännu</p>
+          </div>
+        </Transition>
+      </div>
+
+      <div class="mb-3 border-t border-slate-200 dark:border-slate-700" />
+
+      <div class="min-h-0 flex-1 overflow-y-auto">
+        <section v-if="defaultList" class="mb-3">
+          <div class="relative flex min-h-9 items-center px-2.5">
+            <button
+              class="flex min-w-0 flex-1 items-center text-left text-sm font-semibold text-slate-800 dark:text-slate-100"
+              type="button"
+              :aria-expanded="!collapsedFolders[DEFAULT_LIST_ID]"
+              @click="toggleFolder(DEFAULT_LIST_ID)"
+            >
+              <span class="flex-1 truncate">Huvudlista</span>
+              <ChevronDown
+                :size="18"
+                :stroke-width="1.75"
+                class="text-slate-500 transition-transform duration-200 ease-out"
+                :class="{ '-rotate-90': collapsedFolders[DEFAULT_LIST_ID] }"
+                aria-hidden="true"
+              />
+            </button>
+          </div>
           <Transition name="sidebar-expand">
-            <div v-if="isTagsOpen" id="sidebar-tags-menu" class="mt-2 flex flex-wrap gap-2 pl-1" role="menu"
-              aria-label="Välj tagg">
-              <button
-                class="inline-flex min-h-7 items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-sm font-medium text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-                :class="{ 'font-semibold ring-2 ring-[#2564cf] ring-offset-1 dark:ring-blue-400 dark:ring-offset-slate-900': !selectedTag }"
-                type="button" role="menuitem" @click="selectTag('')">
-                Alla taggar
-              </button>
-              <button v-for="tag in availableTags" :key="tag"
-                class="inline-flex min-h-7 items-center rounded-full border px-2 py-1 text-sm font-medium transition"
-                :class="[tagTone(tag), { 'font-semibold ring-2 ring-[#2564cf] ring-offset-1 dark:ring-blue-400 dark:ring-offset-slate-900': selectedTag === tag }]"
-                type="button" role="menuitem" @click="selectTag(tag)">
-                #{{ tag }}
-              </button>
-              <p v-if="!availableTags.length" class="px-3 py-2 text-sm text-slate-500 dark:text-slate-400">Inga taggar
-                ännu</p>
+            <div v-if="!collapsedFolders[DEFAULT_LIST_ID]" class="ml-3 border-l-2 border-slate-300 dark:border-slate-600">
+            <button
+              class="group flex h-9 w-full items-center gap-3 border-l-2 border-transparent px-5 text-left text-xs text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+              :class="{ 'border-[#2564cf] bg-[#eef5fc] font-semibold text-slate-900 dark:border-blue-400 dark:bg-slate-800 dark:text-white': activeListId === defaultList.id }"
+              type="button"
+              @click="emit('select-list', defaultList.id)"
+            >
+              <ListTodo :size="18" :stroke-width="1.8" class="shrink-0 text-slate-700 dark:text-slate-300" aria-hidden="true" />
+              <span class="flex-1 truncate">{{ defaultList.name }}</span>
+              <span v-if="listTaskCounts[defaultList.id]" class="min-w-5 text-right text-xs text-slate-600 dark:text-slate-300">{{ listTaskCounts[defaultList.id] }}</span>
+            </button>
             </div>
           </Transition>
-        </div>
+        </section>
 
-        <div class="mb-3 border-t border-slate-200 dark:border-slate-700" />
-
-        <div class="min-h-0 flex-1 overflow-y-auto">
-          <section v-if="defaultList" class="mb-3">
-            <div class="relative flex min-h-9 items-center px-2.5">
-              <button
-                class="flex min-w-0 flex-1 items-center text-left text-sm font-semibold text-slate-800 dark:text-slate-100"
-                type="button" :aria-expanded="!collapsedFolders[DEFAULT_LIST_ID]"
-                @click="toggleFolder(DEFAULT_LIST_ID)">
-                <span class="flex-1 truncate">Huvudlista</span>
-                <ChevronDown :size="18" :stroke-width="1.75"
-                  class="text-slate-500 transition-transform duration-200 ease-out"
-                  :class="{ '-rotate-90': collapsedFolders[DEFAULT_LIST_ID] }" aria-hidden="true" />
-              </button>
-            </div>
-            <Transition name="sidebar-expand">
-              <div v-if="!collapsedFolders[DEFAULT_LIST_ID]"
-                class="ml-3 border-l-2 border-slate-300 dark:border-slate-600">
-                <button
-                  class="group flex h-9 w-full items-center gap-3 border-l-2 border-transparent px-5 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-                  :class="{ 'border-[#2564cf] bg-[#eef5fc] font-semibold text-slate-900 dark:border-blue-400 dark:bg-slate-800 dark:text-white': activeListId === defaultList.id }"
-                  type="button" @click="emit('select-list', defaultList.id)">
-                  <ListTodo :size="18" :stroke-width="1.8" class="shrink-0 text-slate-700 dark:text-slate-300"
-                    aria-hidden="true" />
-                  <span class="flex-1 truncate">{{ defaultList.name }}</span>
-                  <span v-if="listTaskCounts[defaultList.id]"
-                    class="min-w-5 text-right text-sm text-slate-600 dark:text-slate-300">{{
-                      listTaskCounts[defaultList.id] }}</span>
-                </button>
+        <section v-for="section in folders" :key="section.folder.id" class="mb-3">
+          <div v-if="editingFolderId === section.folder.id" class="mb-2 flex gap-2 px-2">
+            <label class="sr-only" :for="`rename-folder-${section.folder.id}`">Byt namn på mapp</label>
+            <input :id="`rename-folder-${section.folder.id}`" v-model="editingFolderName" class="min-w-0 flex-1 rounded border border-blue-400 px-2 text-sm outline-none" type="text" autofocus @keydown.enter="submitRenameFolder" />
+            <button class="text-sm text-[#2564cf]" type="button" @click="submitRenameFolder">Spara</button>
+          </div>
+          <div
+            v-else
+            class="relative flex min-h-9 items-center px-2.5"
+            data-folder-header
+            @contextmenu.prevent="openFolderContextMenu(section.folder.id)"
+            @pointerdown="startFolderLongPress(section.folder.id, $event)"
+            @pointerup="cancelFolderLongPress"
+            @pointercancel="cancelFolderLongPress"
+            @pointerleave="cancelFolderLongPress"
+          >
+            <button
+              class="flex min-w-0 flex-1 items-center text-left text-sm font-semibold text-slate-800 dark:text-slate-100"
+              type="button"
+              :aria-expanded="!collapsedFolders[section.folder.id]"
+              @click="toggleFolder(section.folder.id)"
+            >
+              <span class="flex-1 truncate">{{ section.folder.name }}</span>
+              <ChevronDown
+                :size="18"
+                :stroke-width="1.75"
+                class="text-slate-500 transition-transform duration-200 ease-out"
+                :class="{ '-rotate-90': collapsedFolders[section.folder.id] }"
+                aria-hidden="true"
+              />
+            </button>
+            <Transition name="sidebar-pop">
+              <div v-if="openFolderMenuId === section.folder.id" class="absolute right-0 top-8 z-20 w-56 rounded border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-800">
+              <button class="flex min-h-9 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" aria-label="Ny lista i mapp" @click="startAddingList(section.folder.id); openFolderMenuId = null">Ny lista i mapp</button>
+              <button class="flex min-h-9 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" aria-label="Byt namn på mapp" @click="startRenamingFolder(section.folder)">Byt namn på mapp</button>
+              <button class="flex min-h-9 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" aria-label="Ta bort mapp, behåll listor" @click="emit('delete-folder', section.folder.id, false); openFolderMenuId = null">Ta bort mapp, behåll listor</button>
+              <button class="flex min-h-9 w-full items-center rounded px-3 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950" type="button" aria-label="Ta bort mapp och listor" @click="emit('delete-folder', section.folder.id, true); openFolderMenuId = null">Ta bort mapp och listor</button>
               </div>
             </Transition>
-          </section>
-
-          <section v-for="section in folders" :key="section.folder.id" class="mb-3">
-            <div v-if="editingFolderId === section.folder.id" class="mb-2 flex gap-2 px-2">
-              <label class="sr-only" :for="`rename-folder-${section.folder.id}`">Byt namn på mapp</label>
-              <input :id="`rename-folder-${section.folder.id}`" v-model="editingFolderName"
-                class="min-w-0 flex-1 rounded border border-blue-400 px-2 text-sm outline-none" type="text" autofocus
-                @keydown.enter="submitRenameFolder" />
-              <button class="text-sm text-[#2564cf]" type="button" @click="submitRenameFolder">Spara</button>
-            </div>
-            <div v-else class="relative flex min-h-9 items-center px-2.5" data-folder-header
-              @contextmenu.prevent="openFolderContextMenu(section.folder.id)"
-              @pointerdown="startFolderLongPress(section.folder.id, $event)" @pointerup="cancelFolderLongPress"
-              @pointercancel="cancelFolderLongPress" @pointerleave="cancelFolderLongPress">
+          </div>
+          <Transition name="sidebar-expand">
+            <div v-if="!collapsedFolders[section.folder.id]" class="ml-3 border-l-2 border-slate-300 dark:border-slate-600">
+            <div
+              v-for="list in section.lists"
+              :key="list.id"
+              class="group/list relative"
+            >
               <button
-                class="flex min-w-0 flex-1 items-center text-left text-sm font-semibold text-slate-800 dark:text-slate-100"
-                type="button" :aria-expanded="!collapsedFolders[section.folder.id]"
-                @click="toggleFolder(section.folder.id)">
-                <span class="flex-1 truncate">{{ section.folder.name }}</span>
-                <ChevronDown :size="18" :stroke-width="1.75"
-                  class="text-slate-500 transition-transform duration-200 ease-out"
-                  :class="{ '-rotate-90': collapsedFolders[section.folder.id] }" aria-hidden="true" />
+                class="group flex h-9 w-full items-center gap-3 border-l-2 border-transparent px-5 pr-12 text-left text-xs text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                :class="{
+                  'border-[#2564cf] bg-[#eef5fc] font-semibold text-slate-900 dark:border-blue-400 dark:bg-slate-800 dark:text-white': activeListId === list.id,
+                }"
+                type="button"
+                @click="emit('select-list', list.id)"
+              >
+                <ListTodo :size="18" :stroke-width="1.8" class="shrink-0 text-slate-700 dark:text-slate-300" aria-hidden="true" />
+                <span class="flex-1 truncate">{{ list.name }}</span>
+                <span v-if="listTaskCounts[list.id]" class="min-w-5 text-right text-xs text-slate-600 dark:text-slate-300">{{ listTaskCounts[list.id] }}</span>
+              </button>
+              <button
+                v-if="list.id !== DEFAULT_LIST_ID"
+                class="absolute right-1 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded text-lg tracking-widest text-slate-500 opacity-100 transition hover:bg-slate-200 sm:opacity-0 sm:focus:opacity-100 sm:group-hover/list:opacity-100 dark:hover:bg-slate-700"
+                type="button"
+                 :aria-label="`Flytta ${list.name}`"
+                :aria-expanded="openMoveMenuListId === list.id"
+                @click.stop="toggleMoveMenu(list.id)"
+                >
+                <MoreVertical :size="19" :stroke-width="1.8" aria-hidden="true" />
               </button>
               <Transition name="sidebar-pop">
-                <div v-if="openFolderMenuId === section.folder.id"
-                  class="absolute right-0 top-8 z-20 w-56 rounded border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-800">
-                  <button
-                    class="flex min-h-9 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
-                    type="button" aria-label="Ny lista i mapp"
-                    @click="startAddingList(section.folder.id); openFolderMenuId = null">Ny lista i mapp</button>
-                  <button
-                    class="flex min-h-9 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
-                    type="button" aria-label="Byt namn på mapp" @click="startRenamingFolder(section.folder)">Byt namn på
-                    mapp</button>
-                  <button
-                    class="flex min-h-9 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
-                    type="button" aria-label="Ta bort mapp, behåll listor"
-                    @click="emit('delete-folder', section.folder.id, false); openFolderMenuId = null">Ta bort mapp,
-                    behåll listor</button>
-                  <button
-                    class="flex min-h-9 w-full items-center rounded px-3 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
-                    type="button" aria-label="Ta bort mapp och listor"
-                    @click="emit('delete-folder', section.folder.id, true); openFolderMenuId = null">Ta bort mapp och
-                    listor</button>
+                <div
+                  v-if="openMoveMenuListId === list.id"
+                  class="absolute right-1 top-10 z-50 max-h-[70vh] w-56 overflow-y-auto rounded border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-800"
+                  role="menu"
+                  :aria-label="`Flytta ${list.name} till mapp`"
+                >
+                <p class="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Flytta till</p>
+                <button
+                  class="flex min-h-10 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
+                  :class="{ 'font-semibold text-[#2564cf] dark:text-blue-400': !list.folderId }"
+                  type="button"
+                  role="menuitem"
+                  @click="moveList(list.id, null)"
+                >
+                  Utan mapp
+                </button>
+                <button
+                  v-for="folderOption in folders"
+                  :key="folderOption.folder.id"
+                  class="flex min-h-10 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
+                  :class="{ 'font-semibold text-[#2564cf] dark:text-blue-400': list.folderId === folderOption.folder.id }"
+                  type="button"
+                  role="menuitem"
+                  @click="moveList(list.id, folderOption.folder.id)"
+                >
+                  {{ folderOption.folder.name }}
+                </button>
+                <div class="mt-2 border-t border-slate-200 pt-2 dark:border-slate-700">
+                </div>
                 </div>
               </Transition>
             </div>
-            <Transition name="sidebar-expand">
-              <div v-if="!collapsedFolders[section.folder.id]"
-                class="ml-3 border-l-2 border-slate-300 dark:border-slate-600">
-                <div v-for="list in section.lists" :key="list.id" class="group/list relative">
-                  <button
-                    class="group flex h-9 w-full items-center gap-3 border-l-2 border-transparent px-5 pr-12 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-                    :class="{
-                      'border-[#2564cf] bg-[#eef5fc] font-semibold text-slate-900 dark:border-blue-400 dark:bg-slate-800 dark:text-white': activeListId === list.id,
-                    }" type="button" @click="emit('select-list', list.id)">
-                    <ListTodo :size="18" :stroke-width="1.8" class="shrink-0 text-slate-700 dark:text-slate-300"
-                      aria-hidden="true" />
-                    <span class="flex-1 truncate">{{ list.name }}</span>
-                    <span v-if="listTaskCounts[list.id]"
-                      class="min-w-5 text-right text-sm text-slate-600 dark:text-slate-300">{{ listTaskCounts[list.id]
-                      }}</span>
-                  </button>
-                  <button v-if="list.id !== DEFAULT_LIST_ID"
-                    class="absolute right-1 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded text-slate-500 opacity-100 transition hover:bg-slate-200 sm:opacity-0 sm:focus:opacity-100 sm:group-hover/list:opacity-100 dark:hover:bg-slate-700"
-                    type="button" :aria-label="`Flytta ${list.name}`" :aria-expanded="openMoveMenuListId === list.id"
-                    data-sidebar-list-menu-trigger @click.stop="toggleMoveMenu(list.id)">
-                    <MoreVertical :size="19" :stroke-width="1.8" aria-hidden="true" />
-                  </button>
-                  <Transition name="sidebar-pop">
-                    <div v-if="openMoveMenuListId === list.id"
-                      class="absolute right-1 top-10 z-50 max-h-[70vh] w-56 overflow-y-auto rounded border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-800"
-                      role="menu" :aria-label="`Hantera lista ${list.name}`" data-sidebar-list-menu>
-                      <p
-                        class="px-3 py-2 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        Hantera lista</p>
-                      <button
-                        class="flex min-h-10 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
-                        :class="{ 'font-semibold text-[#2564cf] dark:text-blue-400': !list.folderId }" type="button"
-                        role="menuitem" @click="moveList(list.id, null)">
-                        Utan mapp
-                      </button>
-                      <button v-for="folderOption in folders" :key="folderOption.folder.id"
-                        class="flex min-h-10 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
-                        :class="{ 'font-semibold text-[#2564cf] dark:text-blue-400': list.folderId === folderOption.folder.id }"
-                        type="button" role="menuitem" @click="moveList(list.id, folderOption.folder.id)">
-                        {{ folderOption.folder.name }}
-                      </button>
-                      <div class="mt-2 border-t border-slate-200 pt-2 dark:border-slate-700">
-                        <button
-                          class="flex min-h-10 w-full items-center rounded px-3 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
-                          type="button" role="menuitem" :aria-label="`Ta bort ${list.name}`"
-                          @click="emit('delete-list', list.id); openMoveMenuListId = null">
-                          Ta bort lista
-                        </button>
-                      </div>
-                    </div>
-                  </Transition>
-                </div>
-                <div v-if="addingListFolderId === section.folder.id" class="px-2 py-1.5">
-                  <form class="flex gap-1.5" @submit.prevent="submitNewList(section.folder.id)">
-                    <label class="sr-only" :for="`new-list-name-${section.folder.id}`">Nytt listnamn</label>
-                    <input :id="`new-list-name-${section.folder.id}`" v-model="newListName"
-                      class="min-w-0 flex-1 rounded-lg border border-blue-400 bg-white px-2.5 py-1.5 text-sm text-slate-800 outline-none ring-2 ring-blue-100 dark:bg-slate-800 dark:text-white dark:ring-blue-900"
-                      type="text" placeholder="Listnamn" autofocus @keydown.escape="cancelAddingList" />
-                    <button
-                      class="grid size-8 place-items-center rounded text-[#2564cf] transition hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-slate-800"
-                      type="submit" aria-label="Lägg till lista" title="Lägg till lista">
-                      <Check :size="16" :stroke-width="2" aria-hidden="true" />
-                    </button>
-                    <button
-                      class="grid size-8 place-items-center rounded text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-300"
-                      type="button" aria-label="Avbryt" title="Avbryt" @click="cancelAddingList">
-                      <X :size="16" :stroke-width="2" aria-hidden="true" />
-                    </button>
-                  </form>
-                </div>
-                <button v-else
-                  class="flex h-8 w-full items-center gap-2 px-5 text-sm text-[#2564cf] transition hover:bg-blue-50/60 dark:text-blue-400 dark:hover:bg-slate-800/60"
-                  type="button" :data-folder-add-list="section.folder.id" @click="startAddingList(section.folder.id)">
-                  <span>Ny lista</span>
-                  <Plus :size="15" aria-hidden="true" />
+            <div v-if="addingListFolderId === section.folder.id" class="px-2 py-1.5">
+              <form class="flex gap-1.5" @submit.prevent="submitNewList(section.folder.id)">
+                <label class="sr-only" :for="`new-list-name-${section.folder.id}`">Nytt listnamn</label>
+                <input
+                  :id="`new-list-name-${section.folder.id}`"
+                  v-model="newListName"
+                  class="min-w-0 flex-1 rounded-lg border border-blue-400 bg-white px-2.5 py-1.5 text-xs text-slate-800 outline-none ring-2 ring-blue-100 dark:bg-slate-800 dark:text-white dark:ring-blue-900"
+                  type="text"
+                  placeholder="Listnamn"
+                  autofocus
+                  @keydown.escape="cancelAddingList"
+                />
+                <button class="grid size-8 place-items-center rounded text-[#2564cf] transition hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-slate-800" type="submit" aria-label="Lägg till lista" title="Lägg till lista">
+                  <Check :size="16" :stroke-width="2" aria-hidden="true" />
                 </button>
-              </div>
-            </Transition>
-          </section>
-
-          <section class="mb-3">
-            <div class="relative flex min-h-9 items-center px-2.5">
-              <button
-                class="flex min-w-0 flex-1 items-center text-left text-sm font-semibold text-slate-800 dark:text-slate-100"
-                type="button" :aria-expanded="!collapsedFolders[ungroupedSectionId]"
-                @click="toggleFolder(ungroupedSectionId)">
-                <span class="flex-1 truncate">Utan mapp</span>
-                <ChevronDown :size="18" :stroke-width="1.75"
-                  class="text-slate-500 transition-transform duration-200 ease-out"
-                  :class="{ '-rotate-90': collapsedFolders[ungroupedSectionId] }" aria-hidden="true" />
-              </button>
-            </div>
-            <Transition name="sidebar-expand">
-              <div v-if="!collapsedFolders[ungroupedSectionId]"
-                class="ml-3 border-l-2 border-slate-300 dark:border-slate-600">
-                <div v-for="list in otherUngroupedLists" :key="list.id" class="group/list relative">
-                  <button
-                    class="group flex h-9 w-full items-center gap-3 border-l-2 border-transparent px-5 pr-12 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-                    :class="{ 'border-[#2564cf] bg-[#eef5fc] font-semibold text-slate-900 dark:border-blue-400 dark:bg-slate-800 dark:text-white': activeListId === list.id }"
-                    type="button" @click="emit('select-list', list.id)">
-                    <ListTodo :size="18" :stroke-width="1.8" class="shrink-0 text-slate-700 dark:text-slate-300"
-                      aria-hidden="true" />
-                    <span class="flex-1 truncate">{{ list.name }}</span>
-                    <span v-if="listTaskCounts[list.id]"
-                      class="min-w-5 text-right text-sm text-slate-600 dark:text-slate-300">{{ listTaskCounts[list.id]
-                      }}</span>
-                  </button>
-                  <button v-if="list.id !== DEFAULT_LIST_ID"
-                    class="absolute right-1 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded text-slate-500 opacity-100 transition hover:bg-slate-200 sm:opacity-0 sm:focus:opacity-100 sm:group-hover/list:opacity-100 dark:hover:bg-slate-700"
-                    type="button" :aria-label="`Flytta ${list.name}`" :aria-expanded="openMoveMenuListId === list.id"
-                    data-sidebar-list-menu-trigger @click.stop="toggleMoveMenu(list.id)">
-                    <MoreVertical :size="19" :stroke-width="1.8" aria-hidden="true" />
-                  </button>
-                  <Transition name="sidebar-pop">
-                    <div v-if="openMoveMenuListId === list.id"
-                      class="absolute right-1 top-10 z-50 max-h-[70vh] w-56 overflow-y-auto rounded border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-800"
-                      role="menu" :aria-label="`Hantera lista ${list.name}`" data-sidebar-list-menu>
-                      <p
-                        class="px-3 py-2 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        Hantera lista</p>
-                      <button
-                        class="flex min-h-10 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
-                        type="button" role="menuitem" @click="moveList(list.id, null)">
-                        Utan mapp
-                      </button>
-                      <button v-for="folderOption in folders" :key="folderOption.folder.id"
-                        class="flex min-h-10 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
-                        type="button" role="menuitem" @click="moveList(list.id, folderOption.folder.id)">
-                        {{ folderOption.folder.name }}
-                      </button>
-                      <div class="mt-2 border-t border-slate-200 pt-2 dark:border-slate-700">
-                        <button
-                          class="flex min-h-10 w-full items-center rounded px-3 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
-                          type="button" role="menuitem" :aria-label="`Ta bort ${list.name}`"
-                          @click="emit('delete-list', list.id); openMoveMenuListId = null">
-                          Ta bort lista
-                        </button>
-                      </div>
-                    </div>
-                  </Transition>
-                </div>
-                <div v-if="addingListFolderId === null" class="px-2 py-1.5">
-                  <form class="flex gap-1.5" @submit.prevent="submitNewList(null)">
-                    <label class="sr-only" for="new-list-name-ungrouped">Nytt listnamn</label>
-                    <input id="new-list-name-ungrouped" v-model="newListName"
-                      class="min-w-0 flex-1 rounded-lg border border-blue-400 bg-white px-2.5 py-1.5 text-sm text-slate-800 outline-none ring-2 ring-blue-100 dark:bg-slate-800 dark:text-white dark:ring-blue-900"
-                      type="text" placeholder="Listnamn" autofocus @keydown.escape="cancelAddingList" />
-                    <button
-                      class="grid size-8 place-items-center rounded text-[#2564cf] transition hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-slate-800"
-                      type="submit" aria-label="Lägg till lista" title="Lägg till lista">
-                      <Check :size="16" :stroke-width="2" aria-hidden="true" />
-                    </button>
-                    <button
-                      class="grid size-8 place-items-center rounded text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-300"
-                      type="button" aria-label="Avbryt" title="Avbryt" @click="cancelAddingList">
-                      <X :size="16" :stroke-width="2" aria-hidden="true" />
-                    </button>
-                  </form>
-                </div>
-                <button v-else
-                  class="flex h-8 w-full items-center gap-2 px-5 text-sm text-[#2564cf] transition hover:bg-blue-50/60 dark:text-blue-400 dark:hover:bg-slate-800/60"
-                  type="button" data-ungrouped-add-list @click="startAddingList(null)">
-                  <span>Ny lista</span>
-                  <Plus :size="15" aria-hidden="true" />
+                <button class="grid size-8 place-items-center rounded text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-300" type="button" aria-label="Avbryt" title="Avbryt" @click="cancelAddingList">
+                  <X :size="16" :stroke-width="2" aria-hidden="true" />
                 </button>
-              </div>
-            </Transition>
-          </section>
-        </div>
-
-        <div class="border-t border-slate-200 pt-2 dark:border-slate-700">
-          <Transition name="sidebar-expand" mode="out-in">
-            <template v-if="isAddingFolder">
-              <form class="flex gap-1.5 px-2" @submit.prevent="submitNewFolder">
-                <label class="sr-only" for="new-folder-name">Nytt mappnamn</label>
-                <input id="new-folder-name" v-model="newFolderName"
-                  class="min-w-0 flex-1 rounded-lg border border-blue-400 bg-white px-2.5 py-1.5 text-sm text-slate-800 outline-none ring-2 ring-blue-100 dark:bg-slate-800 dark:text-white dark:ring-blue-900"
-                  type="text" placeholder="Mappnamn" autofocus @keydown.escape="isAddingFolder = false" />
-                <button class="text-sm font-medium text-[#2564cf] dark:text-blue-400" type="submit">Lägg till</button>
-                <button
-                  class="text-sm text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
-                  type="button" @click="isAddingFolder = false">Avbryt</button>
               </form>
-            </template>
-            <template v-else>
-              <button
-                class="flex h-9 w-full items-center gap-3 rounded-lg px-3 text-sm text-[#2564cf] transition hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-slate-800"
-                type="button" @click="isAddingFolder = true">
-                <Plus :size="20" :stroke-width="1.8" aria-hidden="true" />
-                <span class="flex-1 text-left">Ny mapp</span>
-                <FolderPlus :size="18" :stroke-width="1.8" aria-hidden="true" />
-              </button>
-            </template>
+            </div>
+            <button
+              v-else
+              class="flex h-10 w-full items-center gap-2 px-7 text-sm font-medium text-[#2564cf] transition hover:bg-blue-50/60 dark:text-blue-400 dark:hover:bg-slate-800/60"
+              type="button"
+              :data-folder-add-list="section.folder.id"
+              @click="startAddingList(section.folder.id)"
+            >
+              <Plus :size="16" :stroke-width="2" aria-hidden="true" />
+              <span>Ny lista +</span>
+            </button>
+            </div>
           </Transition>
-          <hr class="my-2 border-slate-200 dark:border-slate-700" />
-          <div class="flex min-w-0 items-center justify-between gap-2 px-3">
-            <p class="min-w-0 truncate pb-0.5 text-[10px] text-slate-400 dark:text-slate-500">
-              Uppdaterat: {{ formattedBuildTime }} - v{{ appVersion }}
-            </p>
-            <RouterLink
-              class="grid size-7 shrink-0 place-items-center rounded text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2564cf] dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-              to="/settings" aria-label="Öppna inställningar" title="Inställningar" @click="emit('close')">
-              <Settings :size="15" :stroke-width="1.8" aria-hidden="true" />
-            </RouterLink>
+        </section>
+
+        <section class="mb-3">
+          <div class="relative flex min-h-9 items-center px-2.5">
+            <button
+              class="flex min-w-0 flex-1 items-center text-left text-sm font-semibold text-slate-800 dark:text-slate-100"
+              type="button"
+              :aria-expanded="!collapsedFolders[ungroupedSectionId]"
+              @click="toggleFolder(ungroupedSectionId)"
+            >
+              <span class="flex-1 truncate">Utan mapp</span>
+              <ChevronDown
+                :size="18"
+                :stroke-width="1.75"
+                class="text-slate-500 transition-transform duration-200 ease-out"
+                :class="{ '-rotate-90': collapsedFolders[ungroupedSectionId] }"
+                aria-hidden="true"
+              />
+            </button>
           </div>
+          <Transition name="sidebar-expand">
+            <div v-if="!collapsedFolders[ungroupedSectionId]" class="ml-3 border-l-2 border-slate-300 dark:border-slate-600">
+            <div
+              v-for="list in otherUngroupedLists"
+              :key="list.id"
+              class="group/list relative"
+            >
+              <button
+                class="group flex h-9 w-full items-center gap-3 border-l-2 border-transparent px-5 pr-12 text-left text-xs text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                :class="{ 'border-[#2564cf] bg-[#eef5fc] font-semibold text-slate-900 dark:border-blue-400 dark:bg-slate-800 dark:text-white': activeListId === list.id }"
+                type="button"
+                @click="emit('select-list', list.id)"
+              >
+                <ListTodo :size="18" :stroke-width="1.8" class="shrink-0 text-slate-700 dark:text-slate-300" aria-hidden="true" />
+                <span class="flex-1 truncate">{{ list.name }}</span>
+                <span v-if="listTaskCounts[list.id]" class="min-w-5 text-right text-xs text-slate-600 dark:text-slate-300">{{ listTaskCounts[list.id] }}</span>
+              </button>
+              <button
+                v-if="list.id !== DEFAULT_LIST_ID"
+                class="absolute right-1 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded text-lg tracking-widest text-slate-500 opacity-100 transition hover:bg-slate-200 sm:opacity-0 sm:focus:opacity-100 sm:group-hover/list:opacity-100 dark:hover:bg-slate-700"
+                type="button"
+                :aria-label="`Flytta ${list.name}`"
+                :aria-expanded="openMoveMenuListId === list.id"
+                @click.stop="toggleMoveMenu(list.id)"
+                >
+                <MoreVertical :size="19" :stroke-width="1.8" aria-hidden="true" />
+              </button>
+              <Transition name="sidebar-pop">
+                <div
+                  v-if="openMoveMenuListId === list.id"
+                  class="absolute right-1 top-10 z-50 max-h-[70vh] w-56 overflow-y-auto rounded border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-800"
+                  role="menu"
+                  :aria-label="`Flytta ${list.name} till mapp`"
+                >
+                <p class="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Flytta till</p>
+                <button
+                  class="flex min-h-10 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
+                  type="button"
+                  role="menuitem"
+                  @click="moveList(list.id, null)"
+                >
+                  Utan mapp
+                </button>
+                <button
+                  v-for="folderOption in folders"
+                  :key="folderOption.folder.id"
+                  class="flex min-h-10 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
+                  type="button"
+                  role="menuitem"
+                  @click="moveList(list.id, folderOption.folder.id)"
+                >
+                  {{ folderOption.folder.name }}
+                </button>
+                <div class="mt-2 border-t border-slate-200 pt-2 dark:border-slate-700">
+                </div>
+                </div>
+              </Transition>
+            </div>
+            <div v-if="addingListFolderId === null" class="px-2 py-1.5">
+              <form class="flex gap-1.5" @submit.prevent="submitNewList(null)">
+                <label class="sr-only" for="new-list-name-ungrouped">Nytt listnamn</label>
+                <input
+                  id="new-list-name-ungrouped"
+                  v-model="newListName"
+                  class="min-w-0 flex-1 rounded-lg border border-blue-400 bg-white px-2.5 py-1.5 text-xs text-slate-800 outline-none ring-2 ring-blue-100 dark:bg-slate-800 dark:text-white dark:ring-blue-900"
+                  type="text"
+                  placeholder="Listnamn"
+                  autofocus
+                  @keydown.escape="cancelAddingList"
+                />
+                <button class="grid size-8 place-items-center rounded text-[#2564cf] transition hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-slate-800" type="submit" aria-label="Lägg till lista" title="Lägg till lista">
+                  <Check :size="16" :stroke-width="2" aria-hidden="true" />
+                </button>
+                <button class="grid size-8 place-items-center rounded text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-300" type="button" aria-label="Avbryt" title="Avbryt" @click="cancelAddingList">
+                  <X :size="16" :stroke-width="2" aria-hidden="true" />
+                </button>
+              </form>
+            </div>
+            <button
+              v-else
+              class="flex h-10 w-full items-center gap-2 px-7 text-sm font-medium text-[#2564cf] transition hover:bg-blue-50/60 dark:text-blue-400 dark:hover:bg-slate-800/60"
+              type="button"
+              data-ungrouped-add-list
+              @click="startAddingList(null)"
+            >
+              <Plus :size="16" :stroke-width="2" aria-hidden="true" />
+              <span>Ny lista +</span>
+            </button>
+            </div>
+          </Transition>
+        </section>
+      </div>
+
+      <div class="border-t border-slate-200 pt-2 dark:border-slate-700">
+        <Transition name="sidebar-expand" mode="out-in">
+          <template v-if="isAddingFolder">
+            <form class="flex gap-1.5 px-2" @submit.prevent="submitNewFolder">
+              <label class="sr-only" for="new-folder-name">Nytt mappnamn</label>
+              <input
+                id="new-folder-name"
+                v-model="newFolderName"
+                class="min-w-0 flex-1 rounded-lg border border-blue-400 bg-white px-2.5 py-1.5 text-sm text-slate-800 outline-none ring-2 ring-blue-100 dark:bg-slate-800 dark:text-white dark:ring-blue-900"
+                type="text"
+                placeholder="Mappnamn"
+                autofocus
+                @keydown.escape="isAddingFolder = false"
+              />
+              <button class="text-sm font-medium text-[#2564cf] dark:text-blue-400" type="submit">Lägg till</button>
+              <button class="text-sm text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300" type="button" @click="isAddingFolder = false">Avbryt</button>
+            </form>
+          </template>
+          <template v-else>
+            <button class="flex h-9 w-full items-center gap-3 rounded-lg px-3 text-sm text-[#2564cf] transition hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-slate-800" type="button" @click="isAddingFolder = true">
+              <Plus :size="20" :stroke-width="1.8" aria-hidden="true" />
+              <span class="flex-1 text-left">Ny mapp</span>
+              <FolderPlus :size="18" :stroke-width="1.8" aria-hidden="true" />
+            </button>
+          </template>
+        </Transition>
+        <hr class="my-2 border-slate-200 dark:border-slate-700" />
+        <div class="flex min-w-0 items-center justify-between gap-2 px-3">
+          <p class="min-w-0 truncate pb-0.5 text-[10px] text-slate-400 dark:text-slate-500">
+            Uppdaterat: {{ formattedBuildTime }} - v{{ appVersion }}
+          </p>
+          <RouterLink
+            class="grid size-7 shrink-0 place-items-center rounded text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2564cf] dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+            to="/settings"
+            aria-label="Öppna inställningar"
+            title="Inställningar"
+            @click="emit('close')"
+          >
+            <Settings :size="15" :stroke-width="1.8" aria-hidden="true" />
+          </RouterLink>
         </div>
       </div>
+    </div>
     </aside>
   </Transition>
 </template>

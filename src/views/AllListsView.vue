@@ -234,8 +234,8 @@ onUnmounted(() => desktopMediaQuery?.removeEventListener('change', syncDesktopVi
       </p>
       <div class="min-h-0 flex-1 overflow-x-auto overflow-y-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#2564cf]" role="region" aria-label="Listöversikt" tabindex="0">
       <div class="flex h-full w-max items-stretch gap-6 p-5">
-        <section v-for="group in desktopGroups" :key="group.id" class="flex h-full shrink-0 flex-col border-r border-slate-300 pr-6 last:border-r-0 dark:border-slate-700" role="group" :aria-labelledby="`overview-group-${group.id}`">
-          <h2 :id="`overview-group-${group.id}`" class="mb-3 flex min-h-8 items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+        <section v-for="group in desktopGroups" :key="group.id" class="flex h-full shrink-0 flex-col rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900" role="group" :aria-labelledby="`overview-group-${group.id}`">
+          <h2 :id="`overview-group-${group.id}`" class="mb-3 flex min-h-8 items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
             <FolderOpen :size="16" aria-hidden="true" />{{ group.name }}
           </h2>
           <div v-if="group.lists.length" class="flex min-h-0 flex-1 items-stretch gap-4">

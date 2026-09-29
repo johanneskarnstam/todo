@@ -25,6 +25,15 @@ import { getTaskStatus, isTaskCompleted, isTaskStatusAllowed, taskStatusToComple
 interface NewTaskInput {
   listId: string
   title: string
+  completed?: boolean
+  status?: TaskStatus
+  important?: boolean
+  myDay?: boolean
+  dueDate?: string
+  dueTimeZone?: string
+  reminder?: TaskReminder | null
+  note?: string
+  tags?: string[]
 }
 
 interface NewStepInput {
@@ -278,17 +287,23 @@ export const useTaskStore = defineStore('tasks', () => {
     const title = input.title.trim()
     if (!title) return
 
+    const status = input.status ?? (input.completed ? 'completed' : 'todo')
     const optimisticId = `optimistic-${crypto.randomUUID()}`
     const optimisticTask: Task = {
       id: optimisticId,
       listId: input.listId,
       title,
-      completed: false,
-      status: 'todo',
-      important: false,
-      myDay: false,
+      completed: input.completed ?? status === 'completed',
+      status,
+      important: input.important ?? false,
+      myDay: input.myDay ?? false,
       createdAt: Timestamp.now(),
       order: tasks.value.filter((task) => task.listId === input.listId).length,
+      ...(input.dueDate ? { dueDate: input.dueDate } : {}),
+      ...(input.dueTimeZone ? { dueTimeZone: input.dueTimeZone } : {}),
+      ...(input.reminder !== undefined ? { reminder: input.reminder } : {}),
+      ...(input.note !== undefined ? { note: input.note } : {}),
+      ...(input.tags ? { tags: input.tags } : {}),
     }
 
     tasks.value = sortTasks([...tasks.value, optimisticTask])
@@ -309,6 +324,11 @@ export const useTaskStore = defineStore('tasks', () => {
         myDay: optimisticTask.myDay,
         order: optimisticTask.order,
         createdAt: serverTimestamp(),
+        ...(optimisticTask.dueDate ? { dueDate: optimisticTask.dueDate } : {}),
+        ...(optimisticTask.dueTimeZone ? { dueTimeZone: optimisticTask.dueTimeZone } : {}),
+        ...(optimisticTask.reminder !== undefined ? { reminder: optimisticTask.reminder } : {}),
+        ...(optimisticTask.note !== undefined ? { note: optimisticTask.note } : {}),
+        ...(optimisticTask.tags ? { tags: optimisticTask.tags } : {}),
       }))
       tasks.value = tasks.value.map((task) =>
         task.id === optimisticId ? { ...optimisticTask, id: taskReference.id } : task,
