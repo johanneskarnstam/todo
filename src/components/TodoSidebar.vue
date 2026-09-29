@@ -243,7 +243,7 @@ onUnmounted(() => {
 
         <nav class="space-y-1" aria-label="Smarta vyer">
           <RouterLink
-            class="flex h-9 w-full items-center gap-3 rounded-lg px-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+            class="flex h-9 w-full items-center gap-3 rounded-lg px-2.5 text-left text-base text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
             active-class="bg-[#eef5fc] text-slate-900 dark:bg-slate-800 dark:text-white" to="/all-lists"
             @click="emit('close')">
             <FolderOpen :size="19" :stroke-width="1.8" class="shrink-0 text-slate-600 dark:text-slate-300"
@@ -567,16 +567,17 @@ onUnmounted(() => {
               </button>
             </template>
           </Transition>
-          <RouterLink
-            class="mt-1 flex h-8 w-full items-center gap-3 rounded px-3 text-sm text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-            to="/settings" @click="emit('close')">
-            <Settings :size="17" :stroke-width="1.8" aria-hidden="true" />
-            <span>Inställningar</span>
-          </RouterLink>
           <hr class="my-2 border-slate-200 dark:border-slate-700" />
-          <p class="px-3 pb-0.5 text-[10px] text-slate-400 dark:text-slate-500">
-            Senast uppdaterat: {{ formattedBuildTime }} - v{{ appVersion }}
-          </p>
+          <div class="flex min-w-0 items-center justify-between gap-2 px-3">
+            <p class="min-w-0 truncate pb-0.5 text-[10px] text-slate-400 dark:text-slate-500">
+              Uppdaterat: {{ formattedBuildTime }} - v{{ appVersion }}
+            </p>
+            <RouterLink
+              class="grid size-7 shrink-0 place-items-center rounded text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2564cf] dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+              to="/settings" aria-label="Öppna inställningar" title="Inställningar" @click="emit('close')">
+              <Settings :size="15" :stroke-width="1.8" aria-hidden="true" />
+            </RouterLink>
+          </div>
         </div>
       </div>
     </aside>

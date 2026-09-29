@@ -4,21 +4,7 @@ Det här är en prioriterad lista över funktioner som kan göra appen mer anvä
 
 ## Prioritet 1: Högst nytta
 
-### 1. Påminnelser och aviseringar
-
-**Status:** Implementerad
-
-**Nytta:** Mycket hög
-
-Låt användaren ange datum och klockslag för en påminnelse och skicka en webbläsar- eller PWA-avisering när det är dags. Påminnelser är ett av de viktigaste komplementen till förfallodatum eftersom de gör att appen aktivt hjälper användaren att komma ihåg uppgifter.
-
-**Förslag på omfattning:**
-- Lägg till tid utöver dagens nuvarande förfallodatum.
-- Stöd för påminnelse före förfallodatum, till exempel 10 minuter, 1 timme eller 1 dag.
-- Visa tydligt om en uppgift har en aktiv påminnelse.
-- Hantera nekad aviseringstillgång och offline-läge utan att förlora inställningen.
-
-### 2. Återkommande uppgifter
+### 1. Återkommande uppgifter
 
 **Nytta:** Mycket hög
 
@@ -30,73 +16,36 @@ Stöd för uppgifter som återkommer dagligen, veckovis, månadsvis eller enligt
 - Skapa nästa förekomst automatiskt när uppgiften markeras som klar.
 - Behåll historik så att tidigare förekomster inte skrivs över.
 
-### 3. Sökning och filtrering
+### 2. Sökning och filtrering
 
 **Nytta:** Mycket hög
 
-Lägg till global sökning efter titel, anteckning och delsteg. När antalet listor och uppgifter växer blir sökning snabbare än att öppna flera listor.
+Global sökning finns redan för uppgiftstitlar, anteckningar, taggar och listnamn. Komplettera den med delsteg och filter så att det blir lättare att hitta rätt när antalet listor och uppgifter växer.
 
 **Förslag på omfattning:**
-- Sök med kortkommando och från appens toppfält.
+- Sök även i delsteg och lägg till en tangentbordsgenväg.
 - Filtrera på lista, mapp, status, viktighet, Min dag och förfallodatum.
-- Visa resultat grupperade per lista.
-- Ge möjlighet att rensa filter med ett klick.
-
-### 4. Bättre datumhantering och kalenderöversikt
-
-**Status:** Implementerad
-
-**Nytta:** Hög
-
-Gör det enklare att välja datum och förstå vad som behöver göras över tid. Den befintliga vyn Planerat är en bra grund för detta.
-
-**Förslag på omfattning:**
-- Snabbval för idag, imorgon, nästa vecka och inget datum.
-- Kalenderläge med dag-, vecko- eller månadsöversikt.
-- Markera försenade uppgifter tydligare.
-- Stöd för att flytta ett förfallodatum direkt från kalendern.
-
-### 5. Ångra och återställning
-
-**Status:** Implementerad för uppgifter, delsteg och listor
-
-**Nytta:** Hög
-
-Visa en ångra-åtgärd efter att användaren har tagit bort eller ändrat en uppgift, ett delsteg eller en lista. Optimistisk UI gör appen snabb, men ökar värdet av en tydlig återställningsmöjlighet.
-
-**Förslag på omfattning:**
-- Ångra senaste borttagningen via toast-meddelande.
-- Papperskorg med möjlighet att återställa eller radera permanent.
-- Behåll ändringar lokalt tills synkronisering är bekräftad.
+- Gruppera uppgifter per lista i sökresultaten.
+- Ge möjlighet att rensa sökning och filter med ett klick.
 
 ## Prioritet 2: Stor vardagsnytta
 
-### 6. Dra-och-släpp mellan listor
+### 3. Dra-och-släpp mellan listor
 
 **Nytta:** Hög
 
 Utöka den befintliga sorteringen så att en uppgift kan flyttas från en lista till en annan utan att öppna detaljpanelen. Det gör omorganisering snabbare, särskilt vid planering.
 
-### 7. Taggar eller etiketter
-
-**Status:** Implementerad
-
-**Nytta:** Hög
-
-Låt användaren märka uppgifter med etiketter som `jobb`, `hem`, `ärenden` eller `personligt`. Taggar kompletterar mappar eftersom samma uppgift kan tillhöra flera sammanhang.
-
 **Förslag på omfattning:**
-- Skapa, byt namn på och ta bort taggar.
-- Filtrera och sök på en eller flera taggar.
-- Visa taggar diskret i uppgiftsraden.
+- Dra en uppgift mellan listkolumner i vyn Alla listor för att flytta den till en annan lista.
 
-### 8. Prioritetsnivåer utöver Viktig
+### 4. Prioritetsnivåer utöver Viktig
 
 **Nytta:** Hög
 
 Ersätt eller komplettera den binära markeringen Viktig med exempelvis låg, normal, hög och brådskande. Det ger bättre stöd när många uppgifter konkurrerar om uppmärksamheten.
 
-### 9. Produktivitetsstatistik
+### 5. Produktivitetsstatistik
 
 **Nytta:** Medelhög
 
@@ -108,7 +57,7 @@ Visa enkel statistik över slutförda uppgifter, försenade uppgifter och vanor 
 - Enkel översikt per lista.
 - Filtrering på tidsperiod.
 
-### 10. Snabbtillägg via naturligt språk
+### 6. Snabbtillägg via naturligt språk
 
 **Nytta:** Medelhög
 
@@ -121,7 +70,7 @@ Tillåt att en uppgift skapas med text som `Ring banken imorgon kl 10 #ekonomi`.
 
 ## Prioritet 3: Samarbete och flexibilitet
 
-### 11. Delade listor och samarbete
+### 7. Delade listor och samarbete
 
 **Nytta:** Medelhög till hög
 
@@ -133,13 +82,13 @@ Låt användaren dela en lista med andra Firebase-användare och tilldela uppgif
 - Synkronisering av ändringar mellan användare.
 - Tydlig ägare och möjlighet att sluta dela.
 
-### 12. Kommentarer och aktivitetslogg
+### 8. Kommentarer och aktivitetslogg
 
 **Nytta:** Medelhög
 
 För delade listor kan användare kommentera uppgifter och se vem som ändrade vad. En aktivitetslogg kan även hjälpa vid felsökning av oavsiktliga ändringar.
 
-### 13. Import och export
+### 9. Import och export
 
 **Nytta:** Medelhög
 
@@ -151,13 +100,13 @@ Gör det möjligt att exportera uppgifter som JSON eller CSV och importera dem i
 - Visa en sammanfattning innan importen genomförs.
 - Hantera dubbletter på ett förutsägbart sätt.
 
-### 14. Anpassade kortkommandon
+### 10. Anpassade kortkommandon
 
 **Nytta:** Medelhög
 
 Lägg till kortkommandon för att skapa en uppgift, söka, byta vy, markera som klar och flytta mellan listor. Det passar särskilt bra för användare som arbetar mycket vid tangentbord.
 
-### 15. Anpassade teman och fler listikoner
+### 11. Anpassade teman och fler listikoner
 
 **Nytta:** Medel
 
@@ -165,13 +114,13 @@ Utöka de befintliga färgtemana med fler ikoner och möjlighet att välja accen
 
 ## Prioritet 4: Kvalitet och långsiktig robusthet
 
-### 16. Synkroniseringsstatus och konflikthantering
+### 12. Synkroniseringsstatus och konflikthantering
 
 **Nytta:** Hög för förtroende, medelhög för daglig användning
 
 Visa om ändringar är lokala, synkroniserade eller väntar på nätverk. Vid ändringar från flera enheter bör användaren få en begriplig hantering av konflikter i stället för att en version tyst skrivs över.
 
-### 17. Tillgänglighetsförbättringar
+### 13. Tillgänglighetsförbättringar
 
 **Nytta:** Hög
 
@@ -183,13 +132,13 @@ Gör hela appen användbar med tangentbord och skärmläsare och säkerställ ti
 - Fullt tangentbordsstöd för drag-and-drop-alternativ.
 - Respekt för inställningen för minskad rörelse.
 
-### 18. Prestanda för stora datamängder
+### 14. Prestanda för stora datamängder
 
 **Nytta:** Medelhög nu, hög när appen växer
 
 Optimera läsning och rendering när användaren har många uppgifter och delsteg. Möjliga åtgärder är paginering, inkrementell laddning och att undvika separata läsningar för varje delsteg när det går.
 
-### 19. Utökade tester för kritiska användarflöden
+### 15. Utökade tester för kritiska användarflöden
 
 **Nytta:** Hög för fortsatt utveckling
 
@@ -197,15 +146,11 @@ Bygg ut testerna kring offline-läge, optimistiska ändringar, återställning e
 
 ## Rekommenderad genomförandeordning
 
-1. Påminnelser och aviseringar
-2. Återkommande uppgifter
-3. Sökning och filtrering
-4. Bättre datumhantering och kalenderöversikt
-5. Ångra och återställning
-6. Dra-och-släpp mellan listor
-7. Taggar eller etiketter
-8. Delade listor och samarbete
-9. Import och export
-10. Synkroniseringsstatus, tillgänglighet och utökade tester
+1. Återkommande uppgifter
+2. Sökning och filtrering
+3. Dra-och-släpp mellan listor
+4. Delade listor och samarbete
+5. Import och export
+6. Synkroniseringsstatus, tillgänglighet och utökade tester
 
 Den ordningen ger först funktioner som förbättrar den dagliga användningen för en enskild användare. Därefter kan samarbete och mer avancerad organisering byggas ovanpå en stabilare uppgiftsmodell.
