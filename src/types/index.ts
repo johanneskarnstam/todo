@@ -34,6 +34,7 @@ export interface Task {
   important: boolean
   myDay: boolean
   dueDate?: string | Timestamp
+  dueTimeZone?: string
   reminder?: TaskReminder | null
   note?: string
   tags?: string[]

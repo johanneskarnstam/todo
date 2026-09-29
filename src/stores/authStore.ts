@@ -4,6 +4,7 @@ import { auth } from '@/firebase'
 import { isMockAuthEnabled, isUnauthenticatedTestMode, MOCK_USER_ID } from '@/devMode'
 import { useListStore } from '@/stores/listStore'
 import { useTaskStore } from '@/stores/taskStore'
+import { usePushNotifications } from '@/composables/usePushNotifications'
 import {
   GoogleAuthProvider,
   createUserWithEmailAndPassword,
@@ -74,7 +75,10 @@ export const useAuthStore = defineStore('auth', () => {
 
   const logout = async () => {
     clearUserData()
-    if (!isMockAuthEnabled) await signOut(auth)
+    if (!isMockAuthEnabled) {
+      await usePushNotifications().disablePush()
+      await signOut(auth)
+    }
   }
 
   const updateDisplayName = async (displayName: string) => {

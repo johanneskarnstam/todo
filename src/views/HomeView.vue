@@ -42,6 +42,7 @@ interface PlannedGroup {
 
 const routeSmartView = computed(() => route.meta.smartView as SmartView | undefined)
 const routeTag = computed(() => typeof route.params.tag === 'string' ? route.params.tag : undefined)
+const notificationTaskId = computed(() => typeof route.query.task === 'string' ? route.query.task : null)
 const isPlannedView = computed(() => routeSmartView.value === 'planned')
 
 const currentTitle = computed(() => {
@@ -407,15 +408,22 @@ const handleGlobalKeydown = (event: KeyboardEvent) => {
 
 onMounted(async () => {
   window.addEventListener('keydown', handleGlobalKeydown)
-  if (routeTag.value) {
-    taskStore.setTagView(routeTag.value)
-  } else if (routeSmartView.value) {
-    taskStore.setSmartView(routeSmartView.value)
-  } else {
-    taskStore.setListView(listStore.selectedListId ?? DEFAULT_LIST_ID)
+  if (!notificationTaskId.value) {
+    if (routeTag.value) {
+      taskStore.setTagView(routeTag.value)
+    } else if (routeSmartView.value) {
+      taskStore.setSmartView(routeSmartView.value)
+    } else {
+      taskStore.setListView(listStore.selectedListId ?? DEFAULT_LIST_ID)
+    }
   }
   await listStore.fetchLists()
-  if (routeTag.value) {
+  if (notificationTaskId.value) {
+    await taskStore.fetchTasks()
+    const task = taskStore.tasks.find((candidate) => candidate.id === notificationTaskId.value)
+    taskStore.setListView(task?.listId ?? listStore.selectedListId ?? DEFAULT_LIST_ID)
+    if (task) taskStore.setActiveTask(task.id)
+  } else if (routeTag.value) {
     taskStore.setTagView(routeTag.value)
   } else if (routeSmartView.value) {
     taskStore.setSmartView(routeSmartView.value)

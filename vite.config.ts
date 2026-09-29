@@ -14,7 +14,14 @@ export default defineConfig({
     vue(),
     vueDevTools(),
     VitePWA({
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
       registerType: 'autoUpdate',
+      devOptions: {
+        enabled: true,
+        type: 'module',
+      },
       includeAssets: [
         'img/icons/todo-icon.svg',
         'img/icons/favicon-32x32.png',
@@ -47,7 +54,7 @@ export default defineConfig({
           },
         ],
       },
-      workbox: {
+      injectManifest: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
       },
     }),

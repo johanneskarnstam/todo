@@ -1,0 +1,59 @@
+/// <reference lib="webworker" />
+
+import { initializeApp } from 'firebase/app'
+import { getMessaging, onBackgroundMessage } from 'firebase/messaging/sw'
+import { clientsClaim } from 'workbox-core'
+import { precacheAndRoute } from 'workbox-precaching'
+
+declare let self: ServiceWorkerGlobalScope & {
+  __WB_MANIFEST: Array<{ revision: string | null; url: string }>
+}
+
+precacheAndRoute(self.__WB_MANIFEST)
+self.skipWaiting()
+clientsClaim()
+
+const firebaseApp = initializeApp({
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+})
+
+const messaging = getMessaging(firebaseApp)
+
+onBackgroundMessage(messaging, (payload) => {
+  const title = payload.notification?.title ?? 'Todo'
+  const body = payload.notification?.body ?? 'Det är dags att se över uppgiften.'
+  const taskId = payload.data?.taskId
+
+  void self.registration.showNotification(title, {
+    body,
+    tag: taskId ? `todo-task-${taskId}` : 'todo-reminder',
+    data: { taskId },
+  })
+})
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const appUrl = new URL('/todo/#/', self.location.origin)
+  const taskId = event.notification.data?.taskId
+  if (taskId) appUrl.hash = `/?task=${encodeURIComponent(taskId)}`
+
+  event.waitUntil((async () => {
+    const openClients = await self.clients.matchAll({
+      type: 'window',
+      includeUncontrolled: true,
+    })
+    const existingClient = openClients[0]
+    if (existingClient) {
+      await existingClient.focus()
+      await existingClient.navigate(appUrl.href)
+      return
+    }
+
+    await self.clients.openWindow(appUrl.href)
+  })())
+})
