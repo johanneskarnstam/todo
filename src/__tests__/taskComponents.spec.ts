@@ -126,7 +126,7 @@ describe('TodoSidebar', () => {
     })
 
     await wrapper.get('button[aria-label="Flytta Arbete"]').trigger('click')
-    const folderOption = wrapper.findAll('[role="menu"][aria-label="Flytta Arbete till mapp"] [role="menuitem"]').find((button) => button.text() === 'Projekt')
+    const folderOption = wrapper.findAll('[role="menu"][aria-label="Hantera lista Arbete"] [role="menuitem"]').find((button) => button.text() === 'Projekt')
     await folderOption?.trigger('click')
 
     expect(wrapper.emitted('move-list')).toEqual([['list-1', 'folder-1']])

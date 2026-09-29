@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import WhatsNewModal from '@/components/WhatsNewModal.vue'
 import {
-  appVersion,
   getUnseenReleaseNotes,
   markReleaseNotesSeen,
   releaseNotes,
@@ -25,7 +24,7 @@ describe('release notes', () => {
   })
 
   it('does not show the same release again after it is marked as seen', () => {
-    markReleaseNotesSeen('user-1', appVersion)
+    markReleaseNotesSeen('user-1', release.version)
 
     expect(getUnseenReleaseNotes('user-1')).toEqual([])
   })
