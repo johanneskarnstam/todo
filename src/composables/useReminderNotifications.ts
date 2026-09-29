@@ -9,7 +9,7 @@ const reminderTime = (dueDate: Task['dueDate']): number | null => {
   if (!dueDate) return null
 
   const date = typeof dueDate === 'string'
-    ? new Date(`${dueDate}T09:00:00`)
+    ? new Date(/^\d{4}-\d{2}-\d{2}$/.test(dueDate) ? `${dueDate}T09:00:00` : dueDate)
     : dueDate.toDate()
 
   return Number.isNaN(date.getTime()) ? null : date.getTime()

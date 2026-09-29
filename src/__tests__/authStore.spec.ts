@@ -13,6 +13,7 @@ const authMocks = vi.hoisted(() => ({
   signInWithPopup: vi.fn(),
   signOut: vi.fn(),
 }))
+const pushMocks = vi.hoisted(() => ({ disablePush: vi.fn() }))
 
 vi.mock('@/firebase', () => ({
   auth: authMocks.auth,
@@ -28,11 +29,16 @@ vi.mock('firebase/auth', () => ({
   signOut: authMocks.signOut,
 }))
 
+vi.mock('@/composables/usePushNotifications', () => ({
+  usePushNotifications: () => ({ disablePush: pushMocks.disablePush }),
+}))
+
 describe('useAuthStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
     authMocks.auth.currentUser = null
+    pushMocks.disablePush.mockResolvedValue(undefined)
     authMocks.signInWithEmailAndPassword.mockResolvedValue({ user: { uid: 'user-1' } })
     authMocks.createUserWithEmailAndPassword.mockResolvedValue({ user: { uid: 'user-1' } })
     authMocks.signOut.mockResolvedValue(undefined)
@@ -133,6 +139,10 @@ describe('useAuthStore', () => {
 
     expect(listStore.lists).toEqual([])
     expect(taskStore.tasks).toEqual([])
+    expect(pushMocks.disablePush).toHaveBeenCalledOnce()
     expect(authMocks.signOut).toHaveBeenCalledWith(authMocks.auth)
+    expect(pushMocks.disablePush.mock.invocationCallOrder[0]).toBeLessThan(
+      authMocks.signOut.mock.invocationCallOrder[0],
+    )
   })
 })

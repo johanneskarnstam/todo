@@ -25,6 +25,15 @@ test('opens task details from a task row', async ({ page }) => {
   await expect(details.getByRole('heading', { name: 'Anteckningar' })).toBeVisible()
 })
 
+test('opens a task from a notification URL', async ({ page }) => {
+  await page.goto('/#/?task=local-task-2')
+  await page.getByRole('button', { name: 'Jag har sett detta' }).click()
+
+  const details = page.getByRole('dialog', { name: 'Uppgiftsdetaljer' })
+  await expect(details).toBeVisible()
+  await expect(details.getByLabel('Uppgiftens titel')).toHaveValue('Kontrollera mobilvyn')
+})
+
 test('reorders task steps with pointer drag and drop', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: 'Jag har sett detta' }).click()

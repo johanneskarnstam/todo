@@ -7,6 +7,7 @@ import { useListStore } from '@/stores/listStore'
 import { useTaskStore } from '@/stores/taskStore'
 import { useNetworkStatus } from '@/composables/useNetworkStatus'
 import { usePreferences } from '@/composables/usePreferences'
+import { usePushNotifications } from '@/composables/usePushNotifications'
 import { useReminderNotifications } from '@/composables/useReminderNotifications'
 import { useTheme } from '@/composables/useTheme'
 
@@ -16,6 +17,7 @@ const taskStore = useTaskStore()
 const router = useRouter()
 const { isOnline } = useNetworkStatus()
 const { preferences, resetPreferences } = usePreferences()
+const { enablePush, disablePush } = usePushNotifications()
 const { isDark } = useTheme()
 const { requestPermission } = useReminderNotifications()
 const displayName = ref(authStore.user?.displayName ?? '')
@@ -33,7 +35,16 @@ const saveDisplayName = async () => {
 
 const setNotifications = async (enabled: boolean) => {
   preferences.value.notifications = enabled
-  if (enabled) await requestPermission()
+  if (enabled) {
+    await requestPermission()
+    const registered = await enablePush()
+    if (!registered) {
+      preferences.value.notifications = false
+      statusMessage.value = 'Pushaviseringar kunde inte aktiveras på den här enheten.'
+    }
+  } else {
+    await disablePush()
+  }
 }
 
 const refreshData = async () => {

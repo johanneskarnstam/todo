@@ -322,7 +322,7 @@ export const useTaskStore = defineStore('tasks', () => {
 
   const updateTask = async (
     taskId: string,
-    updates: Partial<Pick<Task, 'completed' | 'status' | 'important' | 'myDay' | 'title' | 'dueDate' | 'note' | 'tags' | 'order'>> & { reminder?: TaskReminder | null },
+    updates: Partial<Pick<Task, 'completed' | 'status' | 'important' | 'myDay' | 'title' | 'dueDate' | 'dueTimeZone' | 'note' | 'tags' | 'order'>> & { reminder?: TaskReminder | null },
   ) => {
     const currentTask = tasks.value.find((task) => task.id === taskId)
     if (!currentTask) return
@@ -367,7 +367,7 @@ export const useTaskStore = defineStore('tasks', () => {
 
   const setDueDate = (taskId: string, dueDate: string) => {
     if (dueDate) {
-      void updateTask(taskId, { dueDate })
+      void updateTask(taskId, { dueDate, dueTimeZone: 'Europe/Stockholm' })
       return
     }
 
@@ -375,13 +375,20 @@ export const useTaskStore = defineStore('tasks', () => {
     if (!task) return
 
     const previousDueDate = task.dueDate
+    const previousDueTimeZone = task.dueTimeZone
     const previousReminder = task.reminder
     delete task.dueDate
+    delete task.dueTimeZone
     task.reminder = null
     error.value = null
 
-    void trackWrite(() => updateDoc(doc(userCollection(), taskId), { dueDate: deleteField(), reminder: null })).catch((clearError: unknown) => {
+    void trackWrite(() => updateDoc(doc(userCollection(), taskId), {
+      dueDate: deleteField(),
+      dueTimeZone: deleteField(),
+      reminder: null,
+    })).catch((clearError: unknown) => {
       if (previousDueDate) task.dueDate = previousDueDate
+      if (previousDueTimeZone) task.dueTimeZone = previousDueTimeZone
       task.reminder = previousReminder
       reportWriteError(clearError, 'Förfallodatumet kunde inte tas bort.')
     })

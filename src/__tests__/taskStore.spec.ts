@@ -367,8 +367,13 @@ describe('useTaskStore', () => {
     expect(store.activeTask).toMatchObject({
       myDay: true,
       dueDate: '2026-09-30',
+      dueTimeZone: 'Europe/Stockholm',
       note: 'Use the blue paint.',
       tags: ['jobb', 'hem'],
+    })
+    expect(firestoreMocks.updateDoc).toHaveBeenCalledWith(expect.anything(), {
+      dueDate: '2026-09-30',
+      dueTimeZone: 'Europe/Stockholm',
     })
     expect(firestoreMocks.updateDoc).toHaveBeenCalledWith(expect.anything(), { tags: ['jobb', 'hem'] })
 
