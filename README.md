@@ -20,7 +20,8 @@ En modern, responsiv och offline-first att-göra-app inspirerad av Microsoft To 
 - **Markera som slutförd**: Enkelt klicka för att markera uppgifter som klara
 - **Viktiga uppgifter**: Markera uppgifter som viktiga med stjärnikon
 - **Min dag (My Day)**: Lägg till uppgifter i "Min dag" för att fokusera på dagens prioriteringar
-- **Förfallodatum**: Ställ in förfallodatum för uppgifter
+- **Förfallodatum och tid**: Planera uppgifter med datum och valfri tid
+- **Påminnelser**: Välj notis vid förfallotid eller 10 minuter, 1 timme eller 1 dag före
 - **Anteckningar**: Lägg till detaljerade anteckningar till uppgifter
 - **Sortering**: Drag-and-drop-funktionalitet för att ordna om uppgifter och listor
 
@@ -38,6 +39,14 @@ En modern, responsiv och offline-first att-göra-app inspirerad av Microsoft To 
   - Imorgon
   - Senare
 
+### 🔔 Notiser
+- **Pushpåminnelser**: Få uppgiftsnotiser även när PWA:n inte är öppen, i webbläsare och på enheter som stöder Web Push
+- **Enhetsbaserat samtycke**: Aktivera eller stäng av notiser separat för varje installation under Inställningar
+- **Öppna uppgiften**: Tryck på en notis för att gå till den tillhörande uppgiften
+- **Tidszoner**: Datum utan klockslag tolkas som 09:00 i Europe/Stockholm
+
+Push kräver att användaren tillåter notiser och att enheten/webbläsaren kan ta emot Web Push. Leverans kan påverkas av nätverk, operativsystem och batteriinställningar.
+
 ### 🌐 Internationell support
 - **Flerspråkig**: Stöd för Svenska och Engelska
 - **Språkinställningar**: Välj språk i inställningar
@@ -52,6 +61,7 @@ En modern, responsiv och offline-first att-göra-app inspirerad av Microsoft To 
 ### ⚙️ Inställningar
 - **Profilhantering**: Visa användarinformation
 - **Språkinställningar**: Välj mellan Svenska och Engelska
+- **Notiser för påminnelser**: Hantera pushbehörighet och registrering för den aktuella enheten
 - **Utloggning**: Säker utloggning
 
 ### 🔧 Tekniska funktioner
@@ -77,6 +87,9 @@ En modern, responsiv och offline-first att-göra-app inspirerad av Microsoft To 
 - **Firebase v12.13.0**:
   - **Authentication**: Google-inloggning
   - **Firestore**: NoSQL-databas med offline-stöd
+- **Cloud Functions for Firebase**: Synkroniserar serverhanterade påminnelsejobb och levererar förfallna notiser
+- **Cloud Scheduler**: Söker efter förfallna jobb varje minut
+- **Firebase Cloud Messaging**: Web Push till registrerade enheter
 
 ### Routing, Testning & Övrigt
 - **Vue Router v5**: Klient-sida routing med navigation guards
@@ -205,6 +218,16 @@ npm run validate
 
 `npm run validate` kör lint, type-check, unit tests, E2E-tester och production build.
 
+### Testa Functions och Firestore-regler
+
+Functions har ett separat Node.js-paket och separata tester:
+
+```sh
+npm --prefix functions ci
+npm --prefix functions test
+firebase emulators:exec --only firestore,functions 'npm --prefix functions run test:integration && npm --prefix functions run test:rules && npm --prefix functions run test:delivery'
+```
+
 ---
 
 ## 🎯 Användningsguide
@@ -230,8 +253,15 @@ Klicka på en uppgift för att öppna detaljpanelen där du kan:
 - Redigera titel
 - Lägga till delsteg
 - Markera som "Min dag"
-- Ställa in förfallodatum
+- Ställa in förfallodatum, tid och påminnelse
 - Lägga till anteckningar
+
+### Aktivera pushnotiser
+1. Öppna **Inställningar** på enheten där du vill få notiser.
+2. Slå på **Tillåt aviseringar för påminnelser** och godkänn webbläsarens notisfråga.
+3. Lägg till ett förfallodatum och välj påminnelse i uppgiftens detaljpanel.
+
+Inställningen gäller bara den aktuella enheten. Push fungerar på produktionswebbplatsens HTTPS-origin och kan inte garanteras om webbläsaren eller operativsystemet begränsar bakgrundsaktivitet.
 
 ### Använda smarta vyer
 - Klicka på "Min dag", "Viktigt" eller "Planerat" i sidomenyn
@@ -247,17 +277,11 @@ Skapa en `.env`-fil med Firebase-konfiguration:
 npm run generate-env
 ```
 
-### Firestore Databasregler
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-  }
-}
-```
+Lägg även till `VITE_FIREBASE_VAPID_KEY` med projektets publika Web Push-nyckel i `.env.local`. GitHub Pages-bygget hämtar Firebase- och VAPID-värden från repositoryts Actions-secrets.
+
+Serverns `PUSH_REMINDERS_ENABLED` är en kill switch. Den ska bara sättas till `true` i Functions-miljön när produktionens utskick är godkända; den aktiverar leverans för alla förfallna jobb, inte bara en testenhet. Lägg aldrig FCM-enhetstoken i källkod eller loggar.
+
+Firestore-reglerna finns i [`firestore.rules`](firestore.rules), och indexdefinitionerna finns i [`firestore.indexes.json`](firestore.indexes.json). Klienter kan inte läsa eller skriva serverhanterade `reminderJobs`.
 
 ---
 
@@ -278,23 +302,35 @@ service cloud.firestore {
   │       ├── order: number
   │       ├── createdAt: Timestamp
   │       └── themeColor?: string
-  └── tasks/
-      └── {taskId}
-          ├── listId: string
-          ├── title: string
-          ├── completed: boolean
-          ├── important: boolean
-          ├── myDay: boolean
-          ├── dueDate?: string | Timestamp
-          ├── note?: string
-          ├── createdAt: Timestamp
-          └── order?: number
-          └── steps/
-              └── {stepId}
-                  ├── taskId: string
-                  ├── title: string
-                  ├── completed: boolean
-                  └── createdAt: Timestamp
+  ├── tasks/
+  │   └── {taskId}
+  │       ├── listId: string
+  │       ├── title: string
+  │       ├── completed: boolean
+  │       ├── important: boolean
+  │       ├── myDay: boolean
+  │       ├── dueDate?: string | Timestamp
+  │       ├── dueTimeZone?: string
+  │       ├── reminder?: {offsetMinutes: 0 | 10 | 60 | 1440}
+  │       ├── note?: string
+  │       ├── createdAt: Timestamp
+  │       ├── order?: number
+  │       └── steps/{stepId}
+  │           ├── taskId: string
+  │           ├── title: string
+  │           ├── completed: boolean
+  │           └── createdAt: Timestamp
+  ├── devices/{deviceId}
+  │   ├── userId: string
+  │   ├── token: string
+  │   ├── enabled: boolean
+  │   └── updatedAt: string
+  └── reminderJobs/{taskId} # serverhanterad; klientåtkomst nekas
+     ├── taskId: string
+     ├── revision: string
+     ├── reminderAt: string
+     ├── status: pending | processing | sent | cancelled | failed
+     └── attempts: number
 ```
 
 ---
@@ -314,6 +350,6 @@ service cloud.firestore {
 
 ---
 
-**Version:** 0.7.0 | **Licens:** Privat
+**Version:** 0.23.0 | **Licens:** Privat
 
 *Made with Vue 3, TypeScript, and Firebase ❤️*
