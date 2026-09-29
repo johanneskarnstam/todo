@@ -41,6 +41,8 @@ const isValidDueDate = (value: string) => {
   return match[2] === undefined || (Number(match[2]) <= 23 && Number(match[3]) <= 59)
 }
 
+const CREATE_NEW_LIST_OPTION = '__create_new_import_list__'
+
 const authStore = useAuthStore()
 const listStore = useListStore()
 const taskStore = useTaskStore()
@@ -54,13 +56,15 @@ const displayName = ref(authStore.user?.displayName ?? '')
 const isRefreshing = ref(false)
 const statusMessage = ref('')
 const importListId = ref('')
+const newImportListName = ref('')
+const importJson = ref('')
 const isImporting = ref(false)
 const importError = ref('')
 const isImportFormatOpen = ref(false)
 
 onMounted(async () => {
   await listStore.fetchLists()
-  importListId.value = listStore.lists[0]?.id ?? ''
+  importListId.value = listStore.lists[0]?.id ?? CREATE_NEW_LIST_OPTION
 })
 
 const saveDisplayName = async () => {
@@ -111,28 +115,48 @@ const exportData = () => {
   statusMessage.value = 'Data exporterad.'
 }
 
-const importTasks = async (event: Event) => {
+const loadImportFile = async (event: Event) => {
   const input = event.currentTarget as HTMLInputElement
   const file = input.files?.[0]
   input.value = ''
   if (!file) return
 
-  statusMessage.value = ''
   importError.value = ''
-
-  if (!importListId.value || !listStore.lists.some((list) => list.id === importListId.value)) {
-    importError.value = 'Välj en lista att importera uppgifterna till.'
-    return
-  }
-
+  statusMessage.value = ''
   if (file.size > 1_000_000) {
     importError.value = 'Filen får vara högst 1 MB.'
     return
   }
 
+  try {
+    importJson.value = await file.text()
+  } catch {
+    importError.value = 'Filen kunde inte läsas.'
+  }
+}
+
+const importTasks = async () => {
+  statusMessage.value = ''
+  importError.value = ''
+
+  const createNewList = importListId.value === CREATE_NEW_LIST_OPTION
+  const requestedListName = newImportListName.value.trim()
+  if (createNewList && !requestedListName) {
+    importError.value = 'Ange ett namn på den nya listan.'
+    return
+  }
+  if (!createNewList && (!importListId.value || !listStore.lists.some((list) => list.id === importListId.value))) {
+    importError.value = 'Välj en lista att importera uppgifterna till.'
+    return
+  }
+  if (new TextEncoder().encode(importJson.value).length > 1_000_000) {
+    importError.value = 'JSON-texten får vara högst 1 MB.'
+    return
+  }
+
   let parsed: unknown
   try {
-    parsed = JSON.parse(await file.text())
+    parsed = JSON.parse(importJson.value)
   } catch {
     importError.value = 'Filen innehåller inte giltig JSON.'
     return
@@ -223,14 +247,24 @@ const importTasks = async (event: Event) => {
     })
   }
 
-  const targetListId = importListId.value
-  const targetListName = listStore.lists.find((list) => list.id === targetListId)?.name ?? 'listan'
   isImporting.value = true
   try {
     if (!taskStore.isLoaded) await taskStore.fetchTasks()
     if (!taskStore.isLoaded) {
       importError.value = taskStore.error ?? 'Uppgifterna kunde inte läsas in inför importen.'
       return
+    }
+
+    let targetListId = importListId.value
+    let targetListName = listStore.lists.find((list) => list.id === targetListId)?.name ?? 'listan'
+    if (createNewList) {
+      const createdList = await listStore.createList({ name: requestedListName })
+      if (!createdList || listStore.error) {
+        importError.value = listStore.error ?? 'Den nya listan kunde inte skapas.'
+        return
+      }
+      targetListId = createdList.id
+      targetListName = createdList.name
     }
 
     let importedCount = 0
@@ -330,13 +364,23 @@ const handleLogout = async () => {
 
       <section class="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:px-5" aria-labelledby="import-heading">
         <h2 id="import-heading" class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Importera uppgifter</h2>
-        <label class="block text-sm text-slate-700 dark:text-slate-200" for="import-list">Lista</label>
-        <select id="import-list" v-model="importListId" class="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" :disabled="!listStore.lists.length || isImporting">
+        <label class="block text-sm text-slate-700 dark:text-slate-200" for="import-list">Importera till</label>
+        <select id="import-list" v-model="importListId" class="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" :disabled="isImporting">
           <option v-for="list in listStore.lists" :key="list.id" :value="list.id">{{ list.name }}</option>
+          <option :value="CREATE_NEW_LIST_OPTION">Skapa ny lista</option>
         </select>
-        <label class="mt-3 block text-sm text-slate-700 dark:text-slate-200" for="import-file">JSON-fil</label>
-        <input id="import-file" class="mt-1 block w-full text-sm text-slate-600 file:mr-3 file:min-h-9 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:text-sm file:font-medium file:text-slate-700 hover:file:bg-slate-200 dark:text-slate-300 dark:file:bg-slate-800 dark:file:text-slate-200 dark:hover:file:bg-slate-700" type="file" accept=".json,application/json" :disabled="!listStore.lists.length || isImporting" @change="importTasks" />
+        <div v-if="importListId === CREATE_NEW_LIST_OPTION" class="mt-3">
+          <label class="block text-sm text-slate-700 dark:text-slate-200" for="new-import-list-name">Namn på ny lista</label>
+          <input id="new-import-list-name" v-model="newImportListName" class="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" type="text" placeholder="Listnamn" :disabled="isImporting" />
+        </div>
+        <label class="mt-3 block text-sm text-slate-700 dark:text-slate-200" for="import-json">Klistra in JSON</label>
+        <textarea id="import-json" v-model="importJson" class="mt-1 min-h-40 w-full resize-y rounded-lg border border-slate-200 bg-white p-3 font-mono text-xs text-slate-700 outline-none focus:border-[#2564cf] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200" placeholder='[{ "title": "Handla mjölk" }]' :disabled="isImporting" />
+        <label class="mt-3 block text-sm text-slate-700 dark:text-slate-200" for="import-file">Eller fyll textfältet från JSON-fil</label>
+        <input id="import-file" class="mt-1 block w-full text-sm text-slate-600 file:mr-3 file:min-h-9 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:text-sm file:font-medium file:text-slate-700 hover:file:bg-slate-200 dark:text-slate-300 dark:file:bg-slate-800 dark:file:text-slate-200 dark:hover:file:bg-slate-700" type="file" accept=".json,application/json" :disabled="isImporting" @change="loadImportFile" />
         <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">Titel är obligatorisk. Anteckning, datum, påminnelse, taggar och status är valfria. En fullständig export från appen fungerar också. Högst 500 uppgifter per fil.</p>
+        <button class="mt-3 min-h-10 rounded-lg bg-[#2564cf] px-4 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50" type="button" :disabled="isImporting || !importJson.trim()" @click="importTasks">
+          {{ isImporting ? 'Importerar...' : 'Importera uppgifter' }}
+        </button>
         <p v-if="isImporting" class="mt-2 text-sm text-slate-500 dark:text-slate-400" role="status">Importerar uppgifter...</p>
         <p v-if="importError" class="mt-2 text-sm text-red-700 dark:text-red-300" role="alert">{{ importError }}</p>
         <div class="mt-3 border-t border-slate-200 dark:border-slate-700">
