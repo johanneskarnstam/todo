@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
-import { CalendarDays, CalendarPlus, Check, CheckCircle2, GripVertical, ListTodo, MoreVertical, Play, Star, Trash2 } from '@lucide/vue'
+import { Bell, CalendarDays, CalendarPlus, Check, CheckCircle2, ChevronRight, GripVertical, ListTodo, MoreVertical, Play, Star, Trash2 } from '@lucide/vue'
 import type { List, StepCount, Task, TaskStatus, TaskStatusMode } from '@/types'
 import { getTaskStatus } from '@/utils/taskStatus'
 
@@ -266,7 +266,7 @@ const dueDateText = computed(() => {
         :aria-label="getTaskStatus(task) === 'completed' ? 'Markera uppgift som aktiv' : 'Markera uppgift som slutförd'"
         @click.stop="emit('toggle-completed')"
       >
-        <span v-if="getTaskStatus(task) === 'completed'" aria-hidden="true">✓</span>
+        <Check v-if="getTaskStatus(task) === 'completed'" :size="14" aria-hidden="true" />
       </button>
 
       <span class="min-w-0 flex-1 text-sm text-black dark:text-slate-100" :class="{ 'text-slate-400 line-through dark:text-slate-500': getTaskStatus(task) === 'completed' }">
@@ -281,6 +281,12 @@ const dueDateText = computed(() => {
       </span>
 
       <div class="flex items-center gap-2">
+        <span v-if="task.important" class="grid size-6 shrink-0 place-items-center text-amber-500 dark:text-amber-400" role="img" aria-label="Stjärnmärkt" title="Stjärnmärkt">
+          <Star :size="16" fill="currentColor" aria-hidden="true" />
+        </span>
+        <span v-if="task.reminder && getTaskStatus(task) !== 'completed'" class="grid size-6 shrink-0 place-items-center text-slate-500 dark:text-slate-400" role="img" aria-label="Påminnelse inställd" title="Påminnelse inställd">
+          <Bell :size="16" aria-hidden="true" />
+        </span>
         <div v-if="task.dueDate && !showDueDate" class="grid size-6 place-items-center rounded-full bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-200" aria-label="Uppgiften har ett planerat datum">
           <CalendarDays :size="14" aria-hidden="true" />
         </div>
@@ -299,7 +305,7 @@ const dueDateText = computed(() => {
         <button class="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="emit('toggle-important'); closeMenu()"><Star :size="17" :fill="task.important ? 'currentColor' : 'none'" aria-hidden="true" />{{ task.important ? 'Ta bort stjärnmarkering' : 'Stjärnmarkera' }}</button>
         <button class="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="emit('toggle-my-day'); closeMenu()"><CalendarPlus :size="17" aria-hidden="true" />{{ task.myDay ? 'Ta bort från Min dag' : 'Lägg till i Min dag' }}</button>
         <template v-if="availableLists && availableLists.length > 1">
-          <button class="flex min-h-10 w-full items-center justify-between gap-3 rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" :aria-expanded="isMoveMenuOpen" @click="toggleMoveMenu"><span>Flytta till lista</span><span aria-hidden="true">›</span></button>
+          <button class="flex min-h-10 w-full items-center justify-between gap-3 rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" :aria-expanded="isMoveMenuOpen" @click="toggleMoveMenu"><span>Flytta till lista</span><ChevronRight :size="17" aria-hidden="true" /></button>
           <div v-if="isMoveMenuOpen" class="max-h-48 overflow-y-auto border-t border-slate-200 py-1 dark:border-slate-700" role="menu" aria-label="Flytta uppgiften till lista">
             <button
               v-for="list in availableLists"

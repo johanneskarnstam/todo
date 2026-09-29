@@ -300,6 +300,27 @@ describe('TaskRow', () => {
     expect(standardRow.text()).not.toContain(expectedDate)
   })
 
+  it('shows a star on important tasks in the task row', () => {
+    const standardRow = mount(TaskRow, { props: { task } })
+    const importantRow = mount(TaskRow, { props: { task: { ...task, important: true } } })
+
+    expect(standardRow.find('[role="img"][aria-label="Stjärnmärkt"]').exists()).toBe(false)
+    expect(importantRow.find('[role="img"][aria-label="Stjärnmärkt"] svg').exists()).toBe(true)
+  })
+
+  it('shows reminders on unfinished tasks even after their due time', () => {
+    const taskWithReminder = {
+      ...task,
+      dueDate: '2020-01-01T09:00',
+      reminder: { offsetMinutes: 0 as const },
+    }
+    const activeRow = mount(TaskRow, { props: { task: taskWithReminder } })
+    const completedRow = mount(TaskRow, { props: { task: { ...taskWithReminder, completed: true } } })
+
+    expect(activeRow.find('[role="img"][aria-label="Påminnelse inställd"] svg').exists()).toBe(true)
+    expect(completedRow.find('[role="img"][aria-label="Påminnelse inställd"]').exists()).toBe(false)
+  })
+
   it('shows a subtask count only when steps exist', () => {
     const withSteps = mount(TaskRow, {
       props: { task, stepCount: { completed: 2, total: 3 } },
@@ -432,7 +453,7 @@ describe('TaskDetailsPanel', () => {
     expect(calendarLink.attributes('rel')).toBe('noopener noreferrer')
   })
 
-  it('uses alternating backgrounds for detail sections', () => {
+  it('uses white backgrounds for detail sections', () => {
     const wrapper = mount(TaskDetailsPanel, { props: { task, steps } })
     const sections = wrapper.findAll('[aria-labelledby]')
     const content = wrapper.find('div.min-h-0')
@@ -446,11 +467,10 @@ describe('TaskDetailsPanel', () => {
       'planning-heading',
       'notes-heading',
     ])
-    expect(sections[1]?.classes()).toContain('bg-slate-50')
-    expect(sections[2]?.classes()).toContain('bg-white')
-    expect(sections[3]?.classes()).toContain('bg-slate-50')
-    expect(sections[4]?.classes()).toContain('bg-white')
-    expect(sections[5]?.classes()).toContain('bg-slate-50')
+    sections.slice(1).forEach((section) => {
+      expect(section.classes()).toContain('bg-white')
+      expect(section.classes()).toContain('dark:bg-slate-900')
+    })
   })
 
   it('emits updates for title, steps, My day, due date, notes, and deletion', async () => {
@@ -514,6 +534,21 @@ describe('TaskDetailsPanel', () => {
     expect((wrapper.get('textarea').element as HTMLTextAreaElement).value).toBe('New note')
   })
 
+  it('keeps the title unfocused and uses consistent card and text styling', async () => {
+    const wrapper = mount(TaskDetailsPanel, { props: { task, steps }, attachTo: document.body })
+    await nextTick()
+
+    expect(document.activeElement).not.toBe(wrapper.get('#task-title').element)
+    expect(wrapper.findAll('section')).toHaveLength(5)
+    wrapper.findAll('section').forEach((section) => {
+      expect(section.classes()).toContain('bg-white')
+      expect(section.classes()).toContain('dark:bg-slate-900')
+    })
+    expect(wrapper.findAll('[class~="text-xs"], [class~="text-base"], [class~="text-lg"], [class~="text-xl"]')).toHaveLength(0)
+
+    wrapper.unmount()
+  })
+
   it('adds tags and emits quick due-date changes', async () => {
     const wrapper = mount(TaskDetailsPanel, { props: { task, steps } })
 
@@ -535,6 +570,28 @@ describe('TaskDetailsPanel', () => {
 
     expect(wrapper.emitted('set-due-date')).toEqual([['2026-10-01T14:30']])
     expect(wrapper.emitted('save-reminder')).toEqual([[{ offsetMinutes: 60 }]])
+  })
+
+  it('aligns planning controls in a shared three-column grid', () => {
+    const wrapper = mount(TaskDetailsPanel, {
+      props: {
+        task,
+        steps,
+        availableLists: [
+          { id: 'list-1', name: 'Att göra', icon: 'list', order: 0, createdAt: Timestamp.now() },
+          { id: 'list-2', name: 'Arbete', icon: 'list', order: 1, createdAt: Timestamp.now() },
+        ],
+      },
+    })
+    const planning = wrapper.get('#planning-heading').element.parentElement
+    const rows = Array.from(planning?.querySelector('.space-y-2')?.children ?? []).filter((row) =>
+      ['A', 'BUTTON', 'LABEL'].includes(row.tagName),
+    )
+
+    expect(rows).toHaveLength(6)
+    rows?.forEach((row) => {
+      expect(row.classList.contains('grid-cols-[1.25rem_minmax(0,1fr)_8.5rem]')).toBe(true)
+    })
   })
 
 })

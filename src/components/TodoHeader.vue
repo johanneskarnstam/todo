@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
-import { Cloud, Search, X } from '@lucide/vue'
+import { Cloud, Menu, Moon, Search, Sun, X } from '@lucide/vue'
 
 interface Props {
   isDark: boolean
@@ -67,7 +67,7 @@ onUnmounted(() => {
         :aria-label="isSidebarOpen ? 'Stäng navigeringsmeny' : 'Öppna navigeringsmeny'"
         @click="emit('toggle-menu')"
       >
-        <span class="text-xl leading-none">☰</span>
+        <Menu :size="20" aria-hidden="true" />
       </button>
       <RouterLink :to="{ name: 'home' }" class="flex items-center gap-2 cursor-pointer pointer-events-auto" aria-label="Till startsidan" @click.prevent="emit('go-home')">
         <img class="size-8 rounded-full shadow-sm" :src="iconUrl" alt="" aria-hidden="true" />
@@ -107,12 +107,13 @@ onUnmounted(() => {
         <Search :size="19" :stroke-width="2" aria-hidden="true" />
       </button>
       <button
-        class="grid size-9 place-items-center rounded-lg text-lg text-white/90 transition hover:bg-white/15"
+        class="grid size-9 place-items-center rounded-lg text-white/90 transition hover:bg-white/15"
         type="button"
         :aria-label="isDark ? 'Byt till ljust läge' : 'Byt till mörkt läge'"
         @click="emit('toggle-theme')"
       >
-        <span aria-hidden="true">{{ isDark ? '☀' : '☾' }}</span>
+        <Sun v-if="isDark" :size="18" aria-hidden="true" />
+        <Moon v-else :size="18" aria-hidden="true" />
       </button>
     </div>
   </header>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Check } from '@lucide/vue'
 import { useAuthStore } from '@/stores/authStore'
 import { useRouter } from 'vue-router'
 import { ref } from 'vue'
@@ -54,7 +55,7 @@ const handleEmailLogin = async () => {
       <div class="hidden flex-col justify-between bg-[#2564cf] p-10 text-white sm:flex lg:p-14">
         <div>
           <div class="flex items-center gap-3">
-            <span class="grid size-11 place-items-center rounded-xl bg-white text-xl font-bold text-[#2564cf] shadow-lg" aria-hidden="true">✓</span>
+            <span class="grid size-11 place-items-center rounded-xl bg-white text-[#2564cf] shadow-lg" aria-hidden="true"><Check :size="22" :stroke-width="3" /></span>
             <span class="text-lg font-semibold tracking-tight">To Do</span>
           </div>
           <div class="mt-24 max-w-sm">
@@ -69,7 +70,7 @@ const handleEmailLogin = async () => {
       <div class="flex min-h-[520px] flex-col justify-center p-7 sm:p-10 lg:p-14">
         <div class="mb-10 sm:hidden">
           <div class="flex items-center gap-3">
-            <span class="grid size-10 place-items-center rounded-xl bg-[#2564cf] text-lg font-bold text-white shadow-md" aria-hidden="true">✓</span>
+            <span class="grid size-10 place-items-center rounded-xl bg-[#2564cf] text-white shadow-md" aria-hidden="true"><Check :size="20" :stroke-width="3" /></span>
             <span class="text-lg font-semibold tracking-tight">To Do</span>
           </div>
         </div>
@@ -89,7 +90,6 @@ const handleEmailLogin = async () => {
             :disabled="isSigningIn"
             @click="handleLogin"
           >
-            <span class="grid size-6 place-items-center rounded-full bg-white text-sm font-bold shadow-sm" aria-hidden="true">G</span>
             <span>{{ isSigningIn ? 'Loggar in...' : 'Fortsätt med Google' }}</span>
           </button>
 

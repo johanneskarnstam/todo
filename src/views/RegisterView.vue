@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Check } from '@lucide/vue'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
@@ -41,7 +42,7 @@ const handleRegister = async () => {
   <main class="flex min-h-screen items-center justify-center bg-[#f4f7fb] px-4 py-10 text-slate-900 dark:bg-slate-950 dark:text-slate-100 sm:px-6">
     <section class="w-full max-w-md rounded-2xl border border-white/80 bg-white/95 p-7 shadow-[0_24px_80px_rgba(15,46,88,0.14)] dark:border-slate-800 dark:bg-slate-900 sm:p-10" aria-labelledby="register-title">
       <div class="flex items-center gap-3">
-        <span class="grid size-10 place-items-center rounded-xl bg-[#2564cf] text-lg font-bold text-white" aria-hidden="true">✓</span>
+        <span class="grid size-10 place-items-center rounded-xl bg-[#2564cf] text-white" aria-hidden="true"><Check :size="20" :stroke-width="3" /></span>
         <span class="text-lg font-semibold tracking-tight">To Do</span>
       </div>
 

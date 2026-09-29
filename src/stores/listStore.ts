@@ -77,7 +77,7 @@ export const DEFAULT_LIST_ID = '__default__'
 const defaultList: List = {
   id: DEFAULT_LIST_ID,
   name: 'Att göra',
-  icon: '⌂',
+  icon: 'list',
   order: 0,
   createdAt: Timestamp.fromMillis(0),
   sortMode: 'manual',
@@ -156,7 +156,7 @@ export const useListStore = defineStore('lists', () => {
 
     if (isMockAuthEnabled) {
       const initialLists: List[] = [
-        { id: 'local-projects', name: 'Projekt', icon: '☷', order: 1, createdAt: Timestamp.now() },
+        { id: 'local-projects', name: 'Projekt', icon: 'list', order: 1, createdAt: Timestamp.now() },
       ]
       const storedLists = readMockLists()
       const storedFolders = readMockFolders()
@@ -240,7 +240,7 @@ export const useListStore = defineStore('lists', () => {
       id: optimisticId,
       name,
       ...(input.folderId ? { folderId: input.folderId } : {}),
-      icon: input.icon ?? '☷',
+      icon: input.icon ?? 'list',
       order: lists.value.length,
       createdAt: Timestamp.now(),
       sortMode: 'manual',

@@ -23,6 +23,25 @@ test('opens task details from a task row', async ({ page }) => {
   await expect(details.getByRole('heading', { name: 'Delsteg' })).toBeVisible()
   await expect(details.getByRole('heading', { name: 'Planering' })).toBeVisible()
   await expect(details.getByRole('heading', { name: 'Anteckningar' })).toBeVisible()
+
+  const titleInput = details.getByLabel('Uppgiftens titel')
+  await expect(titleInput).not.toBeFocused()
+
+  const sections = details.locator('section')
+  await expect(sections).toHaveCount(5)
+  for (let index = 0; index < 5; index += 1) {
+    await expect(sections.nth(index)).toHaveCSS('background-color', 'rgb(255, 255, 255)')
+  }
+
+  const textElements = [
+    titleInput,
+    details.getByRole('heading', { name: 'Delsteg' }),
+    details.getByRole('button', { name: 'Idag' }),
+    details.getByLabel('Uppgiftens förfallodatum'),
+  ]
+  for (const element of textElements) {
+    await expect(element).toHaveCSS('font-size', '14px')
+  }
 })
 
 test('opens a task from a notification URL', async ({ page }) => {
@@ -127,6 +146,7 @@ test('marks a task important and finds it in Stjärnmärkt', async ({ page }) =>
   const task = page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' })
   await task.getByRole('button', { name: 'Uppgiftsåtgärder' }).click()
   await page.getByRole('button', { name: 'Stjärnmarkera', exact: true }).click()
+  await expect(task.getByRole('img', { name: 'Stjärnmärkt' })).toBeVisible()
   await page.getByRole('button', { name: 'Stjärnmärkt' }).click()
 
   await expect(page).toHaveURL(/\/important$/)
@@ -163,6 +183,7 @@ test('adds a tag and uses a quick due-date preset', async ({ page }) => {
   await expect(details.getByText('Påminnelse aktiv')).toBeVisible()
 
   await details.getByRole('button', { name: 'Stäng uppgiftsdetaljer' }).click()
+  await expect(page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' }).getByRole('img', { name: 'Påminnelse inställd' })).toBeVisible()
   await page.getByRole('button', { name: 'Taggar' }).click()
   await page.getByRole('menuitem', { name: '#arbete' }).click()
 

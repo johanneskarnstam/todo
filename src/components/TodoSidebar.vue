@@ -235,7 +235,7 @@ onUnmounted(() => {
             <span class="text-lg font-semibold tracking-tight text-slate-800 dark:text-slate-100">To Do</span>
           </div>
           <button
-            class="grid size-9 place-items-center rounded-lg text-xl text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+            class="grid size-9 place-items-center rounded-lg text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
             type="button" aria-label="Stäng navigeringsmeny" @click="emit('close')">
             <X :size="20" :stroke-width="1.8" aria-hidden="true" />
           </button>
@@ -257,7 +257,7 @@ onUnmounted(() => {
             <component :is="view.icon" :size="19" :stroke-width="1.8"
               class="shrink-0 text-slate-600 dark:text-slate-300" aria-hidden="true" />
             <span class="flex-1">{{ smartViewLabel(view.key) }}</span>
-            <span v-if="view.view" class="min-w-5 text-right text-xs text-slate-500 dark:text-slate-400">{{
+            <span v-if="view.view" class="min-w-5 text-right text-sm text-slate-500 dark:text-slate-400">{{
               smartViewCounts[view.view] }}</span>
           </button>
         </nav>
@@ -278,13 +278,13 @@ onUnmounted(() => {
             <div v-if="isTagsOpen" id="sidebar-tags-menu" class="mt-2 flex flex-wrap gap-2 pl-1" role="menu"
               aria-label="Välj tagg">
               <button
-                class="inline-flex min-h-6 items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                class="inline-flex min-h-7 items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-sm font-medium text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
                 :class="{ 'font-semibold ring-2 ring-[#2564cf] ring-offset-1 dark:ring-blue-400 dark:ring-offset-slate-900': !selectedTag }"
                 type="button" role="menuitem" @click="selectTag('')">
                 Alla taggar
               </button>
               <button v-for="tag in availableTags" :key="tag"
-                class="inline-flex min-h-6 items-center rounded-full border px-2 py-0.5 text-[10px] font-medium transition"
+                class="inline-flex min-h-7 items-center rounded-full border px-2 py-1 text-sm font-medium transition"
                 :class="[tagTone(tag), { 'font-semibold ring-2 ring-[#2564cf] ring-offset-1 dark:ring-blue-400 dark:ring-offset-slate-900': selectedTag === tag }]"
                 type="button" role="menuitem" @click="selectTag(tag)">
                 #{{ tag }}
@@ -314,14 +314,14 @@ onUnmounted(() => {
               <div v-if="!collapsedFolders[DEFAULT_LIST_ID]"
                 class="ml-3 border-l-2 border-slate-300 dark:border-slate-600">
                 <button
-                  class="group flex h-9 w-full items-center gap-3 border-l-2 border-transparent px-5 text-left text-xs text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                  class="group flex h-9 w-full items-center gap-3 border-l-2 border-transparent px-5 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
                   :class="{ 'border-[#2564cf] bg-[#eef5fc] font-semibold text-slate-900 dark:border-blue-400 dark:bg-slate-800 dark:text-white': activeListId === defaultList.id }"
                   type="button" @click="emit('select-list', defaultList.id)">
                   <ListTodo :size="18" :stroke-width="1.8" class="shrink-0 text-slate-700 dark:text-slate-300"
                     aria-hidden="true" />
                   <span class="flex-1 truncate">{{ defaultList.name }}</span>
                   <span v-if="listTaskCounts[defaultList.id]"
-                    class="min-w-5 text-right text-xs text-slate-600 dark:text-slate-300">{{
+                    class="min-w-5 text-right text-sm text-slate-600 dark:text-slate-300">{{
                       listTaskCounts[defaultList.id] }}</span>
                 </button>
               </div>
@@ -378,7 +378,7 @@ onUnmounted(() => {
                 class="ml-3 border-l-2 border-slate-300 dark:border-slate-600">
                 <div v-for="list in section.lists" :key="list.id" class="group/list relative">
                   <button
-                    class="group flex h-9 w-full items-center gap-3 border-l-2 border-transparent px-5 pr-12 text-left text-xs text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                    class="group flex h-9 w-full items-center gap-3 border-l-2 border-transparent px-5 pr-12 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
                     :class="{
                       'border-[#2564cf] bg-[#eef5fc] font-semibold text-slate-900 dark:border-blue-400 dark:bg-slate-800 dark:text-white': activeListId === list.id,
                     }" type="button" @click="emit('select-list', list.id)">
@@ -386,11 +386,11 @@ onUnmounted(() => {
                       aria-hidden="true" />
                     <span class="flex-1 truncate">{{ list.name }}</span>
                     <span v-if="listTaskCounts[list.id]"
-                      class="min-w-5 text-right text-xs text-slate-600 dark:text-slate-300">{{ listTaskCounts[list.id]
+                      class="min-w-5 text-right text-sm text-slate-600 dark:text-slate-300">{{ listTaskCounts[list.id]
                       }}</span>
                   </button>
                   <button v-if="list.id !== DEFAULT_LIST_ID"
-                    class="absolute right-1 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded text-lg tracking-widest text-slate-500 opacity-100 transition hover:bg-slate-200 sm:opacity-0 sm:focus:opacity-100 sm:group-hover/list:opacity-100 dark:hover:bg-slate-700"
+                    class="absolute right-1 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded text-slate-500 opacity-100 transition hover:bg-slate-200 sm:opacity-0 sm:focus:opacity-100 sm:group-hover/list:opacity-100 dark:hover:bg-slate-700"
                     type="button" :aria-label="`Flytta ${list.name}`" :aria-expanded="openMoveMenuListId === list.id"
                     data-sidebar-list-menu-trigger @click.stop="toggleMoveMenu(list.id)">
                     <MoreVertical :size="19" :stroke-width="1.8" aria-hidden="true" />
@@ -400,7 +400,7 @@ onUnmounted(() => {
                       class="absolute right-1 top-10 z-50 max-h-[70vh] w-56 overflow-y-auto rounded border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-800"
                       role="menu" :aria-label="`Hantera lista ${list.name}`" data-sidebar-list-menu>
                       <p
-                        class="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                        class="px-3 py-2 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                         Hantera lista</p>
                       <button
                         class="flex min-h-10 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
@@ -429,7 +429,7 @@ onUnmounted(() => {
                   <form class="flex gap-1.5" @submit.prevent="submitNewList(section.folder.id)">
                     <label class="sr-only" :for="`new-list-name-${section.folder.id}`">Nytt listnamn</label>
                     <input :id="`new-list-name-${section.folder.id}`" v-model="newListName"
-                      class="min-w-0 flex-1 rounded-lg border border-blue-400 bg-white px-2.5 py-1.5 text-xs text-slate-800 outline-none ring-2 ring-blue-100 dark:bg-slate-800 dark:text-white dark:ring-blue-900"
+                      class="min-w-0 flex-1 rounded-lg border border-blue-400 bg-white px-2.5 py-1.5 text-sm text-slate-800 outline-none ring-2 ring-blue-100 dark:bg-slate-800 dark:text-white dark:ring-blue-900"
                       type="text" placeholder="Listnamn" autofocus @keydown.escape="cancelAddingList" />
                     <button
                       class="grid size-8 place-items-center rounded text-[#2564cf] transition hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-slate-800"
@@ -444,9 +444,10 @@ onUnmounted(() => {
                   </form>
                 </div>
                 <button v-else
-                  class="flex h-7 w-full items-center px-5 text-[0.65rem] leading-none text-[#2564cf] transition hover:bg-blue-50/60 dark:text-blue-400 dark:hover:bg-slate-800/60"
+                  class="flex h-8 w-full items-center gap-2 px-5 text-sm text-[#2564cf] transition hover:bg-blue-50/60 dark:text-blue-400 dark:hover:bg-slate-800/60"
                   type="button" :data-folder-add-list="section.folder.id" @click="startAddingList(section.folder.id)">
-                  <span>Ny lista +</span>
+                  <span>Ny lista</span>
+                  <Plus :size="15" aria-hidden="true" />
                 </button>
               </div>
             </Transition>
@@ -469,18 +470,18 @@ onUnmounted(() => {
                 class="ml-3 border-l-2 border-slate-300 dark:border-slate-600">
                 <div v-for="list in otherUngroupedLists" :key="list.id" class="group/list relative">
                   <button
-                    class="group flex h-9 w-full items-center gap-3 border-l-2 border-transparent px-5 pr-12 text-left text-xs text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                    class="group flex h-9 w-full items-center gap-3 border-l-2 border-transparent px-5 pr-12 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
                     :class="{ 'border-[#2564cf] bg-[#eef5fc] font-semibold text-slate-900 dark:border-blue-400 dark:bg-slate-800 dark:text-white': activeListId === list.id }"
                     type="button" @click="emit('select-list', list.id)">
                     <ListTodo :size="18" :stroke-width="1.8" class="shrink-0 text-slate-700 dark:text-slate-300"
                       aria-hidden="true" />
                     <span class="flex-1 truncate">{{ list.name }}</span>
                     <span v-if="listTaskCounts[list.id]"
-                      class="min-w-5 text-right text-xs text-slate-600 dark:text-slate-300">{{ listTaskCounts[list.id]
+                      class="min-w-5 text-right text-sm text-slate-600 dark:text-slate-300">{{ listTaskCounts[list.id]
                       }}</span>
                   </button>
                   <button v-if="list.id !== DEFAULT_LIST_ID"
-                    class="absolute right-1 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded text-lg tracking-widest text-slate-500 opacity-100 transition hover:bg-slate-200 sm:opacity-0 sm:focus:opacity-100 sm:group-hover/list:opacity-100 dark:hover:bg-slate-700"
+                    class="absolute right-1 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded text-slate-500 opacity-100 transition hover:bg-slate-200 sm:opacity-0 sm:focus:opacity-100 sm:group-hover/list:opacity-100 dark:hover:bg-slate-700"
                     type="button" :aria-label="`Flytta ${list.name}`" :aria-expanded="openMoveMenuListId === list.id"
                     data-sidebar-list-menu-trigger @click.stop="toggleMoveMenu(list.id)">
                     <MoreVertical :size="19" :stroke-width="1.8" aria-hidden="true" />
@@ -490,7 +491,7 @@ onUnmounted(() => {
                       class="absolute right-1 top-10 z-50 max-h-[70vh] w-56 overflow-y-auto rounded border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-800"
                       role="menu" :aria-label="`Hantera lista ${list.name}`" data-sidebar-list-menu>
                       <p
-                        class="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                        class="px-3 py-2 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                         Hantera lista</p>
                       <button
                         class="flex min-h-10 w-full items-center rounded px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
@@ -517,7 +518,7 @@ onUnmounted(() => {
                   <form class="flex gap-1.5" @submit.prevent="submitNewList(null)">
                     <label class="sr-only" for="new-list-name-ungrouped">Nytt listnamn</label>
                     <input id="new-list-name-ungrouped" v-model="newListName"
-                      class="min-w-0 flex-1 rounded-lg border border-blue-400 bg-white px-2.5 py-1.5 text-xs text-slate-800 outline-none ring-2 ring-blue-100 dark:bg-slate-800 dark:text-white dark:ring-blue-900"
+                      class="min-w-0 flex-1 rounded-lg border border-blue-400 bg-white px-2.5 py-1.5 text-sm text-slate-800 outline-none ring-2 ring-blue-100 dark:bg-slate-800 dark:text-white dark:ring-blue-900"
                       type="text" placeholder="Listnamn" autofocus @keydown.escape="cancelAddingList" />
                     <button
                       class="grid size-8 place-items-center rounded text-[#2564cf] transition hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-slate-800"
@@ -532,9 +533,10 @@ onUnmounted(() => {
                   </form>
                 </div>
                 <button v-else
-                  class="flex h-7 w-full items-center px-5 j-text-xs leading-none text-[#2564cf] transition hover:bg-blue-50/60 dark:text-blue-400 dark:hover:bg-slate-800/60"
+                  class="flex h-8 w-full items-center gap-2 px-5 text-sm text-[#2564cf] transition hover:bg-blue-50/60 dark:text-blue-400 dark:hover:bg-slate-800/60"
                   type="button" data-ungrouped-add-list @click="startAddingList(null)">
-                  <span>Ny lista +</span>
+                  <span>Ny lista</span>
+                  <Plus :size="15" aria-hidden="true" />
                 </button>
               </div>
             </Transition>
@@ -566,7 +568,7 @@ onUnmounted(() => {
             </template>
           </Transition>
           <RouterLink
-            class="mt-1 flex h-8 w-full items-center gap-3 rounded px-3 text-xs text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+            class="mt-1 flex h-8 w-full items-center gap-3 rounded px-3 text-sm text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
             to="/settings" @click="emit('close')">
             <Settings :size="17" :stroke-width="1.8" aria-hidden="true" />
             <span>Inställningar</span>

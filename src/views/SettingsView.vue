@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { Download, RefreshCw, Trash2 } from '@lucide/vue'
+import { ArrowLeft, Download, LogOut, RefreshCw, Trash2 } from '@lucide/vue'
 import { useAuthStore } from '@/stores/auth'
 import { useListStore } from '@/stores/listStore'
 import { useTaskStore } from '@/stores/taskStore'
@@ -95,7 +95,8 @@ const handleLogout = async () => {
     <div class="mx-auto max-w-3xl">
       <header class="mb-4 flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
         <RouterLink class="inline-flex min-h-9 items-center rounded-lg px-3 text-sm text-[#2564cf] hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-slate-800" to="/">
-        ← To Do
+        <ArrowLeft :size="16" aria-hidden="true" />
+        <span>To Do</span>
         </RouterLink>
         <h1 class="text-lg font-semibold text-slate-700 dark:text-slate-200">Inställningar</h1>
       </header>
@@ -119,7 +120,7 @@ const handleLogout = async () => {
         <div class="mt-3 flex flex-wrap gap-2">
         <button class="h-10 rounded-lg bg-[#2564cf] px-4 text-sm font-medium text-white hover:bg-blue-700" type="button" @click="saveDisplayName">Spara namn</button>
         <button class="flex h-10 flex-1 items-center justify-center gap-3 rounded-lg border border-red-200 bg-white px-4 text-sm text-red-600 transition hover:bg-red-50 dark:border-red-900 dark:bg-slate-900 dark:text-red-400 dark:hover:bg-slate-800" type="button" @click="handleLogout">
-          <span class="text-lg" aria-hidden="true">↩</span>
+          <LogOut :size="18" aria-hidden="true" />
           <span>Logga ut</span>
         </button>
         </div>
