@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, ChevronDown, Download, LogOut, RefreshCw, Trash2 } from '@lucide/vue'
 import { useAuthStore } from '@/stores/auth'
@@ -11,6 +11,7 @@ import { usePushNotifications } from '@/composables/usePushNotifications'
 import { useReminderNotifications } from '@/composables/useReminderNotifications'
 import { useTheme } from '@/composables/useTheme'
 import type { TaskReminder, TaskStatus } from '@/types'
+import { normalizeTag, normalizeTags } from '@/utils/taskTags'
 
 interface ImportedTask {
   title: string
@@ -61,11 +62,57 @@ const importJson = ref('')
 const isImporting = ref(false)
 const importError = ref('')
 const isImportFormatOpen = ref(false)
+const editingTag = ref<string | null>(null)
+const editedTagName = ref('')
+const tagError = ref('')
+const availableTags = computed(() => [...new Set(taskStore.tasks.flatMap((task) => task.tags ?? []))].sort())
 
 onMounted(async () => {
-  await listStore.fetchLists()
+  await Promise.all([listStore.fetchLists(), taskStore.fetchTasks()])
   importListId.value = listStore.lists[0]?.id ?? CREATE_NEW_LIST_OPTION
 })
+
+const startEditingTag = (tag: string) => {
+  editingTag.value = tag
+  editedTagName.value = tag
+  tagError.value = ''
+}
+
+const cancelEditingTag = () => {
+  editingTag.value = null
+  editedTagName.value = ''
+  tagError.value = ''
+}
+
+const saveTagRename = async (tag: string) => {
+  const nextTag = normalizeTag(editedTagName.value)
+  if (!nextTag) {
+    tagError.value = 'Taggnamnet får inte vara tomt.'
+    return
+  }
+  if (nextTag === tag) {
+    cancelEditingTag()
+    return
+  }
+
+  tagError.value = ''
+  let failedUpdates = 0
+  const taggedTasks = taskStore.tasks.filter((task) => task.tags?.includes(tag))
+  for (const task of taggedTasks) {
+    const nextTags = [...new Set((task.tags ?? []).map((taskTag) => taskTag === tag ? nextTag : taskTag))]
+    await taskStore.updateTask(task.id, { tags: nextTags })
+    if (taskStore.error) failedUpdates += 1
+  }
+
+  if (failedUpdates) {
+    tagError.value = `Taggen kunde inte uppdateras på ${failedUpdates} ${failedUpdates === 1 ? 'uppgift' : 'uppgifter'}.`
+    return
+  }
+
+  editingTag.value = null
+  editedTagName.value = ''
+  statusMessage.value = `Taggen har bytt namn till #${nextTag}.`
+}
 
 const saveDisplayName = async () => {
   const name = displayName.value.trim()
@@ -243,7 +290,7 @@ const importTasks = async () => {
       ...(typeof row.dueTimeZone === 'string' ? { dueTimeZone: row.dueTimeZone } : {}),
       ...(reminder !== undefined ? { reminder } : {}),
       ...(typeof row.note === 'string' ? { note: row.note } : {}),
-      ...(Array.isArray(row.tags) ? { tags: row.tags.map((tag) => (tag as string).trim()).filter(Boolean) } : {}),
+      ...(Array.isArray(row.tags) ? { tags: normalizeTags(row.tags as string[]) } : {}),
     })
   }
 
@@ -362,6 +409,27 @@ const handleLogout = async () => {
         </label>
       </section>
 
+      <section class="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:px-5" aria-labelledby="tags-settings-heading">
+        <h2 id="tags-settings-heading" class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Taggar</h2>
+        <p class="mb-2 text-sm text-slate-500 dark:text-slate-400">Små bokstäver används; mellanslag blir bindestreck.</p>
+        <ul v-if="availableTags.length" class="divide-y divide-slate-200 dark:divide-slate-700">
+          <li v-for="tag in availableTags" :key="tag" class="flex min-h-12 items-center gap-2 py-2">
+            <form v-if="editingTag === tag" class="flex min-w-0 flex-1 items-center gap-2" @submit.prevent="saveTagRename(tag)">
+              <label class="sr-only" :for="`rename-tag-${tag}`">Namn på taggen #{{ tag }}</label>
+              <input :id="`rename-tag-${tag}`" v-model="editedTagName" class="min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#2564cf] dark:border-slate-600 dark:bg-slate-800" type="text" />
+              <button class="min-h-9 rounded-md bg-[#2564cf] px-3 text-sm font-medium text-white" type="submit" :aria-label="`Spara taggnamn #${tag}`">Spara</button>
+              <button class="min-h-9 rounded-md px-3 text-sm text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800" type="button" @click="cancelEditingTag">Avbryt</button>
+            </form>
+            <template v-else>
+              <span class="min-w-0 flex-1 truncate text-sm font-medium text-[#2564cf] dark:text-blue-300">#{{ tag }}</span>
+              <button class="min-h-9 rounded-md px-3 text-sm text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800" type="button" :aria-label="`Redigera taggen #${tag}`" @click="startEditingTag(tag)">Redigera</button>
+            </template>
+          </li>
+        </ul>
+        <p v-else class="px-2 py-2 text-sm text-slate-500 dark:text-slate-400">Inga taggar ännu.</p>
+        <p v-if="tagError" class="mt-2 text-sm text-red-700 dark:text-red-300" role="alert">{{ tagError }}</p>
+      </section>
+
       <section class="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:px-5" aria-labelledby="import-heading">
         <h2 id="import-heading" class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Importera uppgifter</h2>
         <label class="block text-sm text-slate-700 dark:text-slate-200" for="import-list">Importera till</label>
@@ -377,7 +445,7 @@ const handleLogout = async () => {
         <textarea id="import-json" v-model="importJson" class="mt-1 min-h-40 w-full resize-y rounded-lg border border-slate-200 bg-white p-3 font-mono text-xs text-slate-700 outline-none focus:border-[#2564cf] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200" placeholder='[{ "title": "Handla mjölk" }]' :disabled="isImporting" />
         <label class="mt-3 block text-sm text-slate-700 dark:text-slate-200" for="import-file">Eller fyll textfältet från JSON-fil</label>
         <input id="import-file" class="mt-1 block w-full text-sm text-slate-600 file:mr-3 file:min-h-9 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:text-sm file:font-medium file:text-slate-700 hover:file:bg-slate-200 dark:text-slate-300 dark:file:bg-slate-800 dark:file:text-slate-200 dark:hover:file:bg-slate-700" type="file" accept=".json,application/json" :disabled="isImporting" @change="loadImportFile" />
-        <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">Titel är obligatorisk. Anteckning, datum, påminnelse, taggar och status är valfria. En fullständig export från appen fungerar också. Högst 500 uppgifter per fil.</p>
+        <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">Titel är obligatorisk. Anteckning, datum, påminnelse, taggar och status är valfria. Taggar sparas med små bokstäver och mellanslag blir bindestreck. En fullständig export från appen fungerar också. Högst 500 uppgifter per fil.</p>
         <button class="mt-3 min-h-10 rounded-lg bg-[#2564cf] px-4 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50" type="button" :disabled="isImporting || !importJson.trim()" @click="importTasks">
           {{ isImporting ? 'Importerar...' : 'Importera uppgifter' }}
         </button>

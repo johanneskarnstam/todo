@@ -25,6 +25,7 @@ interface Emits {
   (event: 'delete'): void
   (event: 'move', direction: -1 | 1): void
   (event: 'move-to-list', listId: string): void
+  (event: 'select-tag', tag: string): void
 }
 
 const props = defineProps<Props>()
@@ -273,7 +274,9 @@ const dueDateText = computed(() => {
         {{ task.title }}
         <span v-if="stepCount && stepCount.total > 0" class="ml-2 text-xs text-slate-500 dark:text-slate-400" :aria-label="`${stepCount.completed} av ${stepCount.total} delsteg klara`">({{ stepCount.completed }}/{{ stepCount.total }})</span>
         <span v-if="listName" class="ml-2 text-xs text-slate-500 dark:text-slate-400">{{ listName }}</span>
-        <span v-if="task.tags?.length" class="ml-2 text-xs text-[#2564cf] dark:text-blue-300">#{{ task.tags.join(' #') }}</span>
+        <span v-for="tag in task.tags" :key="tag" class="ml-2 inline-flex text-xs text-[#2564cf] dark:text-blue-300">
+          <button class="hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2564cf]" type="button" :aria-label="`Visa uppgifter med taggen #${tag}`" @click.stop="emit('select-tag', tag)">#{{ tag }}</button>
+        </span>
         <span v-if="showDueDate && dueDateText" class="ml-2 inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-slate-700 dark:text-slate-200">
           <CalendarDays :size="12" aria-hidden="true" />
           {{ dueDateText }}

@@ -325,6 +325,7 @@ const handleSelectTag = (tag: string) => {
     return
   }
 
+  taskStore.setActiveTask(null)
   taskStore.setTagView(tag)
   void router.push({ name: 'tag', params: { tag } })
   isSidebarOpen.value = false
@@ -559,6 +560,7 @@ watch(
                   @toggle-my-day="taskStore.toggleMyDay(task.id)"
                   @delete="requestDeleteTask(task.id)"
                   @move-to-list="handleMoveTaskToList(task.id, $event)"
+                  @select-tag="handleSelectTag"
                 />
               </div>
             </section>
@@ -572,7 +574,7 @@ watch(
                 :key="task.id"
                 :task="task"
                 :step-count="taskStore.taskStepCounts.get(task.id) ?? null"
-                :list-name="taskStore.activeView?.type === 'smart' && taskStore.activeView.smartView === 'important' ? taskListName(task.listId) : null"
+                :list-name="routeTag ? taskListName(task.listId) : (taskStore.activeView?.type === 'smart' && taskStore.activeView.smartView === 'important' ? taskListName(task.listId) : null)"
                 :draggable="canDrag"
                 :task-status-mode="activeListTaskStatusMode"
                 :available-lists="listStore.lists"
@@ -584,6 +586,7 @@ watch(
                 @delete="requestDeleteTask(task.id)"
                 @move="(direction) => handleMoveTask(task.id, direction)"
                 @move-to-list="handleMoveTaskToList(task.id, $event)"
+                @select-tag="handleSelectTag"
               />
             </div>
           </section>
@@ -609,7 +612,7 @@ watch(
                 :key="task.id"
                 :task="task"
                 :step-count="taskStore.taskStepCounts.get(task.id) ?? null"
-                :list-name="taskStore.activeView?.type === 'smart' && taskStore.activeView.smartView === 'important' ? taskListName(task.listId) : null"
+                :list-name="routeTag ? taskListName(task.listId) : (taskStore.activeView?.type === 'smart' && taskStore.activeView.smartView === 'important' ? taskListName(task.listId) : null)"
                 :task-status-mode="activeListTaskStatusMode"
                 :available-lists="listStore.lists"
                 @select="taskStore.setActiveTask(task.id)"
@@ -619,6 +622,7 @@ watch(
                 @toggle-my-day="taskStore.toggleMyDay(task.id)"
                 @delete="requestDeleteTask(task.id)"
                 @move-to-list="handleMoveTaskToList(task.id, $event)"
+                @select-tag="handleSelectTag"
               />
             </div>
           </section>
@@ -644,6 +648,7 @@ watch(
         @save-reminder="handleSaveReminder(taskStore.activeTaskId!, $event)"
         @save-note="taskStore.saveNote(taskStore.activeTaskId!, $event)"
         @save-tags="taskStore.updateTask(taskStore.activeTaskId!, { tags: $event })"
+        @select-tag="handleSelectTag"
         @move-to-list="handleMoveTaskToList(taskStore.activeTaskId!, $event)"
         @delete-task="handleDeleteActiveTask"
       />

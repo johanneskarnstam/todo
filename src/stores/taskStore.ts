@@ -20,6 +20,7 @@ import { useToastStore } from '@/stores/toastStore'
 import { isBrowserOffline } from '@/composables/useNetworkStatus'
 import type { SmartView, Step, StepCount, Task, TaskReminder, TaskStatus, TaskStatusMode, TaskView } from '@/types'
 import { sortTasksForMode } from '@/utils/taskSorting'
+import { normalizeTags } from '@/utils/taskTags'
 import { getTaskStatus, isTaskCompleted, isTaskStatusAllowed, taskStatusToCompleted } from '@/utils/taskStatus'
 
 interface NewTaskInput {
@@ -303,7 +304,7 @@ export const useTaskStore = defineStore('tasks', () => {
       ...(input.dueTimeZone ? { dueTimeZone: input.dueTimeZone } : {}),
       ...(input.reminder !== undefined ? { reminder: input.reminder } : {}),
       ...(input.note !== undefined ? { note: input.note } : {}),
-      ...(input.tags ? { tags: input.tags } : {}),
+      ...(input.tags ? { tags: normalizeTags(input.tags) } : {}),
     }
 
     tasks.value = sortTasks([...tasks.value, optimisticTask])
@@ -347,13 +348,14 @@ export const useTaskStore = defineStore('tasks', () => {
     const currentTask = tasks.value.find((task) => task.id === taskId)
     if (!currentTask) return
 
+    const normalizedUpdates = updates.tags ? { ...updates, tags: normalizeTags(updates.tags) } : updates
     const previousTask = { ...currentTask }
-    Object.assign(currentTask, updates)
+    Object.assign(currentTask, normalizedUpdates)
     error.value = null
     if (isMockAuthEnabled) persistMockTasks(tasks.value)
 
     try {
-      await trackWrite(() => updateDoc(doc(userCollection(), taskId), updates))
+      await trackWrite(() => updateDoc(doc(userCollection(), taskId), normalizedUpdates))
     } catch (updateError) {
       tasks.value = tasks.value.map((task) => (task.id === taskId ? previousTask : task))
       reportWriteError(updateError, 'Uppgiften kunde inte uppdateras.')

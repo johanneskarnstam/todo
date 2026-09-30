@@ -93,6 +93,41 @@ test('adds a tag and uses a quick due-date preset', async ({ page }) => {
   await expect(page.getByRole('menuitem', { name: '#arbete' })).toBeVisible()
 })
 
+test('renames a tag globally and shows each result list', async ({ page }) => {
+  await page.goto('/')
+  const whatsNewButton = page.getByRole('button', { name: 'Jag har sett detta' })
+  if (await whatsNewButton.count()) await whatsNewButton.click()
+  await page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' }).click()
+  const firstDetails = page.getByRole('dialog', { name: 'Uppgiftsdetaljer' })
+  await firstDetails.getByPlaceholder('Lägg till tagg').fill('shared-tag')
+  await firstDetails.getByPlaceholder('Lägg till tagg').press('Enter')
+  await firstDetails.getByRole('button', { name: 'Stäng uppgiftsdetaljer' }).click()
+  await page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' }).getByRole('button', { name: 'Visa uppgifter med taggen #shared-tag' }).click()
+  await expect(page).toHaveURL(/\/tag\/shared-tag$/)
+
+  await page.goto('#/')
+  await page.getByRole('button', { name: 'Öppna navigeringsmeny' }).click()
+  await page.getByRole('button', { name: /^Projekt/ }).click()
+  await page.getByRole('group', { name: 'Uppgift: Förbered nästa release' }).click()
+  const secondDetails = page.getByRole('dialog', { name: 'Uppgiftsdetaljer' })
+  await secondDetails.getByPlaceholder('Lägg till tagg').fill('shared-tag')
+  await secondDetails.getByPlaceholder('Lägg till tagg').press('Enter')
+
+  await page.goto('#/settings')
+  await page.getByRole('button', { name: 'Redigera taggen #shared-tag' }).click()
+  await page.getByLabel('Namn på taggen #shared-tag').fill('renamed-tag')
+  await page.getByRole('button', { name: 'Spara taggnamn #shared-tag' }).click()
+  await expect(page.getByRole('status')).toContainText('Taggen har bytt namn till #renamed-tag.')
+
+  await page.goto('#/tag/renamed-tag')
+  const firstTask = page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' })
+  const secondTask = page.getByRole('group', { name: 'Uppgift: Förbered nästa release' })
+  await expect(firstTask).toContainText('Att göra')
+  await expect(secondTask).toContainText('Projekt')
+  await expect(firstTask).toContainText('#renamed-tag')
+  await expect(secondTask).toContainText('#renamed-tag')
+})
+
 test('can undo deleting a task', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: 'Jag har sett detta' }).click()
