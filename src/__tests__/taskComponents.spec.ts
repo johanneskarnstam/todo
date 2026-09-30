@@ -241,6 +241,7 @@ describe('TaskRow', () => {
           reminder: { offsetMinutes: 10 },
           dueDate: '2026-09-24',
           tags: ['jobb'],
+          note: 'Use the blue paint.',
         },
       },
     })
@@ -254,6 +255,7 @@ describe('TaskRow', () => {
     expect(metadata.find('button[aria-label="Visa uppgifter med taggen #jobb"]').exists()).toBe(true)
     expect(metadata.text()).toContain('Stjärnmärkt')
     expect(metadata.text()).toContain('Min dag')
+    expect(metadata.find('[aria-label="Anteckning finns"]').exists()).toBe(true)
     expect(metadata.text()).toContain('24 sep. 2026')
     expect(metadata.text()).toContain(`Påminnelse ${reminderTime}`)
     expect(wrapper.find('[aria-label^="Påminnelse:"]').findAll('span')[0]?.text()).toBe(reminderTime)
@@ -262,6 +264,12 @@ describe('TaskRow', () => {
     expect(wrapper.find('[aria-label^="Påminnelse:"]').exists()).toBe(true)
     expect(wrapper.find('[aria-label="Uppgiftsåtgärder"]').exists()).toBe(true)
     expect(wrapper.find('[aria-label="Uppgiftsmarkeringar"]').exists()).toBe(false)
+  })
+
+  it('does not show note metadata for a blank note', () => {
+    const wrapper = mount(TaskRow, { props: { task: { ...task, note: '   ' } } })
+
+    expect(wrapper.find('[aria-label="Taggar och uppgiftsmarkeringar"]').exists()).toBe(false)
   })
 
   it('keeps the date when a reminder falls on a different day than the due date', () => {

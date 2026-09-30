@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
-import { Bell, CalendarDays, CalendarPlus, Check, CheckCircle2, ChevronRight, GripVertical, ListTodo, MoreVertical, Play, Star, Trash2 } from '@lucide/vue'
+import { Bell, CalendarDays, CalendarPlus, Check, CheckCircle2, ChevronRight, GripVertical, ListTodo, MoreVertical, Play, Star, StickyNote, Trash2 } from '@lucide/vue'
 import type { List, StepCount, Task, TaskStatus, TaskStatusMode } from '@/types'
 import { getTaskStatus } from '@/utils/taskStatus'
 
@@ -302,13 +302,17 @@ const reminderDateText = computed(() => {
           </div>
 
           <div
-            v-if="task.tags?.length || task.important || task.myDay || task.dueDate || (task.reminder && getTaskStatus(task) !== 'completed')"
+            v-if="task.tags?.length || task.important || task.myDay || task.dueDate || task.note?.trim() || (task.reminder && getTaskStatus(task) !== 'completed')"
             class="mt-1 flex min-h-6 min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs"
             role="group"
             aria-label="Taggar och uppgiftsmarkeringar"
           >
             <span v-for="tag in task.tags" :key="tag" class="inline-flex text-[#2564cf] dark:text-blue-300">
               <button class="hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2564cf]" type="button" :aria-label="`Visa uppgifter med taggen #${tag}`" @click.stop="emit('select-tag', tag)">#{{ tag }}</button>
+            </span>
+            <span v-if="task.note?.trim()" class="inline-flex items-center gap-1.5 whitespace-nowrap text-slate-600 dark:text-slate-300" role="img" aria-label="Anteckning finns" title="Anteckning finns">
+              <StickyNote :size="14" aria-hidden="true" />
+              <span class="hidden lg:inline">Anteckning</span>
             </span>
             <span v-if="task.important" class="inline-flex items-center gap-1.5 whitespace-nowrap text-amber-600 dark:text-amber-400" role="img" aria-label="Stjärnmärkt" title="Stjärnmärkt">
               <Star :size="14" fill="none" aria-hidden="true" />

@@ -24,6 +24,11 @@ test('opens task details from a task row', async ({ page }) => {
   await expect(details.getByRole('heading', { name: 'Delsteg' })).toBeVisible()
   await expect(details.getByRole('heading', { name: 'Planering' })).toBeVisible()
   await expect(details.getByRole('heading', { name: 'Anteckningar' })).toBeVisible()
+
+  await details.getByRole('textbox', { name: 'Anteckningar' }).fill('Kom ihåg måtten.')
+  await details.getByRole('button', { name: 'Stäng uppgiftsdetaljer' }).click()
+
+  await expect(page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' }).getByRole('img', { name: 'Anteckning finns' })).toBeVisible()
 })
 
 test('marks a task complete and restores it to active', async ({ page }) => {

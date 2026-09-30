@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { ArrowLeft } from '@lucide/vue'
+import { ArrowLeft, Bell, CalendarDays, Clock, Sun } from '@lucide/vue'
 import type { Step, Task, TaskReminder } from '@/types'
 import { normalizeTag, normalizeTags } from '@/utils/taskTags'
 
@@ -244,18 +244,18 @@ const saveStepTitle = () => {
         <h2 id="planning-heading" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Planering</h2>
         <div class="space-y-2">
         <button class="flex min-h-11 w-full items-center gap-3 rounded-lg px-2 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800" type="button" @click="emit('toggle-my-day')">
-          <span class="text-xl" :class="task.myDay ? 'text-[#2564cf] dark:text-blue-400' : 'text-slate-500'" aria-hidden="true">☼</span>
+          <Sun :size="18" :class="task.myDay ? 'text-[#2564cf] dark:text-blue-400' : 'text-slate-500'" aria-hidden="true" />
           <span class="flex-1">{{ task.myDay ? 'Ta bort från Min dag' : 'Lägg till i Min dag' }}</span>
           <span v-if="task.myDay" class="text-xs text-[#2564cf] dark:text-blue-400">Added</span>
         </button>
 
         <label class="flex min-h-11 items-center gap-3 rounded-lg px-2 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800">
-          <span class="text-lg text-slate-500" aria-hidden="true">▣</span>
+          <CalendarDays :size="18" class="text-slate-500" aria-hidden="true" />
           <span class="flex-1">Förfallodatum</span>
           <input class="w-32 bg-transparent text-right text-sm text-slate-600 outline-none dark:text-slate-300" type="date" :value="dueDate" aria-label="Uppgiftens förfallodatum" @change="emit('set-due-date', ($event.target as HTMLInputElement).value)" />
         </label>
         <label class="flex min-h-11 items-center gap-3 rounded-lg px-2 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800">
-          <span class="text-lg text-slate-500" aria-hidden="true">◷</span>
+          <Clock :size="18" class="text-slate-500" aria-hidden="true" />
           <span class="flex-1">Förfallotid</span>
           <input class="w-24 bg-transparent text-right text-sm text-slate-600 outline-none disabled:opacity-50 dark:text-slate-300" type="time" :value="dueTime" :disabled="!dueDate" aria-label="Uppgiftens förfallotid" @change="saveDueTime(($event.target as HTMLInputElement).value)" />
         </label>
@@ -266,7 +266,7 @@ const saveStepTitle = () => {
           <button class="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 hover:border-[#2564cf] hover:text-[#2564cf] dark:border-slate-700 dark:text-slate-300" type="button" @click="selectQuickDate(null)">Rensa</button>
         </div>
         <label class="flex min-h-11 items-center gap-3 rounded-lg px-2 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800">
-          <span class="text-lg text-slate-500" aria-hidden="true">◉</span>
+          <Bell :size="18" class="text-slate-500" aria-hidden="true" />
           <span class="flex-1">Påminnelse</span>
           <select v-model="reminderOffset" class="max-w-44 bg-transparent text-right text-sm text-slate-600 outline-none disabled:opacity-50 dark:text-slate-300" :disabled="!dueDate" aria-label="Påminnelse" @change="saveReminder">
             <option value="">Ingen</option>
