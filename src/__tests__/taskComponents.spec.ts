@@ -245,9 +245,11 @@ describe('TaskRow', () => {
       },
     })
     const metadata = wrapper.find('[aria-label="Taggar och uppgiftsmarkeringar"]')
-    const reminderDate = new Date('2026-09-24T08:50:00').toLocaleString('sv-SE', {
+    const reminderDate = new Date('2026-09-24T08:50:00').toLocaleDateString('sv-SE', {
       day: 'numeric',
       month: 'short',
+    }).replace('.', '')
+    const reminderTime = new Date('2026-09-24T08:50:00').toLocaleTimeString('sv-SE', {
       hour: '2-digit',
       minute: '2-digit',
     })
@@ -257,7 +259,8 @@ describe('TaskRow', () => {
     expect(metadata.text()).toContain('Stjärnmärkt')
     expect(metadata.text()).toContain('Min dag')
     expect(metadata.text()).toContain('24 sep. 2026')
-    expect(metadata.text()).toContain(`Påminnelse ${reminderDate}`)
+    expect(metadata.text()).toContain(`Påminnelse ${reminderDate} ${reminderTime}`)
+    expect(wrapper.find('[aria-label^="Påminnelse:"]').findAll('span')[0]?.text()).toBe(`${reminderDate} ${reminderTime}`)
     expect(wrapper.find('[aria-label="Stjärnmärkt"] svg').attributes('fill')).toBe('none')
     expect(wrapper.find('[aria-label^="Förfallodatum:"]').exists()).toBe(true)
     expect(wrapper.find('[aria-label^="Påminnelse:"]').exists()).toBe(true)

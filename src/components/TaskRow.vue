@@ -205,12 +205,15 @@ const reminderDateText = computed(() => {
   if (Number.isNaN(dueDate.getTime())) return ''
 
   const reminderDate = new Date(dueDate.getTime() - props.task.reminder.offsetMinutes * 60_000)
-  return reminderDate.toLocaleString('sv-SE', {
+  const dateText = reminderDate.toLocaleDateString('sv-SE', {
     day: 'numeric',
     month: 'short',
+  }).replace('.', '')
+  const timeText = reminderDate.toLocaleTimeString('sv-SE', {
     hour: '2-digit',
     minute: '2-digit',
   })
+  return `${dateText} ${timeText}`
 })
 </script>
 
@@ -298,7 +301,7 @@ const reminderDateText = computed(() => {
 
           <div
             v-if="task.tags?.length || task.important || task.myDay || task.dueDate || (task.reminder && getTaskStatus(task) !== 'completed')"
-            class="mt-1 flex min-h-6 min-w-0 flex-wrap items-center gap-x-3 gap-y-1 pl-9 text-xs"
+            class="mt-1 flex min-h-6 min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs"
             role="group"
             aria-label="Taggar och uppgiftsmarkeringar"
           >
@@ -319,6 +322,7 @@ const reminderDateText = computed(() => {
             </span>
             <span v-if="task.reminder && getTaskStatus(task) !== 'completed'" class="inline-flex items-center gap-1.5 whitespace-nowrap text-slate-600 dark:text-slate-300" role="img" :aria-label="reminderDateText ? `Påminnelse: ${reminderDateText}` : 'Påminnelse inställd'" :title="reminderDateText ? `Påminnelse: ${reminderDateText}` : 'Påminnelse inställd'">
               <Bell :size="14" aria-hidden="true" />
+              <span class="xl:hidden">{{ reminderDateText || 'Påminnelse' }}</span>
               <span class="hidden xl:inline">{{ reminderDateText ? `Påminnelse ${reminderDateText}` : 'Påminnelse inställd' }}</span>
             </span>
           </div>

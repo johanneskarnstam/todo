@@ -120,12 +120,16 @@ test('shows task metadata as icons on mobile and labels on wide screens', async 
     month: 'short',
     year: 'numeric',
   })
-  const reminderDateText = new Date('2026-10-05T13:30:00').toLocaleString('sv-SE', {
+  const reminderDate = new Date('2026-10-05T13:30:00')
+  const reminderDateText = reminderDate.toLocaleDateString('sv-SE', {
     day: 'numeric',
     month: 'short',
+  }).replace('.', '')
+  const reminderTimeText = reminderDate.toLocaleTimeString('sv-SE', {
     hour: '2-digit',
     minute: '2-digit',
   })
+  const reminderDateTimeText = `${reminderDateText} ${reminderTimeText}`
   const tag = metadata.getByRole('button', { name: 'Visa uppgifter med taggen #responsiv' })
   const title = task.getByText('Kontrollera mobilvyn', { exact: true })
   const titleBox = await title.boundingBox()
@@ -135,19 +139,22 @@ test('shows task metadata as icons on mobile and labels on wide screens', async 
   await expect(metadata.getByRole('img', { name: 'Stjärnmärkt' })).toBeVisible()
   await expect(metadata.getByRole('img', { name: 'Tillagd i Min dag' })).toBeVisible()
   await expect(metadata.getByRole('img', { name: `Förfallodatum: ${dueDateText}` })).toBeVisible()
-  await expect(metadata.getByRole('img', { name: `Påminnelse: ${reminderDateText}` })).toBeVisible()
+  await expect(metadata.getByRole('img', { name: `Påminnelse: ${reminderDateTimeText}` })).toBeVisible()
   await expect(metadata.getByText('Stjärnmärkt', { exact: true })).toBeHidden()
   await expect(metadata.getByText('Min dag', { exact: true })).toBeHidden()
   await expect(metadata.getByText(dueDateText, { exact: true })).toBeHidden()
-  await expect(metadata.getByText(`Påminnelse ${reminderDateText}`, { exact: true })).toBeHidden()
+  await expect(metadata.getByText(reminderDateTimeText, { exact: true })).toBeVisible()
+  await expect(metadata.getByText(`Påminnelse ${reminderDateTimeText}`, { exact: true })).toBeHidden()
   await expect(task.getByRole('button', { name: 'Uppgiftsåtgärder' })).toBeVisible()
   expect(tagBox?.y).toBeGreaterThan(titleBox?.y ?? 0)
+  expect(Math.abs((tagBox?.x ?? 0) - (titleBox?.x ?? 0))).toBeLessThan(1)
 
   await page.setViewportSize({ width: 1440, height: 900 })
   await expect(metadata.getByText('Stjärnmärkt', { exact: true })).toBeVisible()
   await expect(metadata.getByText('Min dag', { exact: true })).toBeVisible()
   await expect(metadata.getByText(dueDateText, { exact: true })).toBeVisible()
-  await expect(metadata.getByText(`Påminnelse ${reminderDateText}`, { exact: true })).toBeVisible()
+  await expect(metadata.getByText(reminderDateTimeText, { exact: true })).toBeHidden()
+  await expect(metadata.getByText(`Påminnelse ${reminderDateTimeText}`, { exact: true })).toBeVisible()
 })
 
 test('renames a tag globally and shows each result list', async ({ page }) => {
