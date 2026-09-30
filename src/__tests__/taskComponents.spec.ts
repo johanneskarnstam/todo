@@ -245,10 +245,6 @@ describe('TaskRow', () => {
       },
     })
     const metadata = wrapper.find('[aria-label="Taggar och uppgiftsmarkeringar"]')
-    const reminderDate = new Date('2026-09-24T08:50:00').toLocaleDateString('sv-SE', {
-      day: 'numeric',
-      month: 'short',
-    }).replace('.', '')
     const reminderTime = new Date('2026-09-24T08:50:00').toLocaleTimeString('sv-SE', {
       hour: '2-digit',
       minute: '2-digit',
@@ -259,13 +255,35 @@ describe('TaskRow', () => {
     expect(metadata.text()).toContain('Stjärnmärkt')
     expect(metadata.text()).toContain('Min dag')
     expect(metadata.text()).toContain('24 sep. 2026')
-    expect(metadata.text()).toContain(`Påminnelse ${reminderDate} ${reminderTime}`)
-    expect(wrapper.find('[aria-label^="Påminnelse:"]').findAll('span')[0]?.text()).toBe(`${reminderDate} ${reminderTime}`)
+    expect(metadata.text()).toContain(`Påminnelse ${reminderTime}`)
+    expect(wrapper.find('[aria-label^="Påminnelse:"]').findAll('span')[0]?.text()).toBe(reminderTime)
     expect(wrapper.find('[aria-label="Stjärnmärkt"] svg').attributes('fill')).toBe('none')
     expect(wrapper.find('[aria-label^="Förfallodatum:"]').exists()).toBe(true)
     expect(wrapper.find('[aria-label^="Påminnelse:"]').exists()).toBe(true)
     expect(wrapper.find('[aria-label="Uppgiftsåtgärder"]').exists()).toBe(true)
     expect(wrapper.find('[aria-label="Uppgiftsmarkeringar"]').exists()).toBe(false)
+  })
+
+  it('keeps the date when a reminder falls on a different day than the due date', () => {
+    const wrapper = mount(TaskRow, {
+      props: {
+        task: {
+          ...task,
+          reminder: { offsetMinutes: 1440 },
+          dueDate: '2026-09-24',
+        },
+      },
+    })
+    const reminderDate = new Date('2026-09-23T09:00:00').toLocaleDateString('sv-SE', {
+      day: 'numeric',
+      month: 'short',
+    }).replace('.', '')
+    const reminderTime = new Date('2026-09-23T09:00:00').toLocaleTimeString('sv-SE', {
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+
+    expect(wrapper.find('[aria-label^="Påminnelse:"]').findAll('span')[0]?.text()).toBe(`${reminderDate} ${reminderTime}`)
   })
 
   it('shows a due date in planned view while keeping the normal list view compact', () => {
@@ -465,6 +483,24 @@ describe('TaskDetailsPanel', () => {
 
     expect(wrapper.emitted('save-tags')).toEqual([[['work-tag']]])
     expect(wrapper.emitted('set-due-date')?.[0]?.[0]).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+  })
+
+  it('suggests matching existing tags as the user types', async () => {
+    const wrapper = mount(TaskDetailsPanel, {
+      props: {
+        task: { ...task, tags: ['home'] },
+        steps,
+        availableTags: ['lägenhet', 'läget', 'home'],
+      },
+    })
+    const tagInput = wrapper.get('input[placeholder="Lägg till tagg"]')
+
+    await tagInput.setValue('LÄG')
+    expect(wrapper.findAll('[aria-label="Taggförslag"] button').map((button) => button.text())).toEqual(['#lägenhet', '#läget'])
+
+    await wrapper.get('button[aria-label="Lägg till befintlig tagg #lägenhet"]').trigger('click')
+
+    expect(wrapper.emitted('save-tags')).toEqual([[['home', 'lägenhet']]])
   })
 
   it('emits a due time and reminder offset', async () => {

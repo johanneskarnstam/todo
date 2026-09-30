@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { ArrowLeft } from '@lucide/vue'
 import type { Step, Task, TaskReminder } from '@/types'
 import { normalizeTag, normalizeTags } from '@/utils/taskTags'
@@ -7,6 +7,7 @@ import { normalizeTag, normalizeTags } from '@/utils/taskTags'
 interface Props {
   task: Task
   steps: Step[]
+  availableTags?: string[]
 }
 
 interface Emits {
@@ -34,7 +35,6 @@ const tagTitle = ref('')
 const stepTitle = ref('')
 const editingStepId = ref<string | null>(null)
 const editingStepTitle = ref('')
-const titleInput = ref<HTMLInputElement | null>(null)
 const reminderOffset = ref(String(props.task.reminder?.offsetMinutes ?? ''))
 
 const dueDate = computed(() => {
@@ -57,10 +57,6 @@ watch(
   },
 )
 
-onMounted(() => {
-  void nextTick(() => titleInput.value?.focus())
-})
-
 const saveTitle = () => {
   const nextTitle = title.value.trim()
   if (nextTitle && nextTitle !== props.task.title) emit('save-title', nextTitle)
@@ -76,14 +72,21 @@ const addStep = () => {
 }
 
 const tags = ref<string[]>(normalizeTags(props.task.tags ?? []))
+const tagSuggestions = computed(() => {
+  const query = normalizeTag(tagTitle.value)
+  if (!query) return []
+
+  return [...new Set(props.availableTags ?? [])]
+    .filter((tag) => tag.startsWith(query) && !tags.value.includes(tag))
+})
 
 const saveTags = (nextTags: string[]) => {
   tags.value = normalizeTags(nextTags)
   emit('save-tags', tags.value)
 }
 
-const addTag = () => {
-  const nextTag = normalizeTag(tagTitle.value)
+const addTag = (suggestedTag?: string) => {
+  const nextTag = normalizeTag(suggestedTag ?? tagTitle.value)
   if (!nextTag) return
   saveTags([...tags.value, nextTag])
   tagTitle.value = ''
@@ -157,7 +160,6 @@ const saveStepTitle = () => {
         <label id="title-heading" class="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400" for="task-title">Titel</label>
         <input
           id="task-title"
-          ref="titleInput"
           v-model="title"
           class="w-full border-b border-transparent bg-transparent pb-2 text-lg font-semibold text-slate-800 outline-none transition focus:border-[#2564cf] dark:text-slate-100"
           type="text"
@@ -175,10 +177,17 @@ const saveStepTitle = () => {
             <button type="button" :aria-label="`Ta bort taggen ${tag}`" @click="removeTag(tag)">×</button>
           </span>
         </div>
-        <form class="mt-2 flex gap-2" @submit.prevent="addTag">
+        <form class="mt-2 flex flex-col gap-2" @submit.prevent="addTag()">
           <label class="sr-only" for="new-task-tag">Ny tagg</label>
-          <input id="new-task-tag" v-model="tagTitle" class="min-w-0 flex-1 rounded-lg border border-slate-200 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#2564cf] dark:border-slate-700" type="text" placeholder="Lägg till tagg" />
-          <button class="rounded-lg bg-[#2564cf] px-3 text-sm text-white" type="submit">Lägg till</button>
+          <div class="flex gap-2">
+            <input id="new-task-tag" v-model="tagTitle" autocomplete="off" class="min-w-0 flex-1 rounded-lg border border-slate-200 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#2564cf] dark:border-slate-700" type="text" placeholder="Lägg till tagg" />
+            <button class="rounded-lg bg-[#2564cf] px-3 text-sm text-white" type="submit">Lägg till</button>
+          </div>
+          <ul v-if="tagSuggestions.length" class="max-h-36 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-900" aria-label="Taggförslag">
+            <li v-for="tag in tagSuggestions" :key="tag">
+              <button class="w-full rounded-md px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800" type="button" :aria-label="`Lägg till befintlig tagg #${tag}`" @click="addTag(tag)">#{{ tag }}</button>
+            </li>
+          </ul>
         </form>
         <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">Små bokstäver används; mellanslag blir bindestreck.</p>
       </section>

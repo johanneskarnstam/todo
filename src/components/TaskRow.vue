@@ -213,7 +213,9 @@ const reminderDateText = computed(() => {
     hour: '2-digit',
     minute: '2-digit',
   })
-  return `${dateText} ${timeText}`
+  return reminderDate.toDateString() === dueDate.toDateString()
+    ? timeText
+    : `${dateText} ${timeText}`
 })
 </script>
 

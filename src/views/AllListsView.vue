@@ -24,6 +24,7 @@ const { preferences } = usePreferences()
 const { isDark, toggleTheme } = useTheme()
 
 const ungroupedLists = computed(() => listStore.ungroupedLists)
+const availableTags = computed(() => [...new Set(taskStore.tasks.flatMap((task) => task.tags ?? []))].sort())
 const desktopGroups = computed(() => [
   ...listStore.foldersWithLists.map(({ folder, lists }) => ({
     id: folder.id,
@@ -102,10 +103,11 @@ const handleSaveStepTitle = (stepId: string, title: string) => {
 }
 
 const handleSaveReminder = async (taskId: string, reminder: TaskReminder | null) => {
+  const updatePromise = taskStore.updateTask(taskId, { reminder })
   if (reminder && !(await requestPermission())) {
     toastStore.show('Påminnelsen sparas, men aviseringar är blockerade i webbläsaren.')
   }
-  await taskStore.updateTask(taskId, { reminder })
+  await updatePromise
 }
 
 const syncDesktopView = () => {
@@ -318,6 +320,7 @@ onUnmounted(() => desktopMediaQuery?.removeEventListener('change', syncDesktopVi
       v-if="taskStore.activeTask"
       :task="taskStore.activeTask"
       :steps="taskStore.activeSteps"
+      :available-tags="availableTags"
       :available-lists="listStore.lists"
       @close="taskStore.setActiveTask(null)"
       @save-title="taskStore.updateTask(taskStore.activeTaskId!, { title: $event })"

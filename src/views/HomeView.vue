@@ -380,11 +380,12 @@ const handleSetDueDate = async (taskId: string, dueDate: string) => {
 }
 
 const handleSaveReminder = async (taskId: string, reminder: TaskReminder | null) => {
+  const updatePromise = taskStore.updateTask(taskId, { reminder })
   if (reminder) {
     const granted = await requestPermission()
     if (!granted) toastStore.show('Påminnelsen sparas, men aviseringar är blockerade i webbläsaren.')
   }
-  await taskStore.updateTask(taskId, { reminder })
+  await updatePromise
 }
 
 const handleGlobalKeydown = (event: KeyboardEvent) => {
@@ -635,6 +636,7 @@ watch(
         v-if="taskStore.activeTask"
         :task="taskStore.activeTask"
         :steps="taskStore.activeSteps"
+        :available-tags="availableTags"
         :available-lists="listStore.lists"
         @close="taskStore.setActiveTask(null)"
         @save-title="taskStore.updateTask(taskStore.activeTaskId!, { title: $event })"

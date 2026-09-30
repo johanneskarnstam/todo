@@ -19,6 +19,7 @@ test('opens task details from a task row', async ({ page }) => {
 
   const details = page.getByRole('dialog', { name: 'Uppgiftsdetaljer' })
   await expect(details).toBeVisible()
+  await expect(details.getByLabel('Uppgiftens titel')).not.toBeFocused()
   await expect(details.getByRole('heading', { name: 'Taggar' })).toBeVisible()
   await expect(details.getByRole('heading', { name: 'Delsteg' })).toBeVisible()
   await expect(details.getByRole('heading', { name: 'Planering' })).toBeVisible()
@@ -66,9 +67,31 @@ test('adds a task to Min dag and finds it in the smart view', async ({ page }) =
 test('adds a tag and uses a quick due-date preset', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: 'Jag har sett detta' }).click()
+
+  const sourceTitle = `Taggförslagskälla-${Date.now()}`
+  await page.getByPlaceholder('Lägg till en uppgift').fill(sourceTitle)
+  await page.getByPlaceholder('Lägg till en uppgift').press('Enter')
+  const sourceTask = page.getByRole('group', { name: `Uppgift: ${sourceTitle}` })
+  await expect(sourceTask).toBeVisible()
+  await sourceTask.click()
+
+  const sourceDetails = page.getByRole('dialog', { name: 'Uppgiftsdetaljer' })
+  await sourceDetails.getByPlaceholder('Lägg till tagg').fill('lägenhet')
+  await sourceDetails.getByPlaceholder('Lägg till tagg').press('Enter')
+  await sourceDetails.getByPlaceholder('Lägg till tagg').fill('läget')
+  await sourceDetails.getByPlaceholder('Lägg till tagg').press('Enter')
+  await sourceDetails.getByRole('button', { name: 'Stäng uppgiftsdetaljer' }).click()
+
   await page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' }).click()
 
   const details = page.getByRole('dialog', { name: 'Uppgiftsdetaljer' })
+  const tagInput = details.getByPlaceholder('Lägg till tagg')
+  await tagInput.fill('läg')
+  await expect(details.getByRole('button', { name: 'Lägg till befintlig tagg #lägenhet' })).toBeVisible()
+  await expect(details.getByRole('button', { name: 'Lägg till befintlig tagg #läget' })).toBeVisible()
+  await details.getByRole('button', { name: 'Lägg till befintlig tagg #lägenhet' }).click()
+  await expect(details.getByText('#lägenhet')).toBeVisible()
+
   await details.getByPlaceholder('Lägg till tagg').fill('arbete')
   await details.getByPlaceholder('Lägg till tagg').press('Enter')
   await expect(details.getByText('#arbete')).toBeVisible()
@@ -121,15 +144,10 @@ test('shows task metadata as icons on mobile and labels on wide screens', async 
     year: 'numeric',
   })
   const reminderDate = new Date('2026-10-05T13:30:00')
-  const reminderDateText = reminderDate.toLocaleDateString('sv-SE', {
-    day: 'numeric',
-    month: 'short',
-  }).replace('.', '')
   const reminderTimeText = reminderDate.toLocaleTimeString('sv-SE', {
     hour: '2-digit',
     minute: '2-digit',
   })
-  const reminderDateTimeText = `${reminderDateText} ${reminderTimeText}`
   const tag = metadata.getByRole('button', { name: 'Visa uppgifter med taggen #responsiv' })
   const title = task.getByText('Kontrollera mobilvyn', { exact: true })
   const titleBox = await title.boundingBox()
@@ -139,12 +157,12 @@ test('shows task metadata as icons on mobile and labels on wide screens', async 
   await expect(metadata.getByRole('img', { name: 'Stjärnmärkt' })).toBeVisible()
   await expect(metadata.getByRole('img', { name: 'Tillagd i Min dag' })).toBeVisible()
   await expect(metadata.getByRole('img', { name: `Förfallodatum: ${dueDateText}` })).toBeVisible()
-  await expect(metadata.getByRole('img', { name: `Påminnelse: ${reminderDateTimeText}` })).toBeVisible()
+  await expect(metadata.getByRole('img', { name: `Påminnelse: ${reminderTimeText}` })).toBeVisible()
   await expect(metadata.getByText('Stjärnmärkt', { exact: true })).toBeHidden()
   await expect(metadata.getByText('Min dag', { exact: true })).toBeHidden()
   await expect(metadata.getByText(dueDateText, { exact: true })).toBeHidden()
-  await expect(metadata.getByText(reminderDateTimeText, { exact: true })).toBeVisible()
-  await expect(metadata.getByText(`Påminnelse ${reminderDateTimeText}`, { exact: true })).toBeHidden()
+  await expect(metadata.getByText(reminderTimeText, { exact: true })).toBeVisible()
+  await expect(metadata.getByText(`Påminnelse ${reminderTimeText}`, { exact: true })).toBeHidden()
   await expect(task.getByRole('button', { name: 'Uppgiftsåtgärder' })).toBeVisible()
   expect(tagBox?.y).toBeGreaterThan(titleBox?.y ?? 0)
   expect(Math.abs((tagBox?.x ?? 0) - (titleBox?.x ?? 0))).toBeLessThan(1)
@@ -153,15 +171,15 @@ test('shows task metadata as icons on mobile and labels on wide screens', async 
   await expect(metadata.getByText('Stjärnmärkt', { exact: true })).toBeVisible()
   await expect(metadata.getByText('Min dag', { exact: true })).toBeVisible()
   await expect(metadata.getByText(dueDateText, { exact: true })).toBeVisible()
-  await expect(metadata.getByText(reminderDateTimeText, { exact: true })).toBeVisible()
-  await expect(metadata.getByText(`Påminnelse ${reminderDateTimeText}`, { exact: true })).toBeHidden()
+  await expect(metadata.getByText(reminderTimeText, { exact: true })).toBeVisible()
+  await expect(metadata.getByText(`Påminnelse ${reminderTimeText}`, { exact: true })).toBeHidden()
 
   await page.setViewportSize({ width: 1440, height: 900 })
   await expect(metadata.getByText('Stjärnmärkt', { exact: true })).toBeVisible()
   await expect(metadata.getByText('Min dag', { exact: true })).toBeVisible()
   await expect(metadata.getByText(dueDateText, { exact: true })).toBeVisible()
-  await expect(metadata.getByText(reminderDateTimeText, { exact: true })).toBeHidden()
-  await expect(metadata.getByText(`Påminnelse ${reminderDateTimeText}`, { exact: true })).toBeVisible()
+  await expect(metadata.getByText(reminderTimeText, { exact: true })).toBeHidden()
+  await expect(metadata.getByText(`Påminnelse ${reminderTimeText}`, { exact: true })).toBeVisible()
 })
 
 test('renames a tag globally and shows each result list', async ({ page }) => {
