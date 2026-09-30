@@ -26,13 +26,35 @@ test('shows the latest release notes once per user and version', async ({ page }
 
   const releaseDialog = page.getByRole('dialog', { name: 'Senaste förändringarna' })
   await expect(releaseDialog).toBeVisible()
-  await expect(releaseDialog).toContainText('Enhetliga ikoner och sidomeny')
+  await expect(releaseDialog).toContainText('Ändringshistorik och funktionsöversikt')
 
   await releaseDialog.getByRole('button', { name: 'Jag har sett detta' }).click()
   await expect(releaseDialog).toHaveCount(0)
 
   await page.reload()
   await expect(page.getByRole('dialog', { name: 'Senaste förändringarna' })).toHaveCount(0)
+})
+
+test('shows the feature overview once for a first-time account', async ({ page }) => {
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem('feature-overview-seeded') !== 'true') {
+      localStorage.setItem('todo-feature-overview-pending:local-dev-user', 'true')
+      sessionStorage.setItem('feature-overview-seeded', 'true')
+    }
+  })
+  await page.goto('/')
+
+  const featuresDialog = page.getByRole('dialog', { name: 'Appens funktioner' })
+  await expect(featuresDialog).toBeVisible()
+  await featuresDialog.getByRole('button', { name: 'Stäng funktionsöversikten' }).click()
+  await expect(featuresDialog).toHaveCount(0)
+
+  const releaseDialog = page.getByRole('dialog', { name: 'Senaste förändringarna' })
+  await expect(releaseDialog).toBeVisible()
+  await releaseDialog.getByRole('button', { name: 'Jag har sett detta' }).click()
+
+  await page.reload()
+  await expect(page.getByRole('dialog', { name: 'Appens funktioner' })).toHaveCount(0)
 })
 
 test('smart views are reachable from their routes', async ({ page }) => {

@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowLeft, ChevronDown, Download, LogOut, RefreshCw, Trash2 } from '@lucide/vue'
+import { ArrowLeft, BookOpen, ChevronDown, Download, History, LogOut, RefreshCw, Trash2 } from '@lucide/vue'
+import ChangeTimelineModal from '@/components/ChangeTimelineModal.vue'
+import FeatureOverviewModal from '@/components/FeatureOverviewModal.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useListStore } from '@/stores/listStore'
 import { useTaskStore } from '@/stores/taskStore'
@@ -12,6 +14,7 @@ import { useReminderNotifications } from '@/composables/useReminderNotifications
 import { useTheme } from '@/composables/useTheme'
 import type { TaskReminder, TaskStatus } from '@/types'
 import { normalizeTag, normalizeTags } from '@/utils/taskTags'
+import { releaseNotes } from '@/releaseNotes'
 
 interface ImportedTask {
   title: string
@@ -62,6 +65,8 @@ const importJson = ref('')
 const isImporting = ref(false)
 const importError = ref('')
 const isImportFormatOpen = ref(false)
+const isTimelineOpen = ref(false)
+const isFeatureOverviewOpen = ref(false)
 const editingTag = ref<string | null>(null)
 const editedTagName = ref('')
 const tagError = ref('')
@@ -502,7 +507,24 @@ const handleLogout = async () => {
           </button>
         </div>
       </section>
+
+      <section class="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:px-5" aria-labelledby="about-heading">
+        <h2 id="about-heading" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Om appen</h2>
+        <div class="divide-y divide-slate-200 dark:divide-slate-700">
+          <button class="flex min-h-12 w-full items-center gap-3 px-2 text-left text-sm text-slate-700 transition hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800" type="button" @click="isTimelineOpen = true">
+            <History :size="18" class="shrink-0 text-slate-500" aria-hidden="true" />
+            <span class="flex-1">Förändringshistorik</span>
+            <span class="text-xs text-slate-400">{{ releaseNotes.length }} versioner</span>
+          </button>
+          <button class="flex min-h-12 w-full items-center gap-3 px-2 text-left text-sm text-slate-700 transition hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800" type="button" @click="isFeatureOverviewOpen = true">
+            <BookOpen :size="18" class="shrink-0 text-slate-500" aria-hidden="true" />
+            <span class="flex-1">Appens funktioner</span>
+          </button>
+        </div>
+      </section>
       </div>
     </div>
+    <ChangeTimelineModal v-if="isTimelineOpen" :releases="releaseNotes" @close="isTimelineOpen = false" />
+    <FeatureOverviewModal v-if="isFeatureOverviewOpen" @close="isFeatureOverviewOpen = false" />
   </main>
 </template>

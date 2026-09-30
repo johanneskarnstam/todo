@@ -2,6 +2,8 @@ import { expect, test } from '@playwright/test'
 
 test('settings exposes preferences and data actions', async ({ page }) => {
   await page.goto('#/settings')
+  const releaseCloseButton = page.getByRole('button', { name: 'Jag har sett detta' })
+  if (await releaseCloseButton.count()) await releaseCloseButton.click()
 
   await expect(page.getByRole('heading', { name: 'Inställningar', exact: true })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Utseende' })).toBeVisible()
@@ -9,6 +11,23 @@ test('settings exposes preferences and data actions', async ({ page }) => {
   await expect(page.getByText('Sortering och arbetsflöde ställs in per lista.')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Exportera data' })).toBeVisible()
   await expect(page.getByText('Online', { exact: true })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Förändringshistorik' }).click()
+  const historyDialog = page.getByRole('dialog', { name: 'Förändringar över tid' })
+  await expect(historyDialog).toBeVisible()
+  await expect(historyDialog).toContainText('Enhetliga ikoner och sidomeny')
+  await expect(historyDialog).toContainText('v0.23.1')
+  await historyDialog.getByRole('button', { name: 'Stäng ändringshistoriken' }).click()
+  await expect(historyDialog).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Appens funktioner' }).click()
+  const featuresDialog = page.getByRole('dialog', { name: 'Appens funktioner' })
+  await expect(featuresDialog).toBeVisible()
+  await expect(featuresDialog).toContainText('Listor och planering')
+  await expect(featuresDialog).toContainText('Google Kalender')
+  await expect(featuresDialog).toContainText('Importera uppgifter från JSON')
+  await featuresDialog.getByRole('button', { name: 'Stäng funktionsöversikten' }).click()
+  await expect(featuresDialog).toHaveCount(0)
 
   await page.getByLabel('Tema').selectOption('dark')
   await expect(page.getByLabel('Tema')).toHaveValue('dark')
