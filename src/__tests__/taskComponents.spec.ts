@@ -231,23 +231,38 @@ describe('TaskRow', () => {
     expect(wrapper.emitted('toggle-my-day')).toHaveLength(1)
   })
 
-  it('keeps task indicators in a compact unfilled 2x2 grid', () => {
+  it('shows tags and task metadata below the title while keeping row actions separate', () => {
     const wrapper = mount(TaskRow, {
       props: {
         task: {
           ...task,
           important: true,
+          myDay: true,
           reminder: { offsetMinutes: 10 },
           dueDate: '2026-09-24',
+          tags: ['jobb'],
         },
       },
     })
-    const indicators = wrapper.find('[aria-label="Uppgiftsmarkeringar"]')
+    const metadata = wrapper.find('[aria-label="Taggar och uppgiftsmarkeringar"]')
+    const reminderDate = new Date('2026-09-24T08:50:00').toLocaleString('sv-SE', {
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
 
-    expect(indicators.classes()).toContain('grid-cols-2')
-    expect(indicators.element.children).toHaveLength(4)
+    expect(metadata.exists()).toBe(true)
+    expect(metadata.find('button[aria-label="Visa uppgifter med taggen #jobb"]').exists()).toBe(true)
+    expect(metadata.text()).toContain('Stjärnmärkt')
+    expect(metadata.text()).toContain('Min dag')
+    expect(metadata.text()).toContain('24 sep. 2026')
+    expect(metadata.text()).toContain(`Påminnelse ${reminderDate}`)
     expect(wrapper.find('[aria-label="Stjärnmärkt"] svg').attributes('fill')).toBe('none')
-    expect(wrapper.find('[aria-label="Uppgiften har ett planerat datum"]').classes()).not.toContain('bg-slate-100')
+    expect(wrapper.find('[aria-label^="Förfallodatum:"]').exists()).toBe(true)
+    expect(wrapper.find('[aria-label^="Påminnelse:"]').exists()).toBe(true)
+    expect(wrapper.find('[aria-label="Uppgiftsåtgärder"]').exists()).toBe(true)
+    expect(wrapper.find('[aria-label="Uppgiftsmarkeringar"]').exists()).toBe(false)
   })
 
   it('shows a due date in planned view while keeping the normal list view compact', () => {

@@ -26,7 +26,7 @@ test('shows the latest release notes once per user and version', async ({ page }
 
   const releaseDialog = page.getByRole('dialog', { name: 'Senaste förändringarna' })
   await expect(releaseDialog).toBeVisible()
-  await expect(releaseDialog).toContainText('Ändringshistorik och funktionsöversikt')
+  await expect(releaseDialog).toContainText('Tydligare information i uppgiftsrader')
 
   await releaseDialog.getByRole('button', { name: 'Jag har sett detta' }).click()
   await expect(releaseDialog).toHaveCount(0)

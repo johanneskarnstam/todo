@@ -16,6 +16,16 @@ export const appVersion = packageJson.version
 // version changes on every bump, making previously-seen entries appear new again.
 export const releaseNotes: ReleaseNote[] = [
   {
+    version: '0.25.1',
+    date: '2026-09-30',
+    title: 'Tydligare information i uppgiftsrader',
+    summary: 'Taggar och uppgiftsmarkeringar har fått en egen rad med mer information på breda skärmar.',
+    items: [
+      'Påminnelser visar när de skickas, och förfallodatum visas intill kalenderikonen.',
+      'Stjärnmarkering och Min dag får text på breda skärmar; på små skärmar visas ikonerna.',
+    ],
+  },
+  {
     version: '0.25.0',
     date: '2026-09-30',
     title: 'Ändringshistorik och funktionsöversikt',

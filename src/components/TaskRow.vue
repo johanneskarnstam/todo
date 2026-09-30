@@ -196,6 +196,22 @@ const dueDateText = computed(() => {
     year: 'numeric',
   })
 })
+const reminderDateText = computed(() => {
+  if (!props.task.dueDate || !props.task.reminder) return ''
+
+  const dueDate = typeof props.task.dueDate === 'string'
+    ? new Date(/^\d{4}-\d{2}-\d{2}$/.test(props.task.dueDate) ? `${props.task.dueDate}T09:00:00` : props.task.dueDate)
+    : props.task.dueDate.toDate()
+  if (Number.isNaN(dueDate.getTime())) return ''
+
+  const reminderDate = new Date(dueDate.getTime() - props.task.reminder.offsetMinutes * 60_000)
+  return reminderDate.toLocaleString('sv-SE', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+})
 </script>
 
 <template>
@@ -221,10 +237,10 @@ const dueDateText = computed(() => {
       </button>
     </div>
 
-    <div class="relative flex min-h-14 w-full items-center gap-3 rounded-lg bg-white px-4 py-2 transition-transform dark:bg-slate-900" :style="{ transform: `translateX(${swipeOffset}px)` }">
+    <div class="relative flex min-h-14 w-full items-start gap-3 rounded-lg bg-white px-4 py-2 transition-transform dark:bg-slate-900" :style="{ transform: `translateX(${swipeOffset}px)` }">
       <span
         v-if="draggable"
-        class="inline-flex shrink-0 cursor-grab touch-none text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
+        class="mt-1 inline-flex shrink-0 cursor-grab touch-none text-slate-400 transition-opacity hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 sm:opacity-0 sm:group-hover:opacity-100"
         aria-hidden="true"
         data-drag-handle
         title="Dra för att ändra ordning"
@@ -233,74 +249,86 @@ const dueDateText = computed(() => {
         <GripVertical :size="18" />
       </span>
 
-      <button
-        v-if="taskStatusMode === 'threeStep'"
-        class="grid size-6 shrink-0 place-items-center rounded-md border text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2564cf] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900"
-        :class="{
-          'border-slate-400 bg-transparent hover:border-orange-500 dark:border-slate-500': getTaskStatus(task) === 'todo',
-          'border-orange-500 bg-orange-500 hover:bg-orange-600': getTaskStatus(task) === 'inProgress',
-          'border-[#2564cf] bg-[#2564cf] hover:bg-blue-700 dark:border-blue-400 dark:bg-blue-400': getTaskStatus(task) === 'completed',
-        }"
-        role="checkbox"
-        :aria-checked="getTaskStatus(task) === 'inProgress' ? 'mixed' : getTaskStatus(task) === 'completed'"
-        :aria-label="{
-          todo: 'Markera uppgift som pågående',
-          inProgress: 'Markera uppgift som klar',
-          completed: 'Återställ uppgift till att göra',
-        }[getTaskStatus(task)]"
-        :title="{
-          todo: 'Att göra',
-          inProgress: 'Pågående',
-          completed: 'Klart',
-        }[getTaskStatus(task)]"
-        type="button"
-        @click.stop="advanceTaskStatus"
-      >
-        <Play v-if="getTaskStatus(task) === 'inProgress'" :size="12" fill="currentColor" aria-hidden="true" />
-        <Check v-else-if="getTaskStatus(task) === 'completed'" :size="14" aria-hidden="true" />
-      </button>
-      <button
-        v-else
-        class="grid size-6 shrink-0 place-items-center rounded-full border border-slate-400 text-xs text-white transition hover:border-[#2564cf] dark:border-slate-500"
-        :class="{ 'border-[#2564cf] bg-[#2564cf] dark:border-blue-400 dark:bg-blue-400': getTaskStatus(task) === 'completed' }"
-        type="button"
-        :aria-label="getTaskStatus(task) === 'completed' ? 'Markera uppgift som aktiv' : 'Markera uppgift som slutförd'"
-        @click.stop="emit('toggle-completed')"
-      >
-        <Check v-if="getTaskStatus(task) === 'completed'" :size="14" aria-hidden="true" />
-      </button>
+      <div class="flex min-w-0 flex-1 items-start gap-3">
+        <button
+          v-if="taskStatusMode === 'threeStep'"
+          class="mt-1 grid size-6 shrink-0 place-items-center rounded-md border text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2564cf] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900"
+          :class="{
+            'border-slate-400 bg-transparent hover:border-orange-500 dark:border-slate-500': getTaskStatus(task) === 'todo',
+            'border-orange-500 bg-orange-500 hover:bg-orange-600': getTaskStatus(task) === 'inProgress',
+            'border-[#2564cf] bg-[#2564cf] hover:bg-blue-700 dark:border-blue-400 dark:bg-blue-400': getTaskStatus(task) === 'completed',
+          }"
+          role="checkbox"
+          :aria-checked="getTaskStatus(task) === 'inProgress' ? 'mixed' : getTaskStatus(task) === 'completed'"
+          :aria-label="{
+            todo: 'Markera uppgift som pågående',
+            inProgress: 'Markera uppgift som klar',
+            completed: 'Återställ uppgift till att göra',
+          }[getTaskStatus(task)]"
+          :title="{
+            todo: 'Att göra',
+            inProgress: 'Pågående',
+            completed: 'Klart',
+          }[getTaskStatus(task)]"
+          type="button"
+          @click.stop="advanceTaskStatus"
+        >
+          <Play v-if="getTaskStatus(task) === 'inProgress'" :size="12" fill="currentColor" aria-hidden="true" />
+          <Check v-else-if="getTaskStatus(task) === 'completed'" :size="14" aria-hidden="true" />
+        </button>
+        <button
+          v-else
+          class="mt-1 grid size-6 shrink-0 place-items-center rounded-full border border-slate-400 text-xs text-white transition hover:border-[#2564cf] dark:border-slate-500"
+          :class="{ 'border-[#2564cf] bg-[#2564cf] dark:border-blue-400 dark:bg-blue-400': getTaskStatus(task) === 'completed' }"
+          type="button"
+          :aria-label="getTaskStatus(task) === 'completed' ? 'Markera uppgift som aktiv' : 'Markera uppgift som slutförd'"
+          @click.stop="emit('toggle-completed')"
+        >
+          <Check v-if="getTaskStatus(task) === 'completed'" :size="14" aria-hidden="true" />
+        </button>
 
-      <span class="min-w-0 flex-1 text-sm text-black dark:text-slate-100" :class="{ 'text-slate-400 line-through dark:text-slate-500': getTaskStatus(task) === 'completed' }">
-        {{ task.title }}
-        <span v-if="stepCount && stepCount.total > 0" class="ml-2 text-xs text-slate-500 dark:text-slate-400" :aria-label="`${stepCount.completed} av ${stepCount.total} delsteg klara`">({{ stepCount.completed }}/{{ stepCount.total }})</span>
-        <span v-if="listName" class="ml-2 text-xs text-slate-500 dark:text-slate-400">{{ listName }}</span>
-        <span v-for="tag in task.tags" :key="tag" class="ml-2 inline-flex text-xs text-[#2564cf] dark:text-blue-300">
-          <button class="hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2564cf]" type="button" :aria-label="`Visa uppgifter med taggen #${tag}`" @click.stop="emit('select-tag', tag)">#{{ tag }}</button>
-        </span>
-        <span v-if="showDueDate && dueDateText" class="ml-2 inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-slate-700 dark:text-slate-200">
-          <CalendarDays :size="12" aria-hidden="true" />
-          {{ dueDateText }}
-        </span>
-      </span>
+        <div class="min-w-0 flex-1">
+          <div class="flex min-w-0 items-start">
+            <span class="min-w-0 flex-1 text-sm text-black dark:text-slate-100" :class="{ 'text-slate-400 line-through dark:text-slate-500': getTaskStatus(task) === 'completed' }">
+              {{ task.title }}
+              <span v-if="stepCount && stepCount.total > 0" class="ml-2 text-xs text-slate-500 dark:text-slate-400" :aria-label="`${stepCount.completed} av ${stepCount.total} delsteg klara`">({{ stepCount.completed }}/{{ stepCount.total }})</span>
+              <span v-if="listName" class="ml-2 text-xs text-slate-500 dark:text-slate-400">{{ listName }}</span>
+            </span>
+          </div>
 
-      <div class="grid size-10 shrink-0 grid-cols-2 grid-rows-2 place-items-center gap-0.5" role="group" aria-label="Uppgiftsmarkeringar">
-        <span v-if="task.important" class="grid size-5 place-items-center text-amber-500 dark:text-amber-400" role="img" aria-label="Stjärnmärkt" title="Stjärnmärkt">
-          <Star :size="14" fill="none" aria-hidden="true" />
-        </span>
-        <span v-else class="size-5" aria-hidden="true" />
-        <span v-if="task.reminder && getTaskStatus(task) !== 'completed'" class="grid size-5 place-items-center text-slate-500 dark:text-slate-400" role="img" aria-label="Påminnelse inställd" title="Påminnelse inställd">
-          <Bell :size="14" aria-hidden="true" />
-        </span>
-        <span v-else class="size-5" aria-hidden="true" />
-        <span v-if="task.dueDate && !showDueDate" class="grid size-5 place-items-center text-slate-500 dark:text-slate-400" role="img" aria-label="Uppgiften har ett planerat datum" title="Uppgiften har ett planerat datum">
-          <CalendarDays :size="14" aria-hidden="true" />
-        </span>
-        <span v-else class="size-5" aria-hidden="true" />
-        <div class="relative shrink-0">
-          <button ref="actionsButton" class="grid size-6 place-items-center rounded-full text-slate-500 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700" type="button" aria-label="Uppgiftsåtgärder" :aria-expanded="isMenuOpen" @click.stop="updateMenuPlacement">
-            <MoreVertical :size="16" aria-hidden="true" />
-          </button>
+          <div
+            v-if="task.tags?.length || task.important || task.myDay || task.dueDate || (task.reminder && getTaskStatus(task) !== 'completed')"
+            class="mt-1 flex min-h-6 min-w-0 flex-wrap items-center gap-x-3 gap-y-1 pl-9 text-xs"
+            role="group"
+            aria-label="Taggar och uppgiftsmarkeringar"
+          >
+            <span v-for="tag in task.tags" :key="tag" class="inline-flex text-[#2564cf] dark:text-blue-300">
+              <button class="hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2564cf]" type="button" :aria-label="`Visa uppgifter med taggen #${tag}`" @click.stop="emit('select-tag', tag)">#{{ tag }}</button>
+            </span>
+            <span v-if="task.important" class="inline-flex items-center gap-1.5 whitespace-nowrap text-amber-600 dark:text-amber-400" role="img" aria-label="Stjärnmärkt" title="Stjärnmärkt">
+              <Star :size="14" fill="none" aria-hidden="true" />
+              <span class="hidden xl:inline">Stjärnmärkt</span>
+            </span>
+            <span v-if="task.myDay" class="inline-flex items-center gap-1.5 whitespace-nowrap text-slate-600 dark:text-slate-300" role="img" aria-label="Tillagd i Min dag" title="Min dag">
+              <CalendarPlus :size="14" aria-hidden="true" />
+              <span class="hidden xl:inline">Min dag</span>
+            </span>
+            <span v-if="task.dueDate" class="inline-flex items-center gap-1.5 whitespace-nowrap text-slate-600 dark:text-slate-300" role="img" :aria-label="`Förfallodatum: ${dueDateText}`" :title="`Förfallodatum: ${dueDateText}`">
+              <CalendarDays :size="14" aria-hidden="true" />
+              <span class="hidden xl:inline">{{ dueDateText }}</span>
+            </span>
+            <span v-if="task.reminder && getTaskStatus(task) !== 'completed'" class="inline-flex items-center gap-1.5 whitespace-nowrap text-slate-600 dark:text-slate-300" role="img" :aria-label="reminderDateText ? `Påminnelse: ${reminderDateText}` : 'Påminnelse inställd'" :title="reminderDateText ? `Påminnelse: ${reminderDateText}` : 'Påminnelse inställd'">
+              <Bell :size="14" aria-hidden="true" />
+              <span class="hidden xl:inline">{{ reminderDateText ? `Påminnelse ${reminderDateText}` : 'Påminnelse inställd' }}</span>
+            </span>
+          </div>
         </div>
+      </div>
+
+      <div class="relative mt-1 shrink-0">
+        <button ref="actionsButton" class="grid size-6 place-items-center rounded-full text-slate-500 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700" type="button" aria-label="Uppgiftsåtgärder" :aria-expanded="isMenuOpen" @click.stop="updateMenuPlacement">
+          <MoreVertical :size="16" aria-hidden="true" />
+        </button>
       </div>
     </div>
 

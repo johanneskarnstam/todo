@@ -93,6 +93,63 @@ test('adds a tag and uses a quick due-date preset', async ({ page }) => {
   await expect(page.getByRole('menuitem', { name: '#arbete' })).toBeVisible()
 })
 
+test('shows task metadata as icons on mobile and labels on wide screens', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/')
+  const releaseCloseButton = page.getByRole('button', { name: 'Jag har sett detta' })
+  if (await releaseCloseButton.count()) await releaseCloseButton.click()
+
+  const task = page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' })
+  await task.click()
+  const details = page.getByRole('dialog', { name: 'Uppgiftsdetaljer' })
+  await details.getByPlaceholder('Lägg till tagg').fill('responsiv')
+  await details.getByPlaceholder('Lägg till tagg').press('Enter')
+  await details.getByLabel('Uppgiftens förfallodatum').fill('2026-10-05')
+  await details.getByLabel('Uppgiftens förfallotid').fill('14:30')
+  await details.getByLabel('Påminnelse').selectOption('60')
+  await details.getByRole('button', { name: 'Stäng uppgiftsdetaljer' }).click()
+
+  await task.getByRole('button', { name: 'Uppgiftsåtgärder' }).click()
+  await page.getByRole('button', { name: 'Stjärnmarkera', exact: true }).click()
+  await task.getByRole('button', { name: 'Uppgiftsåtgärder' }).click()
+  await page.getByRole('button', { name: 'Lägg till i Min dag', exact: true }).click()
+
+  const metadata = task.getByRole('group', { name: 'Taggar och uppgiftsmarkeringar' })
+  const dueDateText = new Date('2026-10-05T00:00:00').toLocaleDateString('sv-SE', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+  const reminderDateText = new Date('2026-10-05T13:30:00').toLocaleString('sv-SE', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+  const tag = metadata.getByRole('button', { name: 'Visa uppgifter med taggen #responsiv' })
+  const title = task.getByText('Kontrollera mobilvyn', { exact: true })
+  const titleBox = await title.boundingBox()
+  const tagBox = await tag.boundingBox()
+
+  await expect(tag).toBeVisible()
+  await expect(metadata.getByRole('img', { name: 'Stjärnmärkt' })).toBeVisible()
+  await expect(metadata.getByRole('img', { name: 'Tillagd i Min dag' })).toBeVisible()
+  await expect(metadata.getByRole('img', { name: `Förfallodatum: ${dueDateText}` })).toBeVisible()
+  await expect(metadata.getByRole('img', { name: `Påminnelse: ${reminderDateText}` })).toBeVisible()
+  await expect(metadata.getByText('Stjärnmärkt', { exact: true })).toBeHidden()
+  await expect(metadata.getByText('Min dag', { exact: true })).toBeHidden()
+  await expect(metadata.getByText(dueDateText, { exact: true })).toBeHidden()
+  await expect(metadata.getByText(`Påminnelse ${reminderDateText}`, { exact: true })).toBeHidden()
+  await expect(task.getByRole('button', { name: 'Uppgiftsåtgärder' })).toBeVisible()
+  expect(tagBox?.y).toBeGreaterThan(titleBox?.y ?? 0)
+
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await expect(metadata.getByText('Stjärnmärkt', { exact: true })).toBeVisible()
+  await expect(metadata.getByText('Min dag', { exact: true })).toBeVisible()
+  await expect(metadata.getByText(dueDateText, { exact: true })).toBeVisible()
+  await expect(metadata.getByText(`Påminnelse ${reminderDateText}`, { exact: true })).toBeVisible()
+})
+
 test('renames a tag globally and shows each result list', async ({ page }) => {
   await page.goto('/')
   const whatsNewButton = page.getByRole('button', { name: 'Jag har sett detta' })
