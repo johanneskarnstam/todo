@@ -441,11 +441,11 @@ describe('TaskDetailsPanel', () => {
   it('adds tags and emits quick due-date changes', async () => {
     const wrapper = mount(TaskDetailsPanel, { props: { task, steps } })
 
-    await wrapper.find('input[placeholder="Lägg till tagg"]').setValue(' Work ')
+    await wrapper.find('input[placeholder="Lägg till tagg"]').setValue(' Work Tag ')
     await wrapper.find('form:has(input[placeholder="Lägg till tagg"])').trigger('submit')
     await wrapper.findAll('button').find((button) => button.text() === 'Imorgon')?.trigger('click')
 
-    expect(wrapper.emitted('save-tags')).toEqual([[['work']]])
+    expect(wrapper.emitted('save-tags')).toEqual([[['work-tag']]])
     expect(wrapper.emitted('set-due-date')?.[0]?.[0]).toMatch(/^\d{4}-\d{2}-\d{2}$/)
   })
 

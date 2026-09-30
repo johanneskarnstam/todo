@@ -2,6 +2,7 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { ArrowLeft } from '@lucide/vue'
 import type { Step, Task, TaskReminder } from '@/types'
+import { normalizeTag, normalizeTags } from '@/utils/taskTags'
 
 interface Props {
   task: Task
@@ -20,6 +21,7 @@ interface Emits {
   (event: 'save-reminder', reminder: TaskReminder | null): void
   (event: 'save-note', note: string): void
   (event: 'save-tags', tags: string[]): void
+  (event: 'select-tag', tag: string): void
   (event: 'delete-task'): void
 }
 
@@ -50,7 +52,7 @@ watch(
   () => {
     title.value = props.task.title
     note.value = props.task.note ?? ''
-    tags.value = [...(props.task.tags ?? [])]
+    tags.value = normalizeTags(props.task.tags ?? [])
     reminderOffset.value = String(props.task.reminder?.offsetMinutes ?? '')
   },
 )
@@ -73,15 +75,15 @@ const addStep = () => {
   stepTitle.value = ''
 }
 
-const tags = ref<string[]>([...(props.task.tags ?? [])])
+const tags = ref<string[]>(normalizeTags(props.task.tags ?? []))
 
 const saveTags = (nextTags: string[]) => {
-  tags.value = [...new Set(nextTags.map((tag) => tag.trim().toLowerCase()).filter(Boolean))]
+  tags.value = normalizeTags(nextTags)
   emit('save-tags', tags.value)
 }
 
 const addTag = () => {
-  const nextTag = tagTitle.value.trim()
+  const nextTag = normalizeTag(tagTitle.value)
   if (!nextTag) return
   saveTags([...tags.value, nextTag])
   tagTitle.value = ''
@@ -169,7 +171,7 @@ const saveStepTitle = () => {
         <h2 id="tags-heading" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Taggar</h2>
         <div class="flex flex-wrap gap-2">
           <span v-for="tag in tags" :key="tag" class="inline-flex items-center gap-1 rounded-full bg-blue-50 px-3 py-1 text-xs text-[#2564cf] dark:bg-blue-950/40 dark:text-blue-300">
-            #{{ tag }}
+            <button type="button" :aria-label="`Visa uppgifter med taggen #${tag}`" @click="emit('select-tag', tag)">#{{ tag }}</button>
             <button type="button" :aria-label="`Ta bort taggen ${tag}`" @click="removeTag(tag)">×</button>
           </span>
         </div>
@@ -178,6 +180,7 @@ const saveStepTitle = () => {
           <input id="new-task-tag" v-model="tagTitle" class="min-w-0 flex-1 rounded-lg border border-slate-200 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#2564cf] dark:border-slate-700" type="text" placeholder="Lägg till tagg" />
           <button class="rounded-lg bg-[#2564cf] px-3 text-sm text-white" type="submit">Lägg till</button>
         </form>
+        <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">Små bokstäver används; mellanslag blir bindestreck.</p>
       </section>
 
       <section class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-800/40" aria-labelledby="steps-heading">

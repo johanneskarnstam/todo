@@ -124,6 +124,12 @@ const goHome = () => {
   void router.push({ name: 'home' })
 }
 
+const handleSelectTag = (tag: string) => {
+  taskStore.setActiveTask(null)
+  taskStore.setTagView(tag)
+  void router.push({ name: 'tag', params: { tag } })
+}
+
 const openSearch = () => {
   void router.push({ name: 'search' })
 }
@@ -263,6 +269,7 @@ onUnmounted(() => desktopMediaQuery?.removeEventListener('change', syncDesktopVi
                       @toggle-my-day="taskStore.toggleMyDay(task.id)"
                       @delete="requestDeleteTask(task.id)"
                       @move-to-list="handleMoveTaskToList(task.id, $event)"
+                      @select-tag="handleSelectTag"
                     />
                   </li>
                 </ul>
@@ -290,6 +297,7 @@ onUnmounted(() => desktopMediaQuery?.removeEventListener('change', syncDesktopVi
                           @toggle-my-day="taskStore.toggleMyDay(task.id)"
                           @delete="requestDeleteTask(task.id)"
                           @move-to-list="handleMoveTaskToList(task.id, $event)"
+                          @select-tag="handleSelectTag"
                         />
                       </li>
                     </ul>
@@ -323,6 +331,7 @@ onUnmounted(() => desktopMediaQuery?.removeEventListener('change', syncDesktopVi
       @save-reminder="handleSaveReminder(taskStore.activeTaskId!, $event)"
       @save-note="taskStore.saveNote(taskStore.activeTaskId!, $event)"
       @save-tags="taskStore.updateTask(taskStore.activeTaskId!, { tags: $event })"
+      @select-tag="handleSelectTag"
       @move-to-list="handleMoveTaskToList(taskStore.activeTaskId!, $event)"
       @delete-task="handleDeleteActiveTask"
     />

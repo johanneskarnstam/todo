@@ -33,7 +33,7 @@ test('imports JSON tasks into a selected list', async ({ page }) => {
         dueDate: '2026-10-01T14:30',
         dueTimeZone: 'Europe/Stockholm',
         reminder: { offsetMinutes: 60 },
-        tags: ['arbete', 'rapport'],
+        tags: ['Arbete Projekt', 'rapport'],
         important: true,
         myDay: true,
         completed: false,
@@ -50,7 +50,8 @@ test('imports JSON tasks into a selected list', async ({ page }) => {
   await page.getByRole('button', { name: /^Projekt/ }).click()
   const importedTask = page.getByRole('group', { name: 'Uppgift: Importerat från fil' })
   await expect(importedTask).toBeVisible()
-  await expect(importedTask.getByText('#arbete #rapport')).toBeVisible()
+  await expect(importedTask.getByRole('button', { name: 'Visa uppgifter med taggen #arbete-projekt' })).toBeVisible()
+  await expect(importedTask.getByRole('button', { name: 'Visa uppgifter med taggen #rapport' })).toBeVisible()
   await expect(importedTask.getByRole('img', { name: 'Stjärnmärkt' })).toBeVisible()
   await expect(importedTask.getByRole('img', { name: 'Påminnelse inställd' })).toBeVisible()
   await expect(importedTask.getByRole('img', { name: 'Uppgiften har ett planerat datum' })).toBeVisible()
