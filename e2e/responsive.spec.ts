@@ -58,6 +58,8 @@ test.describe('desktop layout', () => {
     await expect(page.locator('.dark')).toBeVisible()
 
     await page.getByRole('button', { name: 'Taggar' }).click()
+    await expect(page.getByRole('menuitem', { name: 'Alla taggar' })).toHaveCSS('font-size', '11px')
+    await expect(page.getByRole('button', { name: 'Taggar' })).not.toHaveCSS('font-size', '11px')
     const dimensions = await page.evaluate(() => ({
       documentWidth: document.documentElement.scrollWidth,
       viewportWidth: window.innerWidth,

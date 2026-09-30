@@ -21,6 +21,10 @@ input {
   font: inherit;
 }
 
+.sidebar-tag-chip {
+  font-size: 11px;
+}
+
 .sidebar-expand-enter-active,
 .sidebar-expand-leave-active {
   max-height: 60vh;

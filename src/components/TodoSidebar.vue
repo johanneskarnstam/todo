@@ -300,7 +300,7 @@ onUnmounted(() => window.removeEventListener('click', closeMoveMenuOnOutsideClic
         <Transition name="sidebar-expand">
           <div v-if="isTagsOpen" id="sidebar-tags-menu" class="mt-2 flex flex-wrap gap-2 pl-1" role="menu" aria-label="Välj tagg">
           <button
-            class="inline-flex min-h-6 items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+            class="sidebar-tag-chip inline-flex min-h-6 items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 font-medium text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
             :class="{ 'font-semibold ring-2 ring-[#2564cf] ring-offset-1 dark:ring-blue-400 dark:ring-offset-slate-900': !selectedTag }"
             type="button"
             role="menuitem"
@@ -311,7 +311,7 @@ onUnmounted(() => window.removeEventListener('click', closeMoveMenuOnOutsideClic
           <button
             v-for="tag in availableTags"
             :key="tag"
-            class="inline-flex min-h-6 items-center rounded-full border px-2 py-0.5 text-[10px] font-medium transition"
+            class="sidebar-tag-chip inline-flex min-h-6 items-center rounded-full border px-2 py-0.5 font-medium transition"
             :class="[tagTone(tag), { 'font-semibold ring-2 ring-[#2564cf] ring-offset-1 dark:ring-blue-400 dark:ring-offset-slate-900': selectedTag === tag }]"
             type="button"
             role="menuitem"
