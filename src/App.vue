@@ -2,8 +2,10 @@
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterView } from 'vue-router'
 import ToastHost from '@/components/ToastHost.vue'
+import FeatureOverviewModal from '@/components/FeatureOverviewModal.vue'
 import WhatsNewModal from '@/components/WhatsNewModal.vue'
 import { getUnseenReleaseNotes, markReleaseNotesSeen, type ReleaseNote } from '@/releaseNotes'
+import { hasPendingFeatureOverview, markFeatureOverviewComplete } from '@/utils/featureOverview'
 import { useAuthStore } from '@/stores/authStore'
 import { useListStore } from '@/stores/listStore'
 import { useTaskStore } from '@/stores/taskStore'
@@ -15,6 +17,7 @@ const taskStore = useTaskStore()
 const { isOnline } = useNetworkStatus()
 const unseenReleases = ref<ReleaseNote[]>([])
 const isWhatsNewOpen = ref(false)
+const isFeatureOverviewOpen = ref(false)
 
 const refreshAfterReconnect = async () => {
   if (!authStore.isAuthenticated) return
@@ -24,14 +27,16 @@ const refreshAfterReconnect = async () => {
 }
 
 watch(
-  () => authStore.user?.uid,
-  (userId) => {
+  () => [authStore.user?.uid, authStore.isNewAccount] as const,
+  ([userId]) => {
     if (!userId) {
       unseenReleases.value = []
       isWhatsNewOpen.value = false
+      isFeatureOverviewOpen.value = false
       return
     }
 
+    isFeatureOverviewOpen.value = hasPendingFeatureOverview(userId)
     unseenReleases.value = getUnseenReleaseNotes(userId)
     isWhatsNewOpen.value = unseenReleases.value.length > 0
   },
@@ -44,6 +49,12 @@ const closeWhatsNew = () => {
   if (userId && latestRelease) markReleaseNotesSeen(userId, latestRelease.version)
   unseenReleases.value = []
   isWhatsNewOpen.value = false
+}
+
+const closeFeatureOverview = () => {
+  const userId = authStore.user?.uid
+  if (userId) markFeatureOverviewComplete(userId)
+  isFeatureOverviewOpen.value = false
 }
 
 onMounted(() => window.addEventListener('online', refreshAfterReconnect))
@@ -61,5 +72,6 @@ onUnmounted(() => window.removeEventListener('online', refreshAfterReconnect))
   </div>
   <RouterView />
   <ToastHost />
-  <WhatsNewModal v-if="isWhatsNewOpen" :releases="unseenReleases" @close="closeWhatsNew" />
+  <FeatureOverviewModal v-if="isFeatureOverviewOpen" @close="closeFeatureOverview" />
+  <WhatsNewModal v-if="isWhatsNewOpen && !isFeatureOverviewOpen" :releases="unseenReleases" @close="closeWhatsNew" />
 </template>

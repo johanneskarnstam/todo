@@ -8,6 +8,7 @@ import { useTaskStore } from '@/stores/taskStore'
 const authMocks = vi.hoisted(() => ({
   auth: { currentUser: null },
   createUserWithEmailAndPassword: vi.fn(),
+  getAdditionalUserInfo: vi.fn(),
   onAuthStateChanged: vi.fn(),
   signInWithEmailAndPassword: vi.fn(),
   signInWithPopup: vi.fn(),
@@ -23,6 +24,7 @@ vi.mock('@/firebase', () => ({
 vi.mock('firebase/auth', () => ({
   GoogleAuthProvider: class GoogleAuthProvider {},
   createUserWithEmailAndPassword: authMocks.createUserWithEmailAndPassword,
+  getAdditionalUserInfo: authMocks.getAdditionalUserInfo,
   onAuthStateChanged: authMocks.onAuthStateChanged,
   signInWithEmailAndPassword: authMocks.signInWithEmailAndPassword,
   signInWithPopup: authMocks.signInWithPopup,
@@ -37,10 +39,18 @@ describe('useAuthStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
+    const storage = new Map<string, string>()
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => storage.set(key, value),
+      removeItem: (key: string) => storage.delete(key),
+      clear: () => storage.clear(),
+    })
     authMocks.auth.currentUser = null
     pushMocks.disablePush.mockResolvedValue(undefined)
     authMocks.signInWithEmailAndPassword.mockResolvedValue({ user: { uid: 'user-1' } })
     authMocks.createUserWithEmailAndPassword.mockResolvedValue({ user: { uid: 'user-1' } })
+    authMocks.getAdditionalUserInfo.mockReturnValue({ isNewUser: false })
     authMocks.signOut.mockResolvedValue(undefined)
     authMocks.onAuthStateChanged.mockImplementation(
       (_auth: unknown, callback: (user: User | null) => void) => {
@@ -92,6 +102,25 @@ describe('useAuthStore', () => {
       'new@example.com',
       'secret',
     )
+  })
+
+  it('marks newly created Firebase accounts for the feature overview', async () => {
+    authMocks.getAdditionalUserInfo.mockReturnValue({ isNewUser: true })
+    const store = useAuthStore()
+
+    await store.registerWithEmail('new@example.com', 'secret')
+
+    expect(store.isNewAccount).toBe(true)
+    expect(localStorage.getItem('todo-feature-overview-pending:user-1')).toBe('true')
+  })
+
+  it('does not mark existing email sign-ins for the feature overview', async () => {
+    const store = useAuthStore()
+
+    await store.loginWithEmail('user@example.com', 'secret')
+
+    expect(store.isNewAccount).toBe(false)
+    expect(localStorage.getItem('todo-feature-overview-pending:user-1')).toBeNull()
   })
 
   it('propagates login and registration errors to the caller', async () => {
