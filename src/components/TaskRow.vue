@@ -310,15 +310,15 @@ const reminderDateText = computed(() => {
             </span>
             <span v-if="task.important" class="inline-flex items-center gap-1.5 whitespace-nowrap text-amber-600 dark:text-amber-400" role="img" aria-label="Stjärnmärkt" title="Stjärnmärkt">
               <Star :size="14" fill="none" aria-hidden="true" />
-              <span class="hidden xl:inline">Stjärnmärkt</span>
+              <span class="hidden lg:inline">Stjärnmärkt</span>
             </span>
             <span v-if="task.myDay" class="inline-flex items-center gap-1.5 whitespace-nowrap text-slate-600 dark:text-slate-300" role="img" aria-label="Tillagd i Min dag" title="Min dag">
               <CalendarPlus :size="14" aria-hidden="true" />
-              <span class="hidden xl:inline">Min dag</span>
+              <span class="hidden lg:inline">Min dag</span>
             </span>
             <span v-if="task.dueDate" class="inline-flex items-center gap-1.5 whitespace-nowrap text-slate-600 dark:text-slate-300" role="img" :aria-label="`Förfallodatum: ${dueDateText}`" :title="`Förfallodatum: ${dueDateText}`">
               <CalendarDays :size="14" aria-hidden="true" />
-              <span class="hidden xl:inline">{{ dueDateText }}</span>
+              <span class="hidden lg:inline">{{ dueDateText }}</span>
             </span>
             <span v-if="task.reminder && getTaskStatus(task) !== 'completed'" class="inline-flex items-center gap-1.5 whitespace-nowrap text-slate-600 dark:text-slate-300" role="img" :aria-label="reminderDateText ? `Påminnelse: ${reminderDateText}` : 'Påminnelse inställd'" :title="reminderDateText ? `Påminnelse: ${reminderDateText}` : 'Påminnelse inställd'">
               <Bell :size="14" aria-hidden="true" />

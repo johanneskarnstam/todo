@@ -149,6 +149,13 @@ test('shows task metadata as icons on mobile and labels on wide screens', async 
   expect(tagBox?.y).toBeGreaterThan(titleBox?.y ?? 0)
   expect(Math.abs((tagBox?.x ?? 0) - (titleBox?.x ?? 0))).toBeLessThan(1)
 
+  await page.setViewportSize({ width: 1024, height: 900 })
+  await expect(metadata.getByText('Stjärnmärkt', { exact: true })).toBeVisible()
+  await expect(metadata.getByText('Min dag', { exact: true })).toBeVisible()
+  await expect(metadata.getByText(dueDateText, { exact: true })).toBeVisible()
+  await expect(metadata.getByText(reminderDateTimeText, { exact: true })).toBeVisible()
+  await expect(metadata.getByText(`Påminnelse ${reminderDateTimeText}`, { exact: true })).toBeHidden()
+
   await page.setViewportSize({ width: 1440, height: 900 })
   await expect(metadata.getByText('Stjärnmärkt', { exact: true })).toBeVisible()
   await expect(metadata.getByText('Min dag', { exact: true })).toBeVisible()
