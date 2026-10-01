@@ -103,7 +103,7 @@ const handleGlobalTouchStart = (event: TouchEvent) => {
 
 const handleTouchStart = (event: TouchEvent) => {
   const target = event.target as HTMLElement | null
-  if (target?.closest('[data-drag-handle]')) return
+  if (target?.closest('[data-drag-handle], [data-task-text-scroll]')) return
   rowInteractionResets.forEach((reset) => {
     if (reset !== resetRowInteraction) reset()
   })
@@ -112,6 +112,8 @@ const handleTouchStart = (event: TouchEvent) => {
 }
 
 const handleTouchMove = (event: TouchEvent) => {
+  const target = event.target as HTMLElement | null
+  if (target?.closest('[data-task-text-scroll]')) return
   if (swipeStartX.value === null) return
 
   const currentX = event.touches[0]?.clientX ?? swipeStartX.value
@@ -242,10 +244,10 @@ const reminderDateText = computed(() => {
       </button>
     </div>
 
-    <div class="relative flex min-h-14 w-full items-start gap-3 rounded-lg bg-white px-4 py-2 transition-transform dark:bg-slate-900" :style="{ transform: `translateX(${swipeOffset}px)` }">
+    <div class="relative flex min-h-14 w-full items-center gap-3 rounded-lg bg-white px-4 py-2 transition-transform dark:bg-slate-900" :style="{ transform: `translateX(${swipeOffset}px)` }">
       <span
         v-if="draggable"
-        class="mt-1 inline-flex shrink-0 cursor-grab touch-none text-slate-400 transition-opacity hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 sm:opacity-0 sm:group-hover:opacity-100"
+        class="inline-flex shrink-0 cursor-grab touch-none text-slate-400 transition-opacity hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 sm:opacity-0 sm:group-hover:opacity-100"
         aria-hidden="true"
         data-drag-handle
         title="Dra för att ändra ordning"
@@ -254,10 +256,10 @@ const reminderDateText = computed(() => {
         <GripVertical :size="18" />
       </span>
 
-      <div class="flex min-w-0 flex-1 items-start gap-3">
+      <div class="flex min-w-0 flex-1 items-center gap-3">
         <button
           v-if="taskStatusMode === 'threeStep'"
-          class="mt-1 grid size-6 shrink-0 place-items-center rounded-md border text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2564cf] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900"
+          class="grid size-6 shrink-0 place-items-center rounded-md border text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2564cf] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900"
           :class="{
             'border-slate-400 bg-transparent hover:border-orange-500 dark:border-slate-500': getTaskStatus(task) === 'todo',
             'border-orange-500 bg-orange-500 hover:bg-orange-600': getTaskStatus(task) === 'inProgress',
@@ -283,7 +285,7 @@ const reminderDateText = computed(() => {
         </button>
         <button
           v-else
-          class="mt-1 grid size-6 shrink-0 place-items-center rounded-full border border-slate-400 text-xs text-white transition hover:border-[#2564cf] dark:border-slate-500"
+          class="grid size-6 shrink-0 place-items-center rounded-full border border-slate-400 text-xs text-white transition hover:border-[#2564cf] dark:border-slate-500"
           :class="{ 'border-[#2564cf] bg-[#2564cf] dark:border-blue-400 dark:bg-blue-400': getTaskStatus(task) === 'completed' }"
           type="button"
           :aria-label="getTaskStatus(task) === 'completed' ? 'Markera uppgift som aktiv' : 'Markera uppgift som slutförd'"
@@ -294,7 +296,7 @@ const reminderDateText = computed(() => {
 
         <div class="min-w-0 flex-1">
           <div class="flex min-w-0 items-start">
-            <span class="min-w-0 flex-1 text-sm text-black dark:text-slate-100" :class="{ 'text-slate-400 line-through dark:text-slate-500': getTaskStatus(task) === 'completed' }">
+            <span class="min-w-0 flex-1 truncate text-sm text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2564cf] dark:text-slate-100" :class="{ 'text-slate-400 line-through dark:text-slate-500': getTaskStatus(task) === 'completed' }" data-task-title>
               {{ task.title }}
               <span v-if="stepCount && stepCount.total > 0" class="ml-2 text-xs text-slate-500 dark:text-slate-400" :aria-label="`${stepCount.completed} av ${stepCount.total} delsteg klara`">({{ stepCount.completed }}/{{ stepCount.total }})</span>
               <span v-if="listName" class="ml-2 text-xs text-slate-500 dark:text-slate-400">{{ listName }}</span>
@@ -303,39 +305,45 @@ const reminderDateText = computed(() => {
 
           <div
             v-if="task.tags?.length || task.important || task.myDay || task.dueDate || task.note?.trim() || (task.reminder && getTaskStatus(task) !== 'completed')"
-            class="mt-1 flex min-h-6 min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs"
+            class="mt-1 flex min-w-0 flex-nowrap items-center gap-x-2 overflow-x-auto whitespace-nowrap text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2564cf] lg:flex-wrap lg:gap-x-3 lg:overflow-visible lg:whitespace-normal"
             role="group"
             aria-label="Taggar och uppgiftsmarkeringar"
+            data-task-text-scroll="metadata"
+            tabindex="0"
           >
-            <span v-for="tag in task.tags" :key="tag" class="inline-flex text-[#2564cf] dark:text-blue-300">
-              <button class="hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2564cf]" type="button" :aria-label="`Visa uppgifter med taggen #${tag}`" @click.stop="emit('select-tag', tag)">#{{ tag }}</button>
-            </span>
-            <span v-if="task.note?.trim()" class="inline-flex items-center gap-1.5 whitespace-nowrap text-slate-600 dark:text-slate-300" role="img" aria-label="Anteckning finns" title="Anteckning finns">
-              <StickyNote :size="14" aria-hidden="true" />
-              <span class="hidden lg:inline">Anteckning</span>
-            </span>
-            <span v-if="task.important" class="inline-flex items-center gap-1.5 whitespace-nowrap text-amber-600 dark:text-amber-400" role="img" aria-label="Stjärnmärkt" title="Stjärnmärkt">
-              <Star :size="14" fill="none" aria-hidden="true" />
-              <span class="hidden lg:inline">Stjärnmärkt</span>
-            </span>
-            <span v-if="task.myDay" class="inline-flex items-center gap-1.5 whitespace-nowrap text-slate-600 dark:text-slate-300" role="img" aria-label="Tillagd i Min dag" title="Min dag">
-              <CalendarPlus :size="14" aria-hidden="true" />
-              <span class="hidden lg:inline">Min dag</span>
-            </span>
-            <span v-if="task.dueDate" class="inline-flex items-center gap-1.5 whitespace-nowrap text-slate-600 dark:text-slate-300" role="img" :aria-label="`Förfallodatum: ${dueDateText}`" :title="`Förfallodatum: ${dueDateText}`">
-              <CalendarDays :size="14" aria-hidden="true" />
-              <span class="hidden lg:inline">{{ dueDateText }}</span>
-            </span>
-            <span v-if="task.reminder && getTaskStatus(task) !== 'completed'" class="inline-flex items-center gap-1.5 whitespace-nowrap text-slate-600 dark:text-slate-300" role="img" :aria-label="reminderDateText ? `Påminnelse: ${reminderDateText}` : 'Påminnelse inställd'" :title="reminderDateText ? `Påminnelse: ${reminderDateText}` : 'Påminnelse inställd'">
-              <Bell :size="14" aria-hidden="true" />
-              <span class="xl:hidden">{{ reminderDateText || 'Påminnelse' }}</span>
-              <span class="hidden xl:inline">{{ reminderDateText ? `Påminnelse ${reminderDateText}` : 'Påminnelse inställd' }}</span>
-            </span>
+            <div class="flex shrink-0 items-center gap-x-2 lg:contents" data-task-metadata-group="status">
+              <span v-for="tag in task.tags" :key="tag" class="inline-flex text-[#2564cf] dark:text-blue-300">
+                <button class="hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2564cf]" type="button" :aria-label="`Visa uppgifter med taggen #${tag}`" @click.stop="emit('select-tag', tag)">#{{ tag }}</button>
+              </span>
+              <span v-if="task.note?.trim()" class="inline-flex items-center gap-1.5 whitespace-nowrap text-slate-600 dark:text-slate-300" role="img" aria-label="Anteckning finns" title="Anteckning finns">
+                <StickyNote :size="14" aria-hidden="true" />
+                <span class="hidden lg:inline">Anteckning</span>
+              </span>
+              <span v-if="task.important" class="inline-flex items-center gap-1.5 whitespace-nowrap text-amber-600 dark:text-amber-400" role="img" aria-label="Stjärnmärkt" title="Stjärnmärkt">
+                <Star :size="14" fill="none" aria-hidden="true" />
+                <span class="hidden lg:inline">Stjärnmärkt</span>
+              </span>
+              <span v-if="task.myDay" class="inline-flex items-center gap-1.5 whitespace-nowrap text-slate-600 dark:text-slate-300" role="img" aria-label="Tillagd i Min dag" title="Min dag">
+                <CalendarPlus :size="14" aria-hidden="true" />
+                <span class="hidden lg:inline">Min dag</span>
+              </span>
+            </div>
+            <div class="flex shrink-0 items-center gap-x-2 lg:contents" data-task-metadata-group="planning">
+              <span v-if="task.dueDate" class="inline-flex items-center gap-1.5 whitespace-nowrap text-slate-600 dark:text-slate-300" role="img" :aria-label="`Förfallodatum: ${dueDateText}`" :title="`Förfallodatum: ${dueDateText}`">
+                <CalendarDays :size="14" aria-hidden="true" />
+                <span class="hidden lg:inline">{{ dueDateText }}</span>
+              </span>
+              <span v-if="task.reminder && getTaskStatus(task) !== 'completed'" class="inline-flex items-center gap-1.5 whitespace-nowrap text-slate-600 dark:text-slate-300" role="img" :aria-label="reminderDateText ? `Påminnelse: ${reminderDateText}` : 'Påminnelse inställd'" :title="reminderDateText ? `Påminnelse: ${reminderDateText}` : 'Påminnelse inställd'">
+                <Bell :size="14" aria-hidden="true" />
+                <span class="xl:hidden">{{ reminderDateText || 'Påminnelse' }}</span>
+                <span class="hidden xl:inline">{{ reminderDateText ? `Påminnelse ${reminderDateText}` : 'Påminnelse inställd' }}</span>
+              </span>
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="relative mt-1 shrink-0">
+      <div class="relative shrink-0">
         <button ref="actionsButton" class="grid size-6 place-items-center rounded-full text-slate-500 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700" type="button" aria-label="Uppgiftsåtgärder" :aria-expanded="isMenuOpen" @click.stop="updateMenuPlacement">
           <MoreVertical :size="16" aria-hidden="true" />
         </button>
@@ -370,3 +378,14 @@ const reminderDateText = computed(() => {
     </Teleport>
   </article>
 </template>
+
+<style scoped>
+[data-task-text-scroll] {
+  scrollbar-width: none;
+}
+
+[data-task-text-scroll]::-webkit-scrollbar {
+  display: none;
+}
+
+</style>

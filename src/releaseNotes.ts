@@ -16,6 +16,16 @@ export const appVersion = packageJson.version
 // version changes on every bump, making previously-seen entries appear new again.
 export const releaseNotes: ReleaseNote[] = [
   {
+    version: '0.26.1',
+    date: '2026-10-01',
+    title: 'Luftigare uppgiftsrader på mobil',
+    summary: 'Uppgiftstitel och metadata får tydligare plats utan att viktiga markeringar försvinner.',
+    items: [
+      'Långa titlar kapas med ellips och all metadata ryms på en skrollbar rad.',
+      'Checkbox, draghandtag och åtgärdsmeny centreras vertikalt i uppgiftsraden.',
+    ],
+  },
+  {
     version: '0.26.0',
     date: '2026-10-01',
     title: 'Enklare appuppdateringar',

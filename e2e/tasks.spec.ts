@@ -11,6 +11,33 @@ test('creates a task in the active list', async ({ page }) => {
   await expect(page.getByRole('group', { name: `Uppgift: ${title}` })).toBeVisible()
 })
 
+test('truncates long task titles with an ellipsis on mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/')
+  const releaseCloseButton = page.getByRole('button', { name: 'Jag har sett detta' })
+  if (await releaseCloseButton.count()) await releaseCloseButton.click()
+
+  const title = 'En ovanligt lång uppgiftstitel som fortsätter utanför skärmens bredd'
+  await page.getByPlaceholder('Lägg till en uppgift').fill(title)
+  await page.getByPlaceholder('Lägg till en uppgift').press('Enter')
+
+  const titleText = page.getByRole('group', { name: `Uppgift: ${title}` }).locator('[data-task-title]')
+  await expect(titleText).toBeVisible()
+  await expect(titleText).toHaveText(title)
+  const textLayout = await titleText.evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    overflow: getComputedStyle(element).overflow,
+    scrollWidth: element.scrollWidth,
+    textOverflow: getComputedStyle(element).textOverflow,
+    whiteSpace: getComputedStyle(element).whiteSpace,
+  }))
+
+  expect(textLayout.scrollWidth).toBeGreaterThan(textLayout.clientWidth)
+  expect(textLayout.overflow).toBe('hidden')
+  expect(textLayout.textOverflow).toBe('ellipsis')
+  expect(textLayout.whiteSpace).toBe('nowrap')
+})
+
 test('opens task details from a task row', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: 'Jag har sett detta' }).click()
@@ -153,6 +180,8 @@ test('shows task metadata as icons on mobile and labels on wide screens', async 
   const details = page.getByRole('dialog', { name: 'Uppgiftsdetaljer' })
   await details.getByPlaceholder('Lägg till tagg').fill('responsiv')
   await details.getByPlaceholder('Lägg till tagg').press('Enter')
+  await details.getByPlaceholder('Lägg till tagg').fill('en-mycket-lang-tag-for-att-testa-skrollning')
+  await details.getByPlaceholder('Lägg till tagg').press('Enter')
   await details.getByLabel('Uppgiftens förfallodatum').fill('2026-10-05')
   await details.getByLabel('Uppgiftens förfallotid').fill('14:30')
   await details.getByLabel('Påminnelse').selectOption('60')
@@ -178,6 +207,17 @@ test('shows task metadata as icons on mobile and labels on wide screens', async 
   const title = task.getByText('Kontrollera mobilvyn', { exact: true })
   const titleBox = await title.boundingBox()
   const tagBox = await tag.boundingBox()
+  const statusMetadata = metadata.locator('[data-task-metadata-group="status"]')
+  const planningMetadata = metadata.locator('[data-task-metadata-group="planning"]')
+  const statusBox = await statusMetadata.boundingBox()
+  const planningBox = await planningMetadata.boundingBox()
+  const metadataDimensions = await metadata.evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+  }))
+  const rowBox = await task.boundingBox()
+  const checkboxBox = await task.getByRole('button', { name: 'Markera uppgift som slutförd' }).boundingBox()
+  const dragHandleBox = await task.locator('[data-drag-handle]').boundingBox()
 
   await expect(tag).toBeVisible()
   await expect(metadata.getByRole('img', { name: 'Stjärnmärkt' })).toBeVisible()
@@ -192,6 +232,11 @@ test('shows task metadata as icons on mobile and labels on wide screens', async 
   await expect(task.getByRole('button', { name: 'Uppgiftsåtgärder' })).toBeVisible()
   expect(tagBox?.y).toBeGreaterThan(titleBox?.y ?? 0)
   expect(Math.abs((tagBox?.x ?? 0) - (titleBox?.x ?? 0))).toBeLessThan(1)
+  expect(Math.abs((planningBox?.y ?? 0) - (statusBox?.y ?? 0))).toBeLessThan(1)
+  expect(metadataDimensions.scrollWidth).toBeGreaterThan(metadataDimensions.clientWidth)
+  expect(Math.abs((checkboxBox?.y ?? 0) + (checkboxBox?.height ?? 0) / 2 - ((rowBox?.y ?? 0) + (rowBox?.height ?? 0) / 2))).toBeLessThan(1)
+  expect(Math.abs((dragHandleBox?.y ?? 0) + (dragHandleBox?.height ?? 0) / 2 - ((rowBox?.y ?? 0) + (rowBox?.height ?? 0) / 2))).toBeLessThan(1)
+  expect(Math.abs((planningBox?.y ?? 0) - (statusBox?.y ?? 0))).toBeLessThan(1)
 
   await page.setViewportSize({ width: 1024, height: 900 })
   await expect(metadata.getByText('Stjärnmärkt', { exact: true })).toBeVisible()
