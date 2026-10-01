@@ -10,11 +10,13 @@ import { useAuthStore } from '@/stores/authStore'
 import { useListStore } from '@/stores/listStore'
 import { useTaskStore } from '@/stores/taskStore'
 import { useNetworkStatus } from '@/composables/useNetworkStatus'
+import { useAppUpdate } from '@/composables/useAppUpdate'
 
 const authStore = useAuthStore()
 const listStore = useListStore()
 const taskStore = useTaskStore()
 const { isOnline } = useNetworkStatus()
+const { isUpdateAvailable, isUpdatePromptDismissed, isUpdatingApp, updateError, forceUpdateApp } = useAppUpdate()
 const unseenReleases = ref<ReleaseNote[]>([])
 const isWhatsNewOpen = ref(false)
 const isFeatureOverviewOpen = ref(false)
@@ -49,6 +51,7 @@ const closeWhatsNew = () => {
   if (userId && latestRelease) markReleaseNotesSeen(userId, latestRelease.version)
   unseenReleases.value = []
   isWhatsNewOpen.value = false
+  isUpdatePromptDismissed.value = true
 }
 
 const closeFeatureOverview = () => {
@@ -73,5 +76,13 @@ onUnmounted(() => window.removeEventListener('online', refreshAfterReconnect))
   <RouterView />
   <ToastHost />
   <FeatureOverviewModal v-if="isFeatureOverviewOpen" @close="closeFeatureOverview" />
-  <WhatsNewModal v-if="isWhatsNewOpen && !isFeatureOverviewOpen" :releases="unseenReleases" @close="closeWhatsNew" />
+  <WhatsNewModal
+    v-if="!isFeatureOverviewOpen && (isWhatsNewOpen || (isUpdateAvailable && !isUpdatePromptDismissed))"
+    :releases="unseenReleases"
+    :update-available="isUpdateAvailable"
+    :is-updating="isUpdatingApp"
+    :update-error="updateError"
+    @close="closeWhatsNew"
+    @update="forceUpdateApp"
+  />
 </template>

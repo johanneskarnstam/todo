@@ -12,6 +12,7 @@ import { usePreferences } from '@/composables/usePreferences'
 import { usePushNotifications } from '@/composables/usePushNotifications'
 import { useReminderNotifications } from '@/composables/useReminderNotifications'
 import { useTheme } from '@/composables/useTheme'
+import { useAppUpdate } from '@/composables/useAppUpdate'
 import type { TaskReminder, TaskStatus } from '@/types'
 import { normalizeTag, normalizeTags } from '@/utils/taskTags'
 import { releaseNotes } from '@/releaseNotes'
@@ -56,6 +57,7 @@ const { preferences, resetPreferences } = usePreferences()
 const { enablePush, disablePush } = usePushNotifications()
 const { isDark } = useTheme()
 const { requestPermission } = useReminderNotifications()
+const { isUpdatingApp, updateError, forceUpdateApp } = useAppUpdate()
 const displayName = ref(authStore.user?.displayName ?? '')
 const isRefreshing = ref(false)
 const statusMessage = ref('')
@@ -501,10 +503,16 @@ const handleLogout = async () => {
             <span class="flex-1">Exportera data</span>
             <span class="text-xs text-slate-400">JSON</span>
           </button>
+          <button class="flex min-h-11 w-full items-center gap-3 rounded-lg px-2 text-left text-sm text-slate-700 transition hover:bg-slate-100 disabled:cursor-wait disabled:opacity-60 dark:text-slate-200 dark:hover:bg-slate-800" type="button" :disabled="isUpdatingApp" @click="forceUpdateApp">
+            <RefreshCw :size="18" :class="{ 'animate-spin': isUpdatingApp }" class="shrink-0 text-slate-500" aria-hidden="true" />
+            <span class="flex-1">{{ isUpdatingApp ? 'Rensar cache och uppdaterar...' : 'Rensa cache och uppdatera appen' }}</span>
+          </button>
           <button class="flex min-h-11 w-full items-center gap-3 rounded-lg px-2 text-left text-sm text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40" type="button" @click="clearLocalData">
             <Trash2 :size="18" class="shrink-0" aria-hidden="true" />
             <span class="flex-1">Rensa lokala data</span>
           </button>
+          <p v-if="updateError" class="px-2 text-sm text-red-700 dark:text-red-300" role="alert">{{ updateError }}</p>
+          <p class="px-2 text-xs text-slate-500 dark:text-slate-400">Listor och inställningar påverkas inte.</p>
         </div>
       </section>
 

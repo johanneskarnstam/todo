@@ -49,4 +49,17 @@ describe('WhatsNewModal', () => {
 
     expect(wrapper.emitted('close')).toHaveLength(1)
   })
+
+  it('shows the update action without release notes and emits update', async () => {
+    const wrapper = mount(WhatsNewModal, {
+      props: { releases: [], updateAvailable: true },
+    })
+
+    expect(wrapper.get('[role="dialog"]').text()).toContain('En ny version av appen är redo att installeras.')
+    const updateButton = wrapper.findAll('button').find((button) => button.text().includes('Rensa cache och uppdatera'))
+    expect(updateButton).toBeDefined()
+    await updateButton?.trigger('click')
+
+    expect(wrapper.emitted('update')).toHaveLength(1)
+  })
 })

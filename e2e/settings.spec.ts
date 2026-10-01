@@ -33,6 +33,18 @@ test('settings exposes preferences and data actions', async ({ page }) => {
   await expect(page.getByLabel('Tema')).toHaveValue('dark')
 })
 
+test('forces the latest app version from settings', async ({ page }) => {
+  await page.goto('#/settings')
+  const releaseCloseButton = page.getByRole('button', { name: 'Jag har sett detta' })
+  if (await releaseCloseButton.count()) await releaseCloseButton.click()
+
+  const updateButton = page.getByRole('button', { name: 'Rensa cache och uppdatera appen' })
+
+  await expect(updateButton).toBeVisible()
+  await updateButton.click()
+  await expect(page.getByRole('heading', { name: 'Inställningar', exact: true })).toBeVisible()
+})
+
 test('imports JSON tasks into a selected list', async ({ page }) => {
   await page.goto('#/settings')
   const closeButton = page.getByRole('button', { name: 'Jag har sett detta' })

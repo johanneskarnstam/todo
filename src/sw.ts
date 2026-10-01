@@ -10,8 +10,11 @@ declare let self: ServiceWorkerGlobalScope & {
 }
 
 precacheAndRoute(self.__WB_MANIFEST)
-self.skipWaiting()
 clientsClaim()
+
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') void self.skipWaiting()
+})
 
 const firebaseApp = initializeApp({
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,

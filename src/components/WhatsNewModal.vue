@@ -1,23 +1,26 @@
 <script setup lang="ts">
-import { X } from '@lucide/vue'
+import { RefreshCw, X } from '@lucide/vue'
 import type { ReleaseNote } from '@/releaseNotes'
 
 interface Props {
   releases: ReleaseNote[]
+  updateAvailable?: boolean
+  isUpdating?: boolean
+  updateError?: string | null
 }
 
 const props = defineProps<Props>()
-const emit = defineEmits<{ (event: 'close'): void }>()
+const emit = defineEmits<{ (event: 'close' | 'update'): void }>()
 </script>
 
 <template>
   <Transition name="whats-new">
-    <div v-if="props.releases.length" class="fixed inset-0 z-[110] grid place-items-center bg-slate-950/45 px-4 py-6" role="presentation">
+    <div v-if="props.releases.length || props.updateAvailable" class="fixed inset-0 z-[110] grid place-items-center bg-slate-950/45 px-4 py-6" role="presentation">
       <section class="max-h-[min(720px,calc(100vh-3rem))] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900" role="dialog" aria-modal="true" aria-labelledby="whats-new-title">
         <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-5 dark:border-slate-700">
           <div>
             <p class="text-xs font-semibold uppercase tracking-wide text-[#2564cf] dark:text-blue-400">Nytt i To Do</p>
-            <h2 id="whats-new-title" class="mt-1 text-xl font-semibold text-slate-900 dark:text-slate-100">Senaste förändringarna</h2>
+            <h2 id="whats-new-title" class="mt-1 text-xl font-semibold text-slate-900 dark:text-slate-100">{{ props.updateAvailable ? 'En ny version finns' : 'Senaste förändringarna' }}</h2>
           </div>
           <button class="grid size-9 shrink-0 place-items-center rounded-lg text-slate-500 transition hover:bg-slate-100 dark:hover:bg-slate-800" type="button" aria-label="Stäng senaste förändringarna" @click="emit('close')">
             <X :size="20" :stroke-width="1.8" aria-hidden="true" />
@@ -25,6 +28,9 @@ const emit = defineEmits<{ (event: 'close'): void }>()
         </div>
 
         <div class="space-y-6 px-6 py-5">
+          <p v-if="props.updateAvailable && !props.releases.length" class="text-sm leading-6 text-slate-600 dark:text-slate-300">
+            En ny version av appen är redo att installeras.
+          </p>
           <article v-for="release in props.releases" :key="release.version">
             <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
               <h3 class="text-base font-semibold text-slate-800 dark:text-slate-100">{{ release.title }}</h3>
@@ -41,8 +47,15 @@ const emit = defineEmits<{ (event: 'close'): void }>()
           </article>
         </div>
 
-        <div class="flex justify-end border-t border-slate-200 px-6 py-4 dark:border-slate-700">
-          <button class="min-h-10 rounded-lg bg-[#2564cf] px-4 text-sm font-semibold text-white transition hover:bg-blue-700" type="button" @click="emit('close')">Jag har sett detta</button>
+        <p v-if="props.updateError" class="px-6 pb-3 text-sm text-red-700 dark:text-red-300" role="alert">{{ props.updateError }}</p>
+
+        <div class="flex flex-wrap justify-end gap-3 border-t border-slate-200 px-6 py-4 dark:border-slate-700">
+          <button v-if="props.updateAvailable" class="min-h-10 rounded-lg px-4 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800" type="button" :disabled="props.isUpdating" @click="emit('close')">Senare</button>
+          <button v-if="props.updateAvailable" class="inline-flex min-h-10 items-center gap-2 rounded-lg bg-[#2564cf] px-4 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-wait disabled:opacity-70" type="button" :disabled="props.isUpdating" @click="emit('update')">
+            <RefreshCw :size="16" :class="props.isUpdating ? 'animate-spin' : ''" aria-hidden="true" />
+            {{ props.isUpdating ? 'Rensar cache och laddar om…' : 'Rensa cache och uppdatera' }}
+          </button>
+          <button v-else class="min-h-10 rounded-lg bg-[#2564cf] px-4 text-sm font-semibold text-white transition hover:bg-blue-700" type="button" @click="emit('close')">Jag har sett detta</button>
         </div>
       </section>
     </div>
