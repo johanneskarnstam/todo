@@ -69,7 +69,7 @@ interface NewFolderInput {
   name: string
 }
 
-type ListUpdate = Partial<Pick<List, 'name' | 'folderId' | 'icon' | 'order' | 'themeColor' | 'sortMode' | 'taskStatusMode'>>
+type ListUpdate = Partial<Pick<List, 'name' | 'folderId' | 'icon' | 'order' | 'themeColor' | 'sortMode' | 'newTasksFirst' | 'taskStatusMode'>>
 type FolderUpdate = Partial<Pick<Folder, 'name' | 'order'>>
 
 export const DEFAULT_LIST_ID = '__default__'
@@ -81,6 +81,7 @@ const defaultList: List = {
   order: 0,
   createdAt: Timestamp.fromMillis(0),
   sortMode: 'manual',
+  newTasksFirst: true,
   taskStatusMode: 'binary',
 }
 
@@ -244,6 +245,7 @@ export const useListStore = defineStore('lists', () => {
       order: lists.value.length,
       createdAt: Timestamp.now(),
       sortMode: 'manual',
+      newTasksFirst: true,
       taskStatusMode: 'binary',
     }
 
@@ -264,6 +266,7 @@ export const useListStore = defineStore('lists', () => {
         icon: optimisticList.icon,
         order: optimisticList.order,
         sortMode: optimisticList.sortMode,
+        newTasksFirst: optimisticList.newTasksFirst,
         taskStatusMode: optimisticList.taskStatusMode,
         createdAt: serverTimestamp(),
       }))
@@ -309,7 +312,7 @@ export const useListStore = defineStore('lists', () => {
 
   const updateList = async (listId: string, updates: ListUpdate) => {
     const isDefaultListSettingsUpdate = listId === DEFAULT_LIST_ID
-      && Object.keys(updates).every((key) => key === 'sortMode' || key === 'taskStatusMode')
+      && Object.keys(updates).every((key) => key === 'sortMode' || key === 'newTasksFirst' || key === 'taskStatusMode')
     if (listId === DEFAULT_LIST_ID && !isDefaultListSettingsUpdate) return
 
     const currentList = lists.value.find((list) => list.id === listId)
@@ -391,6 +394,7 @@ export const useListStore = defineStore('lists', () => {
             icon: deletedList.icon,
             order: deletedList.order,
             ...(deletedList.sortMode ? { sortMode: deletedList.sortMode } : {}),
+            ...(deletedList.newTasksFirst !== undefined ? { newTasksFirst: deletedList.newTasksFirst } : {}),
             ...(deletedList.taskStatusMode ? { taskStatusMode: deletedList.taskStatusMode } : {}),
             ...(deletedList.themeColor ? { themeColor: deletedList.themeColor } : {}),
             createdAt: deletedList.createdAt,

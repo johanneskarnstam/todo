@@ -12,7 +12,7 @@ const compareCreatedAt = (first: Task, second: Task): number =>
 
 export const sortTasksForMode = (tasks: Task[], sortMode: ListSortMode): Task[] => [...tasks].sort((first, second) => {
   if (sortMode === 'created') return compareCreatedAt(first, second)
-
+  if (sortMode === 'createdDesc') return compareCreatedAt(second, first)
   if (sortMode === 'dueDate') {
     return dueDateKey(first).localeCompare(dueDateKey(second)) || compareCreatedAt(first, second)
   }

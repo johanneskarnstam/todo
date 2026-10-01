@@ -6,6 +6,7 @@ import TodoHeader from '@/components/TodoHeader.vue'
 import TodoSidebar from '@/components/TodoSidebar.vue'
 import TaskRow from '@/components/TaskRow.vue'
 import TaskDetailsPanel from '@/components/TaskDetailsPanel.vue'
+import ToggleSwitch from '@/components/ToggleSwitch.vue'
 import { useTheme } from '@/composables/useTheme'
 import { DEFAULT_LIST_ID, useListStore } from '@/stores/listStore'
 import { useTaskStore } from '@/stores/taskStore'
@@ -62,10 +63,11 @@ const canAddTask = computed(() => taskStore.activeView?.type === 'list')
 const activeList = computed(() => taskStore.activeView?.type === 'list' ? listStore.selectedList : null)
 const canRenameActiveList = computed(() => Boolean(activeList.value && activeList.value.id !== DEFAULT_LIST_ID))
 const activeListColor = computed(() => activeList.value?.themeColor ?? '#2564cf')
-const activeListSortMode = computed<ListSortMode>(() => activeList.value?.sortMode ?? preferences.value.taskSort)
+const activeListSortMode = computed<ListSortMode>(() => activeList.value?.sortMode ?? 'manual')
 const activeListSortLabel = computed(() => ({
   manual: 'Min ordning',
   created: 'Skapade först',
+  createdDesc: 'Nya uppgifter först',
   dueDate: 'Förfallodatum',
   priority: 'Prioritet',
 }[activeListSortMode.value]))
@@ -671,7 +673,7 @@ watch(
           <h2 id="delete-list-title" class="text-lg font-semibold text-slate-800 dark:text-slate-100">Ta bort lista?</h2>
           <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">Välj om uppgifterna också ska tas bort eller behållas utan lista.</p>
           <label class="mt-4 flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
-            <input v-model="deleteListTasks" type="checkbox" />
+            <ToggleSwitch :checked="deleteListTasks" aria-label="Ta bort uppgifter i listan" @change="deleteListTasks = $event" />
             Ta bort uppgifter i listan
           </label>
           <div class="mt-6 flex justify-end gap-3">

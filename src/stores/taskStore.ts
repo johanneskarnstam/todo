@@ -16,6 +16,7 @@ import {
 } from 'firebase/firestore'
 import { auth, db } from '@/firebase'
 import { isMockAuthEnabled, MOCK_USER_ID } from '@/devMode'
+import { useListStore } from '@/stores/listStore'
 import { useToastStore } from '@/stores/toastStore'
 import { isBrowserOffline } from '@/composables/useNetworkStatus'
 import type { SmartView, Step, StepCount, Task, TaskReminder, TaskStatus, TaskStatusMode, TaskView } from '@/types'
@@ -80,6 +81,7 @@ const persistMockTasks = (tasksToPersist: Task[]) => {
 }
 
 export const useTaskStore = defineStore('tasks', () => {
+  const listStore = useListStore()
   const tasks = ref<Task[]>([])
   const allSteps = ref<Step[]>([])
   const activeTaskId = ref<string | null>(null)
@@ -290,6 +292,13 @@ export const useTaskStore = defineStore('tasks', () => {
 
     const status = input.status ?? (input.completed ? 'completed' : 'todo')
     const optimisticId = `optimistic-${crypto.randomUUID()}`
+    const listTasks = tasks.value.filter((task) => task.listId === input.listId)
+    const newTasksFirst = listStore.lists.find((list) => list.id === input.listId)?.newTasksFirst ?? true
+    const taskOrder = listTasks.length === 0
+      ? 0
+      : newTasksFirst
+        ? Math.min(...listTasks.map((task) => task.order ?? 0)) - 1
+        : Math.max(...listTasks.map((task) => task.order ?? -1)) + 1
     const optimisticTask: Task = {
       id: optimisticId,
       listId: input.listId,
@@ -299,7 +308,7 @@ export const useTaskStore = defineStore('tasks', () => {
       important: input.important ?? false,
       myDay: input.myDay ?? false,
       createdAt: Timestamp.now(),
-      order: tasks.value.filter((task) => task.listId === input.listId).length,
+      order: taskOrder,
       ...(input.dueDate ? { dueDate: input.dueDate } : {}),
       ...(input.dueTimeZone ? { dueTimeZone: input.dueTimeZone } : {}),
       ...(input.reminder !== undefined ? { reminder: input.reminder } : {}),

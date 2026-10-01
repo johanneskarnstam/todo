@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { ArrowLeft, BookOpen, ChevronDown, Download, History, LogOut, RefreshCw, Trash2 } from '@lucide/vue'
 import ChangeTimelineModal from '@/components/ChangeTimelineModal.vue'
 import FeatureOverviewModal from '@/components/FeatureOverviewModal.vue'
+import ToggleSwitch from '@/components/ToggleSwitch.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useListStore } from '@/stores/listStore'
 import { useTaskStore } from '@/stores/taskStore'
@@ -407,11 +408,11 @@ const handleLogout = async () => {
         <h2 id="tasks-heading" class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Uppgifter</h2>
         <p class="rounded-lg px-2 py-2 text-sm text-slate-600 dark:text-slate-300">Sortering och arbetsflöde ställs in per lista.</p>
         <label class="mt-1 flex min-h-11 items-center gap-3 rounded-lg px-2 text-sm text-slate-700 dark:text-slate-200">
-          <input v-model="preferences.confirmDeletes" class="h-4 w-4" type="checkbox" />
+          <ToggleSwitch id="confirm-deletes" :checked="preferences.confirmDeletes" aria-label="Bekräfta innan uppgifter och listor tas bort" @change="preferences.confirmDeletes = $event" />
           Bekräfta innan uppgifter och listor tas bort
         </label>
         <label class="mt-1 flex min-h-11 items-center gap-3 rounded-lg px-2 text-sm text-slate-700 dark:text-slate-200">
-          <input :checked="preferences.notifications" class="h-4 w-4" type="checkbox" @change="setNotifications(($event.target as HTMLInputElement).checked)" />
+          <ToggleSwitch id="notifications" :checked="preferences.notifications" aria-label="Tillåt aviseringar för påminnelser" @change="setNotifications" />
           Tillåt aviseringar för påminnelser
         </label>
       </section>

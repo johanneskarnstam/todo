@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { ArrowLeft, Check, Settings2 } from '@lucide/vue'
 import { useRoute, useRouter } from 'vue-router'
-import { usePreferences } from '@/composables/usePreferences'
+import ToggleSwitch from '@/components/ToggleSwitch.vue'
 import { useTheme } from '@/composables/useTheme'
 import { useListStore } from '@/stores/listStore'
 import { useTaskStore } from '@/stores/taskStore'
@@ -13,13 +13,25 @@ const route = useRoute()
 const router = useRouter()
 const listStore = useListStore()
 const taskStore = useTaskStore()
-const { preferences } = usePreferences()
 const { isDark } = useTheme()
 const sortMode = ref<ListSortMode>('manual')
+const newTasksFirst = ref(true)
 const taskStatusMode = ref<TaskStatusMode>('binary')
 const statusMessage = ref('')
 const isInitialized = ref(false)
+const sortMenuOpen = ref(false)
+const taskStatusMenuOpen = ref(false)
 const themeColors = ['#2564cf', '#107c10', '#d83b01', '#8764b8', '#038387', '#ca5010']
+const sortOptions: Array<{ value: ListSortMode; label: string }> = [
+  { value: 'manual', label: 'Min ordning' },
+  { value: 'created', label: 'Skapade först' },
+  { value: 'dueDate', label: 'Förfallodatum' },
+  { value: 'priority', label: 'Prioritet' },
+]
+const taskStatusOptions: Array<{ value: TaskStatusMode; label: string }> = [
+  { value: 'binary', label: 'Att göra eller klart' },
+  { value: 'threeStep', label: 'Att göra, pågående eller klart' },
+]
 
 const listId = computed(() => typeof route.params.listId === 'string' ? route.params.listId : '')
 const currentList = computed(() => listStore.lists.find((list) => list.id === listId.value) ?? null)
@@ -30,17 +42,42 @@ const initialize = async () => {
   const list = currentList.value
   if (!list) return
 
-  sortMode.value = list.sortMode ?? preferences.value.taskSort
+  sortMode.value = list.sortMode ?? 'manual'
+  newTasksFirst.value = list.newTasksFirst ?? true
   taskStatusMode.value = list.taskStatusMode ?? 'binary'
   isInitialized.value = true
 }
 
-const saveSortMode = async (event: Event) => {
-  const nextSortMode = (event.target as HTMLSelectElement).value as ListSortMode
+const saveSortMode = async (nextSortMode: ListSortMode) => {
   sortMode.value = nextSortMode
+  sortMenuOpen.value = false
   statusMessage.value = ''
   await listStore.updateList(listId.value, { sortMode: nextSortMode })
   if (!listStore.error) statusMessage.value = 'Sorteringen har sparats.'
+}
+
+const handleSortMenuKeydown = (event: KeyboardEvent) => {
+  if (event.key === 'Escape') {
+    sortMenuOpen.value = false
+    return
+  }
+
+  if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault()
+    sortMenuOpen.value = true
+  }
+}
+
+const handleTaskStatusMenuKeydown = (event: KeyboardEvent) => {
+  if (event.key === 'Escape') {
+    taskStatusMenuOpen.value = false
+    return
+  }
+
+  if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault()
+    taskStatusMenuOpen.value = true
+  }
 }
 
 const saveThemeColor = async (themeColor: string) => {
@@ -49,8 +86,14 @@ const saveThemeColor = async (themeColor: string) => {
   if (!listStore.error) statusMessage.value = 'Listfärgen har sparats.'
 }
 
-const saveTaskStatusMode = async (event: Event) => {
-  const nextMode = (event.target as HTMLSelectElement).value as TaskStatusMode
+const saveNewTasksFirst = async (nextValue: boolean) => {
+  newTasksFirst.value = nextValue
+  statusMessage.value = ''
+  await listStore.updateList(listId.value, { newTasksFirst: nextValue })
+  if (!listStore.error) statusMessage.value = 'Inställningen har sparats.'
+}
+
+const saveTaskStatusMode = async (nextMode: TaskStatusMode) => {
   if (nextMode === 'binary' && inProgressTasks.value.length > 0) {
     const confirmed = window.confirm('Pågående uppgifter ändras till Att göra när listan använder två lägen. Fortsätta?')
     if (!confirmed) {
@@ -60,6 +103,7 @@ const saveTaskStatusMode = async (event: Event) => {
   }
 
   taskStatusMode.value = nextMode
+  taskStatusMenuOpen.value = false
   statusMessage.value = ''
   if (nextMode === 'binary') {
     for (const task of inProgressTasks.value) taskStore.setTaskStatus(task.id, 'todo', 'binary')
@@ -72,7 +116,7 @@ onMounted(() => void initialize())
 </script>
 
 <template>
-  <main class="min-h-screen bg-slate-100 px-3 py-4 text-slate-800 dark:bg-slate-950 dark:text-slate-100 sm:px-6 sm:py-8" :class="{ dark: isDark }">
+  <main class="min-h-screen bg-slate-100 px-3 py-4 text-slate-800 dark:bg-slate-950 dark:text-slate-100 sm:px-6 sm:py-8" :class="{ dark: isDark }" @click="sortMenuOpen = false; taskStatusMenuOpen = false">
     <div class="mx-auto max-w-3xl">
       <header class="mb-4 flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
         <button class="grid size-9 place-items-center rounded-lg text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800" type="button" aria-label="Tillbaka till listan" @click="router.push({ name: 'home' })">
@@ -113,29 +157,89 @@ onMounted(() => void initialize())
         <section class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-5" aria-labelledby="list-tasks-heading">
           <h2 id="list-tasks-heading" class="text-base font-semibold">Uppgifter</h2>
           <div class="mt-4 divide-y divide-slate-200 dark:divide-slate-700">
-          <label class="flex min-h-14 items-center gap-4 py-2 text-sm" for="list-sort-mode">
+          <div class="flex min-h-14 items-center gap-4 py-2 text-sm">
             <span class="flex-1">
               <span class="block font-medium">Sortering</span>
               <span class="block text-xs text-slate-500 dark:text-slate-400">Gäller bara uppgifter i den här listan.</span>
             </span>
-            <select id="list-sort-mode" class="max-w-44 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-800" :value="sortMode" @change="saveSortMode">
-              <option value="manual">Min ordning</option>
-              <option value="created">Skapade först</option>
-              <option value="dueDate">Förfallodatum</option>
-              <option value="priority">Prioritet</option>
-            </select>
+            <div class="relative max-w-44" @click.stop>
+              <button
+                id="list-sort-mode"
+                class="flex min-h-9 w-full items-center justify-between gap-3 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2564cf] dark:border-slate-600 dark:bg-slate-800"
+                type="button"
+                role="combobox"
+                aria-label="Sortering"
+                aria-controls="list-sort-options"
+                :aria-expanded="sortMenuOpen"
+                aria-haspopup="listbox"
+                @click="sortMenuOpen = !sortMenuOpen"
+                @keydown="handleSortMenuKeydown"
+              >
+                <span>{{ sortOptions.find((option) => option.value === sortMode)?.label ?? 'Nya uppgifter först' }}</span>
+                <span aria-hidden="true" class="text-slate-500">⌄</span>
+              </button>
+              <div v-if="sortMenuOpen" id="list-sort-options" class="absolute right-0 top-full z-20 mt-1 w-full min-w-44 overflow-hidden rounded-md border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-600 dark:bg-slate-800" role="listbox" aria-label="Sorteringsalternativ">
+                <button
+                  v-for="option in sortOptions"
+                  :key="option.value"
+                  class="flex min-h-9 w-full items-center rounded px-2 text-left text-sm hover:bg-slate-100 focus-visible:bg-slate-100 focus-visible:outline-none dark:hover:bg-slate-700 dark:focus-visible:bg-slate-700"
+                  :class="{ 'bg-[#eef5fc] font-medium text-[#2564cf] dark:bg-slate-700 dark:text-blue-300': sortMode === option.value }"
+                  type="button"
+                  role="option"
+                  :aria-selected="sortMode === option.value"
+                  @click="saveSortMode(option.value)"
+                >
+                  {{ option.label }}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <label class="flex min-h-14 items-center gap-4 py-2 text-sm" :class="{ 'opacity-50': sortMode !== 'manual' }" for="new-tasks-first">
+            <span class="flex-1">
+              <span class="block font-medium">Nya uppgifter överst</span>
+              <span class="block text-xs text-slate-500 dark:text-slate-400">Gäller när sorteringen är Min ordning.</span>
+            </span>
+            <ToggleSwitch id="new-tasks-first" :checked="newTasksFirst" :disabled="sortMode !== 'manual'" aria-label="Nya uppgifter överst" @change="saveNewTasksFirst" />
           </label>
 
-          <label class="flex min-h-14 items-center gap-4 py-2 text-sm" for="task-status-mode">
+          <div class="flex min-h-14 items-center gap-4 py-2 text-sm">
             <span class="flex-1">
               <span class="block font-medium">Arbetsflöde</span>
               <span class="block text-xs text-slate-500 dark:text-slate-400">Välj om uppgifter kan vara pågående.</span>
             </span>
-            <select id="task-status-mode" class="max-w-44 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-800" :value="taskStatusMode" @change="saveTaskStatusMode">
-              <option value="binary">Att göra eller klart</option>
-              <option value="threeStep">Att göra, pågående eller klart</option>
-            </select>
-          </label>
+            <div class="relative max-w-44" @click.stop>
+              <button
+                id="task-status-mode"
+                class="flex min-h-9 w-full items-center justify-between gap-3 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2564cf] dark:border-slate-600 dark:bg-slate-800"
+                type="button"
+                role="combobox"
+                aria-label="Arbetsflöde"
+                aria-controls="task-status-options"
+                :aria-expanded="taskStatusMenuOpen"
+                aria-haspopup="listbox"
+                @click="taskStatusMenuOpen = !taskStatusMenuOpen"
+                @keydown="handleTaskStatusMenuKeydown"
+              >
+                <span>{{ taskStatusOptions.find((option) => option.value === taskStatusMode)?.label }}</span>
+                <span aria-hidden="true" class="text-slate-500">⌄</span>
+              </button>
+              <div v-if="taskStatusMenuOpen" id="task-status-options" class="absolute right-0 top-full z-20 mt-1 w-full min-w-56 overflow-hidden rounded-md border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-600 dark:bg-slate-800" role="listbox" aria-label="Arbetsflödesalternativ">
+                <button
+                  v-for="option in taskStatusOptions"
+                  :key="option.value"
+                  class="flex min-h-9 w-full items-center rounded px-2 text-left text-sm hover:bg-slate-100 focus-visible:bg-slate-100 focus-visible:outline-none dark:hover:bg-slate-700 dark:focus-visible:bg-slate-700"
+                  :class="{ 'bg-[#eef5fc] font-medium text-[#2564cf] dark:bg-slate-700 dark:text-blue-300': taskStatusMode === option.value }"
+                  type="button"
+                  role="option"
+                  :aria-selected="taskStatusMode === option.value"
+                  @click="saveTaskStatusMode(option.value)"
+                >
+                  {{ option.label }}
+                </button>
+              </div>
+            </div>
+          </div>
           </div>
         </section>
       </template>

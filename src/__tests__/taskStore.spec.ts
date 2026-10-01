@@ -236,6 +236,19 @@ describe('useTaskStore', () => {
     )
   })
 
+  it('places new tasks first by default in manual order', async () => {
+    const store = useTaskStore()
+    store.tasks.push({
+      id: 'older-task', listId: 'list-1', title: 'Older task', completed: false, important: false,
+      myDay: false, createdAt: Timestamp.fromMillis(1), order: 0,
+    })
+
+    await store.createTask({ listId: 'list-1', title: 'New task' })
+
+    expect(store.tasks.map((task) => task.title)).toEqual(['New task', 'Older task'])
+    expect(store.tasks[0].order).toBe(-1)
+  })
+
   it('persists optional task fields when creating a task', async () => {
     const store = useTaskStore()
     const reminder = { offsetMinutes: 60 as const }

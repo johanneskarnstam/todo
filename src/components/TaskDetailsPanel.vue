@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { ArrowLeft, Bell, CalendarDays, Clock, Sun } from '@lucide/vue'
+import ToggleSwitch from '@/components/ToggleSwitch.vue'
 import type { Step, Task, TaskReminder } from '@/types'
 import { normalizeTag, normalizeTags } from '@/utils/taskTags'
 
@@ -196,9 +197,8 @@ const saveStepTitle = () => {
         <h2 id="steps-heading" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Delsteg</h2>
         <div class="space-y-1">
           <label v-for="step in steps" :key="step.id" class="flex min-h-10 items-center gap-3 rounded-lg px-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800">
-            <input
-              class="size-4 accent-[#2564cf]"
-              type="checkbox"
+            <ToggleSwitch
+              :id="`step-toggle-${step.id}`"
               :checked="step.completed"
               :aria-label="`Markera delsteg som klart: ${step.title}`"
               @change="emit('toggle-step', step.id)"

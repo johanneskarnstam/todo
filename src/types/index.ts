@@ -6,7 +6,7 @@ export interface Folder {
   order: number
 }
 
-export type ListSortMode = 'manual' | 'created' | 'dueDate' | 'priority'
+export type ListSortMode = 'manual' | 'created' | 'createdDesc' | 'dueDate' | 'priority'
 export type TaskStatus = 'todo' | 'inProgress' | 'completed'
 export type TaskStatusMode = 'binary' | 'threeStep'
 
@@ -19,6 +19,7 @@ export interface List {
   createdAt: Timestamp
   themeColor?: string
   sortMode?: ListSortMode
+  newTasksFirst?: boolean
   taskStatusMode?: TaskStatusMode
 }
 
