@@ -517,7 +517,9 @@ describe('TaskDetailsPanel', () => {
     })
 
     await wrapper.get('input[aria-label="Uppgiftens förfallotid"]').setValue('14:30')
-    await wrapper.get('select[aria-label="Påminnelse"]').setValue('60')
+    await wrapper.get('button[aria-label="Påminnelse"]').trigger('click')
+    const oneHourOption = wrapper.findAll('[role="option"]').find((option) => option.text() === '1 timme före')
+    await oneHourOption?.trigger('click')
 
     expect(wrapper.emitted('set-due-date')).toEqual([['2026-10-01T14:30']])
     expect(wrapper.emitted('save-reminder')).toEqual([[{ offsetMinutes: 60 }]])

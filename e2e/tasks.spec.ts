@@ -117,6 +117,17 @@ test('adds a task to Min dag and finds it in the smart view', async ({ page }) =
   await expect(page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' })).toBeVisible()
 })
 
+test('celebrates completing every task in a list', async ({ page }) => {
+  await page.goto('/')
+  const releaseCloseButton = page.getByRole('button', { name: 'Jag har sett detta' })
+  if (await releaseCloseButton.count()) await releaseCloseButton.click()
+
+  await page.getByRole('group', { name: 'Uppgift: Testa dra och släppa uppgifter' }).getByRole('button', { name: 'Markera uppgift som slutförd' }).click()
+  await page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' }).getByRole('button', { name: 'Markera uppgift som slutförd' }).click()
+
+  await expect(page.getByRole('status').filter({ hasText: /Snyggt! Listan är klar\.|Boom! Allt är klart\.|Du satte den!/ })).toBeVisible()
+})
+
 test('adds a tag and uses a quick due-date preset', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: 'Jag har sett detta' }).click()
@@ -152,7 +163,8 @@ test('adds a tag and uses a quick due-date preset', async ({ page }) => {
   await details.getByRole('button', { name: 'Imorgon' }).click()
   await expect(details.getByLabel('Uppgiftens förfallodatum')).not.toHaveValue('')
   await details.getByLabel('Uppgiftens förfallotid').fill('14:30')
-  await details.getByLabel('Påminnelse').selectOption('60')
+  await details.getByLabel('Påminnelse').click()
+  await details.getByRole('option', { name: '1 timme före' }).click()
   await expect(details.getByText('Påminnelse aktiv')).toBeVisible()
 
   await details.getByRole('button', { name: 'Stäng uppgiftsdetaljer' }).click()
@@ -184,7 +196,8 @@ test('shows task metadata as icons on mobile and labels on wide screens', async 
   await details.getByPlaceholder('Lägg till tagg').press('Enter')
   await details.getByLabel('Uppgiftens förfallodatum').fill('2026-10-05')
   await details.getByLabel('Uppgiftens förfallotid').fill('14:30')
-  await details.getByLabel('Påminnelse').selectOption('60')
+  await details.getByLabel('Påminnelse').click()
+  await details.getByRole('option', { name: '1 timme före' }).click()
   await details.getByRole('button', { name: 'Stäng uppgiftsdetaljer' }).click()
 
   await task.getByRole('button', { name: 'Uppgiftsåtgärder' }).click()

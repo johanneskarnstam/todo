@@ -22,6 +22,7 @@ import { isBrowserOffline } from '@/composables/useNetworkStatus'
 import type { SmartView, Step, StepCount, Task, TaskReminder, TaskStatus, TaskStatusMode, TaskView } from '@/types'
 import { sortTasksForMode } from '@/utils/taskSorting'
 import { normalizeTags } from '@/utils/taskTags'
+import { vibrateOnTaskCompletion } from '@/utils/deviceFeedback'
 import { getTaskStatus, isTaskCompleted, isTaskStatusAllowed, taskStatusToCompleted } from '@/utils/taskStatus'
 
 interface NewTaskInput {
@@ -391,6 +392,7 @@ export const useTaskStore = defineStore('tasks', () => {
   const setTaskStatus = (taskId: string, status: TaskStatus, mode: TaskStatusMode = 'threeStep') => {
     const task = tasks.value.find((item) => item.id === taskId)
     if (!task || !isTaskStatusAllowed(status, mode)) return
+    if (status === 'completed') vibrateOnTaskCompletion()
 
     const shouldArchive = status === 'completed'
       && listStore.lists.find((list) => list.id === task.listId)?.archiveCompletedTasks === true

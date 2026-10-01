@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { ArrowLeft, Bell, CalendarDays, Clock, Sun } from '@lucide/vue'
+import { ArrowLeft, Bell, CalendarDays, ChevronDown, Clock, Sun } from '@lucide/vue'
 import ToggleSwitch from '@/components/ToggleSwitch.vue'
 import type { Step, Task, TaskReminder } from '@/types'
 import { normalizeTag, normalizeTags } from '@/utils/taskTags'
@@ -41,6 +41,14 @@ const editingStepId = ref<string | null>(null)
 const editingStepTitle = ref('')
 const reminderOffset = ref(String(props.task.reminder?.offsetMinutes ?? ''))
 const stepsExpanded = ref(props.showStepsByDefault ?? true)
+const reminderMenuOpen = ref(false)
+const reminderOptions = [
+  { value: '', label: 'Ingen' },
+  { value: '0', label: 'Vid förfallotid' },
+  { value: '10', label: '10 minuter före' },
+  { value: '60', label: '1 timme före' },
+  { value: '1440', label: '1 dag före' },
+]
 
 const dueDate = computed(() => {
   if (typeof props.task.dueDate === 'string') return props.task.dueDate.slice(0, 10)
@@ -59,6 +67,7 @@ watch(
     note.value = props.task.note ?? ''
     tags.value = normalizeTags(props.task.tags ?? [])
     reminderOffset.value = String(props.task.reminder?.offsetMinutes ?? '')
+    reminderMenuOpen.value = false
   },
 )
 
@@ -143,6 +152,25 @@ const saveReminder = () => {
   emit('save-reminder', { offsetMinutes: offset as TaskReminder['offsetMinutes'] })
 }
 
+const selectReminder = (value: string) => {
+  reminderOffset.value = value
+  reminderMenuOpen.value = false
+  saveReminder()
+}
+
+const handleReminderMenuKeydown = (event: KeyboardEvent) => {
+  if (event.key === 'Escape') {
+    reminderMenuOpen.value = false
+    return
+  }
+
+  if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault()
+    if (!dueDate.value) return
+    reminderMenuOpen.value = true
+  }
+}
+
 const startEditingStep = (step: Step) => {
   editingStepId.value = step.id
   editingStepTitle.value = step.title
@@ -157,7 +185,7 @@ const saveStepTitle = () => {
 </script>
 
 <template>
-  <aside class="fixed inset-x-0 bottom-0 top-14 z-50 flex flex-col bg-white shadow-2xl dark:bg-slate-900 lg:static lg:z-auto lg:w-80 lg:shrink-0 lg:rounded-l-xl lg:border-l lg:border-slate-200 lg:shadow-none dark:lg:border-slate-700" role="dialog" aria-modal="true" aria-labelledby="task-details-heading">
+  <aside class="fixed inset-x-0 bottom-0 top-14 z-50 flex flex-col bg-white shadow-2xl dark:bg-slate-900 lg:static lg:z-auto lg:w-80 lg:shrink-0 lg:rounded-l-xl lg:border-l lg:border-slate-200 lg:shadow-none dark:lg:border-slate-700" role="dialog" aria-modal="true" aria-labelledby="task-details-heading" @click="reminderMenuOpen = false">
     <div class="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 px-4 dark:border-slate-700">
       <span id="task-details-heading" class="text-sm font-semibold text-slate-700 dark:text-slate-200">Uppgiftsdetaljer</span>
       <button class="grid size-8 place-items-center rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700" type="button" aria-label="Stäng uppgiftsdetaljer" @click="emit('close')">
@@ -282,17 +310,42 @@ const saveStepTitle = () => {
           <button class="rounded-full border border-slate-200 px-3 py-1 text-sm text-slate-600 hover:border-[#2564cf] hover:text-[#2564cf] dark:border-slate-700 dark:text-slate-300" type="button" @click="selectQuickDate(7)">Nästa vecka</button>
           <button class="rounded-full border border-slate-200 px-3 py-1 text-sm text-slate-600 hover:border-[#2564cf] hover:text-[#2564cf] dark:border-slate-700 dark:text-slate-300" type="button" @click="selectQuickDate(null)">Rensa</button>
         </div>
-        <label class="flex min-h-11 items-center gap-3 rounded-lg px-2 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800">
+        <div class="flex min-h-11 items-center gap-3 rounded-lg px-2 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800">
           <Bell :size="18" class="text-slate-500" aria-hidden="true" />
           <span class="flex-1 text-sm">Påminnelse</span>
-          <select v-model="reminderOffset" class="max-w-44 bg-transparent text-right text-sm text-slate-600 outline-none disabled:opacity-50 dark:text-slate-300" :disabled="!dueDate" aria-label="Påminnelse" @change="saveReminder">
-            <option value="">Ingen</option>
-            <option value="0">Vid förfallotid</option>
-            <option value="10">10 minuter före</option>
-            <option value="60">1 timme före</option>
-            <option value="1440">1 dag före</option>
-          </select>
-        </label>
+          <div class="relative max-w-44" @click.stop>
+            <button
+              id="reminder-selector"
+              class="flex min-h-9 w-full items-center justify-between gap-2 rounded-md px-2 text-right text-sm text-slate-600 outline-none focus-visible:ring-2 focus-visible:ring-[#2564cf] disabled:cursor-not-allowed disabled:opacity-50 dark:text-slate-300"
+              type="button"
+              role="combobox"
+              aria-label="Påminnelse"
+              aria-controls="reminder-options"
+              :aria-expanded="reminderMenuOpen"
+              aria-haspopup="listbox"
+              :disabled="!dueDate"
+              @click="reminderMenuOpen = !reminderMenuOpen"
+              @keydown="handleReminderMenuKeydown"
+            >
+              <span>{{ reminderOptions.find((option) => option.value === reminderOffset)?.label }}</span>
+              <ChevronDown :size="16" :stroke-width="2" class="shrink-0 text-slate-500" aria-hidden="true" />
+            </button>
+            <div v-if="reminderMenuOpen" id="reminder-options" class="absolute right-0 top-full z-20 mt-1 w-full min-w-44 overflow-hidden rounded-md border border-slate-200 bg-white p-1 text-left shadow-lg dark:border-slate-600 dark:bg-slate-800" role="listbox" aria-label="Påminnelsealternativ">
+              <button
+                v-for="option in reminderOptions"
+                :key="option.value || 'none'"
+                class="flex min-h-9 w-full items-center rounded px-2 text-sm hover:bg-slate-100 focus-visible:bg-slate-100 focus-visible:outline-none dark:hover:bg-slate-700 dark:focus-visible:bg-slate-700"
+                :class="{ 'bg-[#eef5fc] font-medium text-[#2564cf] dark:bg-slate-700 dark:text-blue-300': reminderOffset === option.value }"
+                type="button"
+                role="option"
+                :aria-selected="reminderOffset === option.value"
+                @click="selectReminder(option.value)"
+              >
+                {{ option.label }}
+              </button>
+            </div>
+          </div>
+        </div>
         <p v-if="task.reminder && dueDate" class="px-2 text-xs text-[#2564cf] dark:text-blue-400">Påminnelse aktiv</p>
         <p v-else class="px-2 text-xs text-slate-500 dark:text-slate-400">Välj datum först för att aktivera en påminnelse.</p>
         </div>

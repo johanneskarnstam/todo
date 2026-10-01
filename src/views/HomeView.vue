@@ -97,8 +97,43 @@ const filteredVisibleTasks = computed(() => {
 })
 const filteredActiveTasks = computed(() => filteredVisibleTasks.value.filter((task) => !isTaskCompleted(task)))
 const filteredCompletedTasks = computed(() => filteredVisibleTasks.value.filter((task) => isTaskCompleted(task)))
+const confettiVisible = ref(false)
+const confettiMessage = ref('Snyggt! Listan är klar.')
+let confettiTimer: number | undefined
+const confettiPieces = Array.from({ length: 32 }, (_, index) => ({
+  left: `${(index * 37) % 100}%`,
+  color: ['#2564cf', '#f59e0b', '#e11d48', '#10b981', '#7c3aed'][index % 5],
+  delay: `${(index % 8) * 80}ms`,
+  rotation: `${(index * 29) % 180}deg`,
+}))
 
 const shouldConfirmDelete = (listId: string) => listStore.lists.find((list) => list.id === listId)?.confirmDeletes ?? preferences.value.confirmDeletes
+
+const isLastActiveTaskInList = (taskId: string) => {
+  if (!activeList.value) return false
+  const activeTasksInList = taskStore.tasks.filter((task) => task.listId === activeList.value?.id && !task.archived && !isTaskCompleted(task))
+  return activeTasksInList.length === 1 && activeTasksInList[0]?.id === taskId
+}
+
+const showCompletionConfetti = () => {
+  confettiMessage.value = ['Snyggt! Listan är klar.', 'Boom! Allt är klart.', 'Du satte den!'][Math.floor(Math.random() * 3)] ?? 'Snyggt! Listan är klar.'
+  confettiVisible.value = true
+  if (confettiTimer !== undefined) window.clearTimeout(confettiTimer)
+  confettiTimer = window.setTimeout(() => { confettiVisible.value = false }, 3200)
+}
+
+const handleToggleCompleted = (taskId: string) => {
+  const task = taskStore.tasks.find((item) => item.id === taskId)
+  const completesLastTask = Boolean(task && !isTaskCompleted(task) && isLastActiveTaskInList(taskId))
+  taskStore.toggleCompleted(taskId)
+  if (completesLastTask) showCompletionConfetti()
+}
+
+const handleSetTaskStatus = (taskId: string, status: 'todo' | 'inProgress' | 'completed', mode: 'binary' | 'threeStep') => {
+  const completesLastTask = status === 'completed' && isLastActiveTaskInList(taskId)
+  taskStore.setTaskStatus(taskId, status, mode)
+  if (completesLastTask) showCompletionConfetti()
+}
 
 const taskListContainer = ref<HTMLElement | null>(null)
 const canDrag = computed(() => taskStore.activeView?.type === 'list' && activeListSortMode.value === 'manual')
@@ -435,6 +470,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleGlobalKeydown)
+  if (confettiTimer !== undefined) window.clearTimeout(confettiTimer)
 })
 
 watch([routeSmartView, routeTag], ([view, tag]) => {
@@ -466,6 +502,16 @@ watch(
 
 <template>
   <div class="flex h-screen flex-col bg-[#faf9f8] text-slate-800 dark:bg-slate-950 dark:text-slate-100" :class="{ dark: isDark }">
+    <div v-if="confettiVisible" class="pointer-events-none fixed inset-0 z-[120] overflow-hidden" role="status" aria-live="polite">
+      <p class="absolute left-1/2 top-20 -translate-x-1/2 rounded-full bg-white/95 px-5 py-2 text-base font-semibold text-slate-800 shadow-xl dark:bg-slate-900/95 dark:text-slate-100">{{ confettiMessage }}</p>
+      <span
+        v-for="(piece, index) in confettiPieces"
+        :key="index"
+        class="confetti-piece absolute top-0 h-3 w-2 rounded-sm"
+        :style="{ left: piece.left, backgroundColor: piece.color, animationDelay: piece.delay, transform: `rotate(${piece.rotation})` }"
+        aria-hidden="true"
+      />
+    </div>
     <TodoHeader
       :is-dark="isDark"
       :is-sidebar-open="isSidebarOpen"
@@ -562,7 +608,7 @@ watch(
                   task-status-mode="binary"
                   :available-lists="listStore.lists"
                   @select="taskStore.setActiveTask(task.id)"
-                  @toggle-completed="taskStore.toggleCompleted(task.id)"
+                  @toggle-completed="handleToggleCompleted(task.id)"
                   @toggle-important="taskStore.toggleImportant(task.id)"
                   @toggle-my-day="taskStore.toggleMyDay(task.id)"
                   @delete="requestDeleteTask(task.id)"
@@ -587,8 +633,8 @@ watch(
                 :task-status-mode="activeListTaskStatusMode"
                 :available-lists="listStore.lists"
                 @select="taskStore.setActiveTask(task.id)"
-                @toggle-completed="taskStore.toggleCompleted(task.id)"
-                @set-status="taskStore.setTaskStatus(task.id, $event, activeListTaskStatusMode)"
+                @toggle-completed="handleToggleCompleted(task.id)"
+                @set-status="handleSetTaskStatus(task.id, $event, activeListTaskStatusMode)"
                 @toggle-important="taskStore.toggleImportant(task.id)"
                 @toggle-my-day="taskStore.toggleMyDay(task.id)"
                 @delete="requestDeleteTask(task.id)"
@@ -625,8 +671,8 @@ watch(
                 :task-status-mode="activeListTaskStatusMode"
                 :available-lists="listStore.lists"
                 @select="taskStore.setActiveTask(task.id)"
-                @toggle-completed="taskStore.toggleCompleted(task.id)"
-                @set-status="taskStore.setTaskStatus(task.id, $event, activeListTaskStatusMode)"
+                @toggle-completed="handleToggleCompleted(task.id)"
+                @set-status="handleSetTaskStatus(task.id, $event, activeListTaskStatusMode)"
                 @toggle-important="taskStore.toggleImportant(task.id)"
                 @toggle-my-day="taskStore.toggleMyDay(task.id)"
                 @delete="requestDeleteTask(task.id)"
@@ -692,3 +738,25 @@ watch(
     </div>
   </div>
 </template>
+
+<style scoped>
+@keyframes confetti-fall {
+  0% {
+    opacity: 0;
+    transform: translateY(-10vh) rotate(0deg);
+  }
+
+  12% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(105vh) rotate(540deg);
+  }
+}
+
+.confetti-piece {
+  animation: confetti-fall 2.8s ease-in forwards;
+}
+</style>

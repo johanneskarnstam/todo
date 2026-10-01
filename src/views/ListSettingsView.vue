@@ -28,6 +28,7 @@ const statusMessage = ref('')
 const isInitialized = ref(false)
 const sortMenuOpen = ref(false)
 const taskStatusMenuOpen = ref(false)
+const viewMenuOpen = ref(false)
 const themeColors = ['#2564cf', '#107c10', '#d83b01', '#8764b8', '#038387', '#ca5010']
 const iconOptions = [
   { value: 'list', label: 'Lista' },
@@ -48,6 +49,10 @@ const sortOptions: Array<{ value: ListSortMode; label: string }> = [
 const taskStatusOptions: Array<{ value: TaskStatusMode; label: string }> = [
   { value: 'binary', label: 'Att göra eller klart' },
   { value: 'threeStep', label: 'Att göra, pågående eller klart' },
+]
+const viewOptions: Array<{ value: ListViewMode; label: string }> = [
+  { value: 'detailed', label: 'Detaljerad' },
+  { value: 'compact', label: 'Kompakt' },
 ]
 
 const listId = computed(() => typeof route.params.listId === 'string' ? route.params.listId : '')
@@ -139,10 +144,22 @@ const saveShowStepsByDefault = (value: boolean) => {
   void saveListSettings({ showStepsByDefault: value })
 }
 
-const saveViewMode = (event: Event) => {
-  const value = (event.target as HTMLSelectElement).value as ListViewMode
+const saveViewMode = (value: ListViewMode) => {
   viewMode.value = value
+  viewMenuOpen.value = false
   void saveListSettings({ viewMode: value })
+}
+
+const handleViewMenuKeydown = (event: KeyboardEvent) => {
+  if (event.key === 'Escape') {
+    viewMenuOpen.value = false
+    return
+  }
+
+  if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault()
+    viewMenuOpen.value = true
+  }
 }
 
 const saveNewTasksFirst = async (nextValue: boolean) => {
@@ -186,7 +203,7 @@ onMounted(() => void initialize())
       @open-search="router.push({ name: 'search' })"
       @close-search="router.push({ name: 'search' })"
     />
-  <main class="min-h-screen bg-slate-100 px-3 py-4 text-slate-800 dark:bg-slate-950 dark:text-slate-100 sm:px-6 sm:py-8" :class="{ dark: isDark }" @click="sortMenuOpen = false; taskStatusMenuOpen = false">
+  <main class="min-h-screen bg-slate-100 px-3 py-4 text-slate-800 dark:bg-slate-950 dark:text-slate-100 sm:px-6 sm:py-8" :class="{ dark: isDark }" @click="sortMenuOpen = false; taskStatusMenuOpen = false; viewMenuOpen = false">
     <div class="mx-auto max-w-3xl">
       <header class="mb-4 flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
         <button class="grid size-9 place-items-center rounded-lg text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800" type="button" aria-label="Tillbaka till listan" @click="router.push({ name: 'home' })">
@@ -336,10 +353,37 @@ onMounted(() => void initialize())
               <span class="block font-medium">Listvy</span>
               <span class="block text-xs text-slate-500 dark:text-slate-400">Välj mellan mer information eller tätare rader.</span>
             </span>
-            <select id="list-view-mode" class="max-w-44 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-800" :value="viewMode" @change="saveViewMode">
-              <option value="detailed">Detaljerad</option>
-              <option value="compact">Kompakt</option>
-            </select>
+            <div class="relative max-w-44" @click.stop>
+              <button
+                id="list-view-mode"
+                class="flex min-h-9 w-full items-center justify-between gap-3 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2564cf] dark:border-slate-600 dark:bg-slate-800"
+                type="button"
+                role="combobox"
+                aria-label="Listvy"
+                aria-controls="list-view-options"
+                :aria-expanded="viewMenuOpen"
+                aria-haspopup="listbox"
+                @click="viewMenuOpen = !viewMenuOpen"
+                @keydown="handleViewMenuKeydown"
+              >
+                <span>{{ viewOptions.find((option) => option.value === viewMode)?.label }}</span>
+                <ChevronDown :size="16" :stroke-width="2" class="shrink-0 text-slate-500" aria-hidden="true" />
+              </button>
+              <div v-if="viewMenuOpen" id="list-view-options" class="absolute right-0 top-full z-20 mt-1 w-full min-w-44 overflow-hidden rounded-md border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-600 dark:bg-slate-800" role="listbox" aria-label="Listvyalternativ">
+                <button
+                  v-for="option in viewOptions"
+                  :key="option.value"
+                  class="flex min-h-9 w-full items-center rounded px-2 text-left text-sm hover:bg-slate-100 focus-visible:bg-slate-100 focus-visible:outline-none dark:hover:bg-slate-700 dark:focus-visible:bg-slate-700"
+                  :class="{ 'bg-[#eef5fc] font-medium text-[#2564cf] dark:bg-slate-700 dark:text-blue-300': viewMode === option.value }"
+                  type="button"
+                  role="option"
+                  :aria-selected="viewMode === option.value"
+                  @click="saveViewMode(option.value)"
+                >
+                  {{ option.label }}
+                </button>
+              </div>
+            </div>
           </label>
 
           <div class="flex min-h-14 items-center gap-4 py-2 text-sm">
