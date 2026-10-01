@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { CalendarDays, Check, ChevronDown, FolderOpen, FolderPlus, ListTodo, MoreVertical, Plus, Settings, Star, Sun, Tags, X } from '@lucide/vue'
+import { Archive, CalendarDays, Check, ChevronDown, FolderOpen, FolderPlus, MoreVertical, Plus, Settings, Star, Sun, Tags, X } from '@lucide/vue'
+import ListIcon from '@/components/ListIcon.vue'
 import type { Folder, List, SmartView } from '@/types'
 import { DEFAULT_LIST_ID } from '@/stores/listStore'
 import { appVersion, formattedBuildTime } from '@/buildInfo'
@@ -43,6 +44,7 @@ const smartViews = [
   { key: 'myDay' as const, view: 'myDay' as SmartView, icon: Sun },
   { key: 'important' as const, view: 'important' as SmartView, icon: Star },
   { key: 'planned' as const, view: 'planned' as SmartView, icon: CalendarDays },
+  { key: 'archived' as const, view: 'archived' as SmartView, icon: Archive },
 ]
 
 const tagTones = [
@@ -89,6 +91,7 @@ const smartViewLabel = (key: string) => ({
   myDay: 'Min dag',
   important: 'Viktigt',
   planned: 'Planerat',
+  archived: 'Arkiverade',
 }[key] ?? key)
 
 const tagTone = (tag: string) => {
@@ -353,7 +356,7 @@ onUnmounted(() => window.removeEventListener('click', closeMoveMenuOnOutsideClic
               type="button"
               @click="emit('select-list', defaultList.id)"
             >
-              <ListTodo :size="18" :stroke-width="1.8" class="shrink-0 text-slate-700 dark:text-slate-300" aria-hidden="true" />
+              <ListIcon :name="defaultList.icon" class="shrink-0 text-slate-700 dark:text-slate-300" />
               <span class="flex-1 truncate">{{ defaultList.name }}</span>
               <span v-if="listTaskCounts[defaultList.id]" class="min-w-5 text-right text-xs text-slate-600 dark:text-slate-300">{{ listTaskCounts[defaultList.id] }}</span>
             </button>
@@ -416,7 +419,7 @@ onUnmounted(() => window.removeEventListener('click', closeMoveMenuOnOutsideClic
                 type="button"
                 @click="emit('select-list', list.id)"
               >
-                <ListTodo :size="18" :stroke-width="1.8" class="shrink-0 text-slate-700 dark:text-slate-300" aria-hidden="true" />
+                <ListIcon :name="list.icon" class="shrink-0 text-slate-700 dark:text-slate-300" />
                 <span class="flex-1 truncate">{{ list.name }}</span>
                 <span v-if="listTaskCounts[list.id]" class="min-w-5 text-right text-xs text-slate-600 dark:text-slate-300">{{ listTaskCounts[list.id] }}</span>
               </button>
@@ -540,7 +543,7 @@ onUnmounted(() => window.removeEventListener('click', closeMoveMenuOnOutsideClic
                 type="button"
                 @click="emit('select-list', list.id)"
               >
-                <ListTodo :size="18" :stroke-width="1.8" class="shrink-0 text-slate-700 dark:text-slate-300" aria-hidden="true" />
+                <ListIcon :name="list.icon" class="shrink-0 text-slate-700 dark:text-slate-300" />
                 <span class="flex-1 truncate">{{ list.name }}</span>
                 <span v-if="listTaskCounts[list.id]" class="min-w-5 text-right text-xs text-slate-600 dark:text-slate-300">{{ listTaskCounts[list.id] }}</span>
               </button>

@@ -15,10 +15,10 @@ const handleChange = (event: Event) => {
 </script>
 
 <template>
-  <span class="inline-flex shrink-0 items-center">
+  <span class="relative inline-flex h-5 w-9 shrink-0 items-center">
     <input
       :id="props.id"
-      class="peer sr-only"
+      class="peer absolute inset-0 z-10 m-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
       type="checkbox"
       :checked="props.checked"
       :disabled="props.disabled"
@@ -27,7 +27,7 @@ const handleChange = (event: Event) => {
     />
     <span
       aria-hidden="true"
-      class="relative h-5 w-9 rounded-full bg-slate-300 transition-colors after:absolute after:left-[2px] after:top-[2px] after:size-4 after:rounded-full after:bg-white after:transition-transform after:content-[''] peer-checked:bg-[#2564cf] peer-checked:after:translate-x-4 peer-focus-visible:outline-none peer-focus-visible:ring-4 peer-focus-visible:ring-blue-200 dark:bg-slate-600 dark:peer-checked:bg-blue-400 dark:peer-focus-visible:ring-blue-900 peer-disabled:cursor-not-allowed peer-disabled:opacity-50"
+      class="pointer-events-none absolute inset-0 rounded-full bg-slate-300 transition-colors after:absolute after:left-[2px] after:top-[2px] after:size-4 after:rounded-full after:bg-white after:transition-transform after:content-[''] peer-checked:bg-[#2564cf] peer-checked:after:translate-x-4 peer-focus-visible:outline-none peer-focus-visible:ring-4 peer-focus-visible:ring-blue-200 dark:bg-slate-600 dark:peer-checked:bg-blue-400 dark:peer-focus-visible:ring-blue-900 peer-disabled:opacity-50"
     />
   </span>
 </template>

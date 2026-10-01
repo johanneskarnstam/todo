@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { Timestamp } from 'firebase/firestore'
+import { useListStore } from '@/stores/listStore'
 import { useTaskStore } from '@/stores/taskStore'
 
 const firestoreMocks = vi.hoisted(() => ({
@@ -122,7 +123,7 @@ describe('useTaskStore', () => {
     const store = useTaskStore()
     await store.fetchTasks()
 
-    expect(store.smartViewCounts).toEqual({ myDay: 1, important: 0, planned: 1 })
+    expect(store.smartViewCounts).toEqual({ myDay: 1, important: 0, planned: 1, archived: 0 })
 
     store.setListView('list-1')
     expect(store.visibleTasks.map((task) => task.id)).toEqual(['list-task'])
@@ -293,6 +294,24 @@ describe('useTaskStore', () => {
         status: 'inProgress',
       }),
     )
+  })
+
+  it('archives completed tasks when their list enables automatic archiving', async () => {
+    const listStore = useListStore()
+    listStore.lists.push({
+      id: 'list-1', name: 'Archive list', icon: 'list', order: 0, createdAt: Timestamp.now(), archiveCompletedTasks: true,
+    })
+    const store = useTaskStore()
+    store.tasks.push({
+      id: 'task-1', listId: 'list-1', title: 'Archive me', completed: false, important: false,
+      myDay: false, createdAt: Timestamp.now(),
+    })
+
+    store.setTaskStatus('task-1', 'completed', 'binary')
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(store.tasks[0]).toMatchObject({ completed: true, status: 'completed', archived: true })
   })
 
   it('rolls back an optimistic completion when Firestore rejects the update', async () => {

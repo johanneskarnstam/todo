@@ -36,11 +36,13 @@ interface NewTaskInput {
   reminder?: TaskReminder | null
   note?: string
   tags?: string[]
+  archived?: boolean
 }
 
 interface NewStepInput {
   taskId: string
   title: string
+  completed?: boolean
 }
 
 const sortTasks = (tasks: Task[]): Task[] => sortTasksForMode(tasks, 'manual')
@@ -113,22 +115,26 @@ export const useTaskStore = defineStore('tasks', () => {
     if (!view) return []
 
     if (view.type === 'list') {
-      return tasks.value.filter((task) => task.listId === view.listId)
+      return tasks.value.filter((task) => task.listId === view.listId && !task.archived)
     }
 
     if (view.type === 'tag') {
-      return tasks.value.filter((task) => task.tags?.includes(view.tag))
+      return tasks.value.filter((task) => !task.archived && task.tags?.includes(view.tag))
+    }
+
+    if (view.smartView === 'archived') {
+      return tasks.value.filter((task) => task.archived)
     }
 
     if (view.smartView === 'important') {
-      return tasks.value.filter((task) => task.important)
+      return tasks.value.filter((task) => !task.archived && task.important)
     }
 
     if (view.smartView === 'planned') {
-      return tasks.value.filter((task) => Boolean(task.dueDate))
+      return tasks.value.filter((task) => !task.archived && Boolean(task.dueDate))
     }
 
-    return tasks.value.filter((task) => task.myDay)
+    return tasks.value.filter((task) => !task.archived && task.myDay)
   })
 
   const activeTasks = computed(() => sortTasks(visibleTasks.value.filter((task) => !isTaskCompleted(task))))
@@ -148,12 +154,13 @@ export const useTaskStore = defineStore('tasks', () => {
     return counts
   })
   const smartViewCounts = computed<Record<SmartView, number>>(() => ({
-    myDay: tasks.value.filter((task) => task.myDay && !isTaskCompleted(task)).length,
-    important: tasks.value.filter((task) => task.important && !isTaskCompleted(task)).length,
-    planned: tasks.value.filter((task) => Boolean(task.dueDate) && !isTaskCompleted(task)).length,
+    myDay: tasks.value.filter((task) => !task.archived && task.myDay && !isTaskCompleted(task)).length,
+    important: tasks.value.filter((task) => !task.archived && task.important && !isTaskCompleted(task)).length,
+    planned: tasks.value.filter((task) => !task.archived && Boolean(task.dueDate) && !isTaskCompleted(task)).length,
+    archived: tasks.value.filter((task) => task.archived).length,
   }))
   const listTaskCounts = computed<Record<string, number>>(() => tasks.value.reduce<Record<string, number>>((counts, task) => {
-    if (!isTaskCompleted(task)) counts[task.listId] = (counts[task.listId] ?? 0) + 1
+    if (!task.archived && !isTaskCompleted(task)) counts[task.listId] = (counts[task.listId] ?? 0) + 1
     return counts
   }, {}))
 
@@ -309,6 +316,7 @@ export const useTaskStore = defineStore('tasks', () => {
       myDay: input.myDay ?? false,
       createdAt: Timestamp.now(),
       order: taskOrder,
+      archived: input.archived ?? false,
       ...(input.dueDate ? { dueDate: input.dueDate } : {}),
       ...(input.dueTimeZone ? { dueTimeZone: input.dueTimeZone } : {}),
       ...(input.reminder !== undefined ? { reminder: input.reminder } : {}),
@@ -333,6 +341,7 @@ export const useTaskStore = defineStore('tasks', () => {
         important: optimisticTask.important,
         myDay: optimisticTask.myDay,
         order: optimisticTask.order,
+        archived: optimisticTask.archived,
         createdAt: serverTimestamp(),
         ...(optimisticTask.dueDate ? { dueDate: optimisticTask.dueDate } : {}),
         ...(optimisticTask.dueTimeZone ? { dueTimeZone: optimisticTask.dueTimeZone } : {}),
@@ -352,7 +361,7 @@ export const useTaskStore = defineStore('tasks', () => {
 
   const updateTask = async (
     taskId: string,
-    updates: Partial<Pick<Task, 'completed' | 'status' | 'important' | 'myDay' | 'title' | 'dueDate' | 'dueTimeZone' | 'note' | 'tags' | 'order'>> & { reminder?: TaskReminder | null },
+    updates: Partial<Pick<Task, 'completed' | 'status' | 'important' | 'myDay' | 'title' | 'dueDate' | 'dueTimeZone' | 'note' | 'tags' | 'order' | 'archived'>> & { reminder?: TaskReminder | null },
   ) => {
     const currentTask = tasks.value.find((task) => task.id === taskId)
     if (!currentTask) return
@@ -383,7 +392,19 @@ export const useTaskStore = defineStore('tasks', () => {
     const task = tasks.value.find((item) => item.id === taskId)
     if (!task || !isTaskStatusAllowed(status, mode)) return
 
-    void updateTask(taskId, { status, completed: taskStatusToCompleted(status) })
+    const shouldArchive = status === 'completed'
+      && listStore.lists.find((list) => list.id === task.listId)?.archiveCompletedTasks === true
+    const statusUpdates: Partial<Pick<Task, 'status' | 'completed' | 'archived'>> = {
+      status,
+      completed: taskStatusToCompleted(status),
+    }
+    if (shouldArchive || (status !== 'completed' && task.archived)) statusUpdates.archived = shouldArchive
+    void updateTask(taskId, statusUpdates)
+  }
+
+  const archiveCompletedTasksForList = async (listId: string) => {
+    const completedTasksInList = tasks.value.filter((task) => task.listId === listId && isTaskCompleted(task) && !task.archived)
+    await Promise.all(completedTasksInList.map((task) => updateTask(task.id, { archived: true })))
   }
 
   const toggleImportant = (taskId: string) => {
@@ -438,7 +459,7 @@ export const useTaskStore = defineStore('tasks', () => {
       id: optimisticId,
       taskId: input.taskId,
       title,
-      completed: false,
+      completed: input.completed ?? false,
       createdAt: Timestamp.now(),
       order: allSteps.value.filter((step) => step.taskId === input.taskId).length,
     }
@@ -545,6 +566,7 @@ export const useTaskStore = defineStore('tasks', () => {
           status: getTaskStatus(task),
           important: task.important,
           myDay: task.myDay,
+          archived: task.archived ?? false,
           ...(task.dueDate ? { dueDate: task.dueDate } : {}),
           ...(task.note ? { note: task.note } : {}),
           ...(task.tags?.length ? { tags: task.tags } : {}),
@@ -712,6 +734,7 @@ export const useTaskStore = defineStore('tasks', () => {
     updateTask,
     toggleCompleted,
     setTaskStatus,
+    archiveCompletedTasksForList,
     toggleImportant,
     toggleMyDay,
     setDueDate,

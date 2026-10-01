@@ -7,6 +7,7 @@ export interface Folder {
 }
 
 export type ListSortMode = 'manual' | 'created' | 'createdDesc' | 'dueDate' | 'priority'
+export type ListViewMode = 'detailed' | 'compact'
 export type TaskStatus = 'todo' | 'inProgress' | 'completed'
 export type TaskStatusMode = 'binary' | 'threeStep'
 
@@ -20,6 +21,11 @@ export interface List {
   themeColor?: string
   sortMode?: ListSortMode
   newTasksFirst?: boolean
+  showCompletedTasks?: boolean
+  archiveCompletedTasks?: boolean
+  confirmDeletes?: boolean
+  showStepsByDefault?: boolean
+  viewMode?: ListViewMode
   taskStatusMode?: TaskStatusMode
 }
 
@@ -41,6 +47,7 @@ export interface Task {
   tags?: string[]
   createdAt: Timestamp
   order?: number
+  archived?: boolean
   status?: TaskStatus
 }
 
@@ -58,7 +65,7 @@ export interface StepCount {
   total: number
 }
 
-export type SmartView = 'myDay' | 'important' | 'planned'
+export type SmartView = 'myDay' | 'important' | 'planned' | 'archived'
 
 export type TaskView =
   | { type: 'list'; listId: string }

@@ -2,12 +2,13 @@
 import { computed, onMounted, ref } from 'vue'
 import { ArrowLeft, Check, Settings2 } from '@lucide/vue'
 import { useRoute, useRouter } from 'vue-router'
+import ListIcon from '@/components/ListIcon.vue'
 import ToggleSwitch from '@/components/ToggleSwitch.vue'
 import { useTheme } from '@/composables/useTheme'
 import { useListStore } from '@/stores/listStore'
 import { useTaskStore } from '@/stores/taskStore'
 import { getTaskStatus } from '@/utils/taskStatus'
-import type { ListSortMode, TaskStatusMode } from '@/types'
+import type { List, ListSortMode, ListViewMode, TaskStatusMode } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -17,11 +18,26 @@ const { isDark } = useTheme()
 const sortMode = ref<ListSortMode>('manual')
 const newTasksFirst = ref(true)
 const taskStatusMode = ref<TaskStatusMode>('binary')
+const showCompletedTasks = ref(true)
+const archiveCompletedTasks = ref(false)
+const confirmDeletes = ref(true)
+const showStepsByDefault = ref(true)
+const viewMode = ref<ListViewMode>('detailed')
 const statusMessage = ref('')
 const isInitialized = ref(false)
 const sortMenuOpen = ref(false)
 const taskStatusMenuOpen = ref(false)
 const themeColors = ['#2564cf', '#107c10', '#d83b01', '#8764b8', '#038387', '#ca5010']
+const iconOptions = [
+  { value: 'list', label: 'Lista' },
+  { value: 'briefcase', label: 'Arbete' },
+  { value: 'calendar', label: 'Kalender' },
+  { value: 'check', label: 'Check' },
+  { value: 'folder', label: 'Mapp' },
+  { value: 'heart', label: 'Hjärta' },
+  { value: 'star', label: 'Stjärna' },
+  { value: 'person', label: 'Person' },
+]
 const sortOptions: Array<{ value: ListSortMode; label: string }> = [
   { value: 'manual', label: 'Min ordning' },
   { value: 'created', label: 'Skapade först' },
@@ -45,6 +61,11 @@ const initialize = async () => {
   sortMode.value = list.sortMode ?? 'manual'
   newTasksFirst.value = list.newTasksFirst ?? true
   taskStatusMode.value = list.taskStatusMode ?? 'binary'
+  showCompletedTasks.value = list.showCompletedTasks ?? true
+  archiveCompletedTasks.value = list.archiveCompletedTasks ?? false
+  confirmDeletes.value = list.confirmDeletes ?? true
+  showStepsByDefault.value = list.showStepsByDefault ?? true
+  viewMode.value = list.viewMode ?? 'detailed'
   isInitialized.value = true
 }
 
@@ -84,6 +105,43 @@ const saveThemeColor = async (themeColor: string) => {
   statusMessage.value = ''
   await listStore.updateList(listId.value, { themeColor })
   if (!listStore.error) statusMessage.value = 'Listfärgen har sparats.'
+}
+
+const saveListSettings = async (updates: Partial<Pick<List, 'icon' | 'showCompletedTasks' | 'archiveCompletedTasks' | 'confirmDeletes' | 'showStepsByDefault' | 'viewMode'>>) => {
+  statusMessage.value = ''
+  await listStore.updateList(listId.value, updates)
+  if (!listStore.error) statusMessage.value = 'Inställningen har sparats.'
+}
+
+const saveIcon = (icon: string) => {
+  void saveListSettings({ icon })
+}
+
+const saveShowCompletedTasks = (value: boolean) => {
+  showCompletedTasks.value = value
+  void saveListSettings({ showCompletedTasks: value })
+}
+
+const saveArchiveCompletedTasks = async (value: boolean) => {
+  archiveCompletedTasks.value = value
+  await saveListSettings({ archiveCompletedTasks: value })
+  if (value) await taskStore.archiveCompletedTasksForList(listId.value)
+}
+
+const saveConfirmDeletes = (value: boolean) => {
+  confirmDeletes.value = value
+  void saveListSettings({ confirmDeletes: value })
+}
+
+const saveShowStepsByDefault = (value: boolean) => {
+  showStepsByDefault.value = value
+  void saveListSettings({ showStepsByDefault: value })
+}
+
+const saveViewMode = (event: Event) => {
+  const value = (event.target as HTMLSelectElement).value as ListViewMode
+  viewMode.value = value
+  void saveListSettings({ viewMode: value })
 }
 
 const saveNewTasksFirst = async (nextValue: boolean) => {
@@ -152,6 +210,23 @@ onMounted(() => void initialize())
               </button>
             </div>
           </fieldset>
+          <fieldset class="mt-5 border-t border-slate-200 pt-4 dark:border-slate-700">
+            <legend class="text-sm font-medium">Listikon</legend>
+            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Visas bredvid listans namn.</p>
+            <div class="mt-3 flex flex-wrap gap-2">
+              <button
+                v-for="iconOption in iconOptions"
+                :key="iconOption.value"
+                class="grid size-9 place-items-center rounded-md border border-slate-300 text-slate-600 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2564cf] dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+                type="button"
+                :aria-label="`Använd listikon ${iconOption.label}`"
+                :aria-pressed="(currentList.icon ?? 'list') === iconOption.value"
+                @click="saveIcon(iconOption.value)"
+              >
+                <ListIcon :name="iconOption.value" />
+              </button>
+            </div>
+          </fieldset>
         </section>
 
         <section class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-5" aria-labelledby="list-tasks-heading">
@@ -201,6 +276,49 @@ onMounted(() => void initialize())
               <span class="block text-xs text-slate-500 dark:text-slate-400">Gäller när sorteringen är Min ordning.</span>
             </span>
             <ToggleSwitch id="new-tasks-first" :checked="newTasksFirst" :disabled="sortMode !== 'manual'" aria-label="Nya uppgifter överst" @change="saveNewTasksFirst" />
+          </label>
+
+          <label class="flex min-h-14 items-center gap-4 py-2 text-sm" for="show-completed-tasks">
+            <span class="flex-1">
+              <span class="block font-medium">Visa slutförda uppgifter</span>
+              <span class="block text-xs text-slate-500 dark:text-slate-400">Visa eller dölj slutförda uppgifter i listan.</span>
+            </span>
+            <ToggleSwitch id="show-completed-tasks" :checked="showCompletedTasks" aria-label="Visa slutförda uppgifter" @change="saveShowCompletedTasks" />
+          </label>
+
+          <label class="flex min-h-14 items-center gap-4 py-2 text-sm" for="archive-completed-tasks">
+            <span class="flex-1">
+              <span class="block font-medium">Arkivera slutförda automatiskt</span>
+              <span class="block text-xs text-slate-500 dark:text-slate-400">Dölj dem från listan när de markeras som klara.</span>
+            </span>
+            <ToggleSwitch id="archive-completed-tasks" :checked="archiveCompletedTasks" aria-label="Arkivera slutförda automatiskt" @change="saveArchiveCompletedTasks" />
+          </label>
+
+          <label class="flex min-h-14 items-center gap-4 py-2 text-sm" for="confirm-list-deletes">
+            <span class="flex-1">
+              <span class="block font-medium">Bekräfta innan uppgifter tas bort</span>
+              <span class="block text-xs text-slate-500 dark:text-slate-400">Överskrider den globala inställningen för den här listan.</span>
+            </span>
+            <ToggleSwitch id="confirm-list-deletes" :checked="confirmDeletes" aria-label="Bekräfta innan uppgifter tas bort" @change="saveConfirmDeletes" />
+          </label>
+
+          <label class="flex min-h-14 items-center gap-4 py-2 text-sm" for="show-steps-by-default">
+            <span class="flex-1">
+              <span class="block font-medium">Visa delsteg direkt</span>
+              <span class="block text-xs text-slate-500 dark:text-slate-400">Öppna delsteg automatiskt i uppgiftsdetaljer.</span>
+            </span>
+            <ToggleSwitch id="show-steps-by-default" :checked="showStepsByDefault" aria-label="Visa delsteg direkt" @change="saveShowStepsByDefault" />
+          </label>
+
+          <label class="flex min-h-14 items-center gap-4 py-2 text-sm" for="list-view-mode">
+            <span class="flex-1">
+              <span class="block font-medium">Listvy</span>
+              <span class="block text-xs text-slate-500 dark:text-slate-400">Välj mellan mer information eller tätare rader.</span>
+            </span>
+            <select id="list-view-mode" class="max-w-44 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-800" :value="viewMode" @change="saveViewMode">
+              <option value="detailed">Detaljerad</option>
+              <option value="compact">Kompakt</option>
+            </select>
           </label>
 
           <div class="flex min-h-14 items-center gap-4 py-2 text-sm">

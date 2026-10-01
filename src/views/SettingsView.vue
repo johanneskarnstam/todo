@@ -14,12 +14,14 @@ import { usePushNotifications } from '@/composables/usePushNotifications'
 import { useReminderNotifications } from '@/composables/useReminderNotifications'
 import { useTheme } from '@/composables/useTheme'
 import { useAppUpdate } from '@/composables/useAppUpdate'
-import type { TaskReminder, TaskStatus } from '@/types'
+import type { List, TaskReminder, TaskStatus } from '@/types'
 import { normalizeTag, normalizeTags } from '@/utils/taskTags'
 import { releaseNotes } from '@/releaseNotes'
 
 interface ImportedTask {
   title: string
+  sourceTaskId?: string
+  sourceListId?: string
   completed?: boolean
   status?: TaskStatus
   important?: boolean
@@ -29,6 +31,7 @@ interface ImportedTask {
   reminder?: TaskReminder | null
   note?: string
   tags?: string[]
+  archived?: boolean
 }
 
 const isJsonObject = (value: unknown): value is Record<string, unknown> =>
@@ -65,6 +68,7 @@ const statusMessage = ref('')
 const importListId = ref('')
 const newImportListName = ref('')
 const importJson = ref('')
+const importMode = ref<'tasks' | 'backup'>('tasks')
 const isImporting = ref(false)
 const importError = ref('')
 const isImportFormatOpen = ref(false)
@@ -157,9 +161,13 @@ const refreshData = async () => {
 
 const exportData = () => {
   const payload = JSON.stringify({
+    formatVersion: 2,
     exportedAt: new Date().toISOString(),
+    preferences: preferences.value,
+    folders: listStore.folders,
     lists: listStore.lists,
     tasks: taskStore.tasks,
+    steps: taskStore.allSteps,
   }, null, 2)
   const url = URL.createObjectURL(new Blob([payload], { type: 'application/json' }))
   const link = document.createElement('a')
@@ -217,10 +225,62 @@ const importTasks = async () => {
     return
   }
 
+  const backup = !Array.isArray(parsed) && isJsonObject(parsed) && Array.isArray(parsed.tasks)
+  const backupPayload = backup
+    ? parsed as { tasks: unknown[]; lists?: unknown[]; folders?: unknown[]; steps?: unknown[] }
+    : null
+  if (importMode.value === 'backup' && (!backupPayload || !Array.isArray(backupPayload.lists))) {
+    importError.value = 'Säkerhetskopian måste innehålla listor och uppgifter.'
+    return
+  }
+
+  const backupListIds = new Map<string, string>()
+  if (importMode.value === 'backup' && backupPayload) {
+    if (backupPayload && 'preferences' in backupPayload && isJsonObject((backupPayload as { preferences?: unknown }).preferences)) {
+      const importedPreferences = (backupPayload as { preferences: Record<string, unknown> }).preferences
+      preferences.value = {
+        ...preferences.value,
+        theme: importedPreferences.theme === 'dark' || importedPreferences.theme === 'system' ? importedPreferences.theme : 'light',
+        notifications: typeof importedPreferences.notifications === 'boolean' ? importedPreferences.notifications : preferences.value.notifications,
+        taskSort: importedPreferences.taskSort === 'created' || importedPreferences.taskSort === 'dueDate' || importedPreferences.taskSort === 'priority'
+          ? importedPreferences.taskSort
+          : 'manual',
+        confirmDeletes: typeof importedPreferences.confirmDeletes === 'boolean' ? importedPreferences.confirmDeletes : preferences.value.confirmDeletes,
+      }
+    }
+    const backupFolders = Array.isArray(backupPayload.folders) ? backupPayload.folders : []
+    const folderIds = new Map<string, string>()
+    for (const row of backupFolders) {
+      if (!isJsonObject(row) || typeof row.id !== 'string' || typeof row.name !== 'string') continue
+      const folder = await listStore.createFolder({ name: row.name })
+      if (folder) folderIds.set(row.id, folder.id)
+    }
+
+    for (const row of backupPayload.lists ?? []) {
+      if (!isJsonObject(row) || typeof row.id !== 'string' || typeof row.name !== 'string') continue
+      if (row.id === '__default__') {
+        backupListIds.set(row.id, '__default__')
+        continue
+      }
+      const createdList = await listStore.createList({
+        name: row.name,
+        icon: typeof row.icon === 'string' ? row.icon : 'list',
+        folderId: typeof row.folderId === 'string' ? folderIds.get(row.folderId) : undefined,
+      })
+      if (!createdList) continue
+      backupListIds.set(row.id, createdList.id)
+      const listSettings: Partial<Pick<List, 'themeColor' | 'sortMode' | 'newTasksFirst' | 'showCompletedTasks' | 'archiveCompletedTasks' | 'confirmDeletes' | 'showStepsByDefault' | 'viewMode' | 'taskStatusMode'>> = {}
+      for (const key of ['themeColor', 'sortMode', 'newTasksFirst', 'showCompletedTasks', 'archiveCompletedTasks', 'confirmDeletes', 'showStepsByDefault', 'viewMode', 'taskStatusMode'] as const) {
+        if (key in row) listSettings[key] = row[key] as never
+      }
+      if (Object.keys(listSettings).length) await listStore.updateList(createdList.id, listSettings)
+    }
+  }
+
   const rows = Array.isArray(parsed)
     ? parsed
-    : typeof parsed === 'object' && parsed !== null && 'tasks' in parsed && Array.isArray(parsed.tasks)
-      ? parsed.tasks
+    : backup
+      ? backupPayload?.tasks ?? null
       : null
 
   if (!rows?.length) {
@@ -242,6 +302,10 @@ const importTasks = async () => {
     const title = typeof row.title === 'string' ? row.title.trim() : ''
     if (!title) {
       importError.value = `Uppgift ${index + 1} saknar en titel.`
+      return
+    }
+    if (importMode.value === 'backup' && (typeof row.listId !== 'string' || !backupListIds.has(row.listId))) {
+      importError.value = `Uppgift ${index + 1} hänvisar till en okänd lista.`
       return
     }
 
@@ -290,6 +354,8 @@ const importTasks = async () => {
 
     importedTasks.push({
       title,
+      ...(typeof row.id === 'string' ? { sourceTaskId: row.id } : {}),
+      ...(typeof row.listId === 'string' && backupListIds.has(row.listId) ? { sourceListId: backupListIds.get(row.listId) } : {}),
       ...(typeof row.completed === 'boolean' ? { completed: row.completed } : {}),
       ...(row.status === 'todo' || row.status === 'inProgress' || row.status === 'completed' ? { status: row.status } : {}),
       ...(typeof row.important === 'boolean' ? { important: row.important } : {}),
@@ -299,6 +365,7 @@ const importTasks = async () => {
       ...(reminder !== undefined ? { reminder } : {}),
       ...(typeof row.note === 'string' ? { note: row.note } : {}),
       ...(Array.isArray(row.tags) ? { tags: normalizeTags(row.tags as string[]) } : {}),
+      ...(typeof row.archived === 'boolean' ? { archived: row.archived } : {}),
     })
   }
 
@@ -312,6 +379,7 @@ const importTasks = async () => {
 
     let targetListId = importListId.value
     let targetListName = listStore.lists.find((list) => list.id === targetListId)?.name ?? 'listan'
+    if (importMode.value === 'backup') targetListName = 'säkerhetskopian'
     if (createNewList) {
       const createdList = await listStore.createList({ name: requestedListName })
       if (!createdList || listStore.error) {
@@ -323,10 +391,36 @@ const importTasks = async () => {
     }
 
     let importedCount = 0
+    const importedTaskIds = new Map<string, string>()
     for (let index = 0; index < importedTasks.length; index += 20) {
       const batch = importedTasks.slice(index, index + 20)
-      const results = await Promise.all(batch.map((task) => taskStore.createTask({ listId: targetListId, ...task })))
+      const results = await Promise.all(batch.map((task) => taskStore.createTask({
+        listId: task.sourceListId ?? targetListId,
+        title: task.title,
+        completed: task.completed,
+        status: task.status,
+        important: task.important,
+        myDay: task.myDay,
+        dueDate: task.dueDate,
+        dueTimeZone: task.dueTimeZone,
+        reminder: task.reminder,
+        note: task.note,
+        tags: task.tags,
+        archived: task.archived,
+      })))
+      results.forEach((result, index) => {
+        const sourceTaskId = batch[index]?.sourceTaskId
+        if (sourceTaskId && result?.id) importedTaskIds.set(sourceTaskId, result.id)
+      })
       importedCount += results.filter(Boolean).length
+    }
+
+    if (importMode.value === 'backup' && backupPayload && Array.isArray(backupPayload.steps)) {
+      for (const row of backupPayload.steps) {
+        if (!isJsonObject(row) || typeof row.taskId !== 'string' || typeof row.title !== 'string') continue
+        const taskId = importedTaskIds.get(row.taskId)
+        if (taskId) await taskStore.createStep({ taskId, title: row.title, completed: row.completed === true })
+      }
     }
 
     if (importedCount) {
@@ -440,8 +534,14 @@ const handleLogout = async () => {
 
       <section class="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:px-5" aria-labelledby="import-heading">
         <h2 id="import-heading" class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Importera uppgifter</h2>
+        <label class="block text-sm text-slate-700 dark:text-slate-200" for="import-mode">Importtyp</label>
+        <select id="import-mode" v-model="importMode" class="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" :disabled="isImporting">
+          <option value="tasks">Uppgifter till vald lista</option>
+          <option value="backup">Full säkerhetskopia</option>
+        </select>
+        <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">En full säkerhetskopia återställer mappar, listor, listinställningar, uppgifter och delsteg utan att skriva över befintliga poster.</p>
         <label class="block text-sm text-slate-700 dark:text-slate-200" for="import-list">Importera till</label>
-        <select id="import-list" v-model="importListId" class="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" :disabled="isImporting">
+        <select id="import-list" v-model="importListId" class="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" :disabled="isImporting || importMode === 'backup'">
           <option v-for="list in listStore.lists" :key="list.id" :value="list.id">{{ list.name }}</option>
           <option :value="CREATE_NEW_LIST_OPTION">Skapa ny lista</option>
         </select>
@@ -453,7 +553,7 @@ const handleLogout = async () => {
         <textarea id="import-json" v-model="importJson" class="mt-1 min-h-40 w-full resize-y rounded-lg border border-slate-200 bg-white p-3 font-mono text-xs text-slate-700 outline-none focus:border-[#2564cf] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200" placeholder='[{ "title": "Handla mjölk" }]' :disabled="isImporting" />
         <label class="mt-3 block text-sm text-slate-700 dark:text-slate-200" for="import-file">Eller fyll textfältet från JSON-fil</label>
         <input id="import-file" class="mt-1 block w-full text-sm text-slate-600 file:mr-3 file:min-h-9 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:text-sm file:font-medium file:text-slate-700 hover:file:bg-slate-200 dark:text-slate-300 dark:file:bg-slate-800 dark:file:text-slate-200 dark:hover:file:bg-slate-700" type="file" accept=".json,application/json" :disabled="isImporting" @change="loadImportFile" />
-        <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">Titel är obligatorisk. Anteckning, datum, påminnelse, taggar och status är valfria. Taggar sparas med små bokstäver och mellanslag blir bindestreck. En fullständig export från appen fungerar också. Högst 500 uppgifter per fil.</p>
+        <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">Titel är obligatorisk. Anteckning, datum, påminnelse, taggar, status och arkiveringsläge kan importeras. Högst 500 uppgifter per fil.</p>
         <button class="mt-3 min-h-10 rounded-lg bg-[#2564cf] px-4 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50" type="button" :disabled="isImporting || !importJson.trim()" @click="importTasks">
           {{ isImporting ? 'Importerar...' : 'Importera uppgifter' }}
         </button>

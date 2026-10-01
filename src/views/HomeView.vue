@@ -6,6 +6,7 @@ import TodoHeader from '@/components/TodoHeader.vue'
 import TodoSidebar from '@/components/TodoSidebar.vue'
 import TaskRow from '@/components/TaskRow.vue'
 import TaskDetailsPanel from '@/components/TaskDetailsPanel.vue'
+import ListIcon from '@/components/ListIcon.vue'
 import ToggleSwitch from '@/components/ToggleSwitch.vue'
 import { useTheme } from '@/composables/useTheme'
 import { DEFAULT_LIST_ID, useListStore } from '@/stores/listStore'
@@ -53,6 +54,7 @@ const currentTitle = computed(() => {
   if (view?.type === 'smart') {
     if (view.smartView === 'important') return 'Stjärnmärkt'
     if (view.smartView === 'planned') return 'Planerat'
+    if (view.smartView === 'archived') return 'Arkiverade'
     return 'Min dag'
   }
 
@@ -72,29 +74,21 @@ const activeListSortLabel = computed(() => ({
   priority: 'Prioritet',
 }[activeListSortMode.value]))
 const activeListTaskStatusMode = computed(() => activeList.value?.taskStatusMode ?? 'binary')
-const readCollapsedCompletedLists = (): Record<string, boolean> => {
-  if (typeof localStorage === 'undefined') return {}
-
-  try {
-    return JSON.parse(localStorage.getItem('todo-collapsed-completed-lists') ?? '{}') as Record<string, boolean>
-  } catch {
-    return {}
-  }
-}
-const collapsedCompletedLists = ref<Record<string, boolean>>(readCollapsedCompletedLists())
 const areCompletedTasksVisible = computed(() => {
-  const listId = activeList.value?.id
-  return !listId || !collapsedCompletedLists.value[listId]
+  return activeList.value?.showCompletedTasks ?? true
 })
-
-watch(collapsedCompletedLists, (value) => {
-  if (typeof localStorage !== 'undefined') localStorage.setItem('todo-collapsed-completed-lists', JSON.stringify(value))
-}, { deep: true })
 
 const toggleCompletedTasks = () => {
   const listId = activeList.value?.id
-  if (listId) collapsedCompletedLists.value[listId] = !collapsedCompletedLists.value[listId]
+  if (listId) void listStore.updateList(listId, { showCompletedTasks: !areCompletedTasksVisible.value })
 }
+
+const activeListCompact = computed(() => activeList.value?.viewMode === 'compact')
+const activeTaskList = computed(() => {
+  const task = taskStore.activeTask
+  return task ? listStore.lists.find((list) => list.id === task.listId) ?? null : activeList.value
+})
+const showStepsByDefault = computed(() => activeTaskList.value?.showStepsByDefault ?? true)
 
 const availableTags = computed(() => [...new Set(taskStore.tasks.flatMap((task) => task.tags ?? []))].sort())
 const filteredVisibleTasks = computed(() => {
@@ -103,6 +97,8 @@ const filteredVisibleTasks = computed(() => {
 })
 const filteredActiveTasks = computed(() => filteredVisibleTasks.value.filter((task) => !isTaskCompleted(task)))
 const filteredCompletedTasks = computed(() => filteredVisibleTasks.value.filter((task) => isTaskCompleted(task)))
+
+const shouldConfirmDelete = (listId: string) => listStore.lists.find((list) => list.id === listId)?.confirmDeletes ?? preferences.value.confirmDeletes
 
 const taskListContainer = ref<HTMLElement | null>(null)
 const canDrag = computed(() => taskStore.activeView?.type === 'list' && activeListSortMode.value === 'manual')
@@ -272,7 +268,8 @@ const requestDeleteList = (listId = activeList.value?.id) => {
   pendingDeleteListId.value = listId
   deleteListTasks.value = false
   isListOptionsOpen.value = false
-  if (!preferences.value.confirmDeletes) void confirmDeleteList()
+  const confirmDeletes = listStore.lists.find((list) => list.id === listId)?.confirmDeletes ?? preferences.value.confirmDeletes
+  if (!confirmDeletes) void confirmDeleteList()
 }
 
 const confirmDeleteList = async () => {
@@ -345,12 +342,12 @@ const handleDeleteActiveTask = () => {
   const taskId = taskStore.activeTaskId
   if (!taskId) return
 
-  if (preferences.value.confirmDeletes) pendingDeleteTaskId.value = taskId
+  if (shouldConfirmDelete(taskStore.activeTask?.listId ?? '')) pendingDeleteTaskId.value = taskId
   else deleteTaskImmediately(taskId)
 }
 
 const requestDeleteTask = (taskId: string) => {
-  if (preferences.value.confirmDeletes) pendingDeleteTaskId.value = taskId
+  if (shouldConfirmDelete(taskStore.tasks.find((task) => task.id === taskId)?.listId ?? '')) pendingDeleteTaskId.value = taskId
   else deleteTaskImmediately(taskId)
 }
 
@@ -516,6 +513,7 @@ watch(
                 <button class="min-h-9 rounded-md px-3 text-sm text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-800" type="button" @click="cancelRenameList">Avbryt</button>
               </form>
               <h1 v-else class="truncate text-2xl font-semibold tracking-tight sm:text-3xl" :style="{ color: activeListColor }">
+                <ListIcon v-if="activeList" :name="activeList.icon" :size="24" class="mr-2 inline-block align-[-3px]" />
                 <button v-if="canRenameActiveList" class="max-w-full truncate text-left hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2564cf]" type="button" :aria-label="`Byt namn på listan ${currentTitle}`" @click="startRenameList">{{ currentTitle }}</button>
                 <span v-else>{{ currentTitle }}</span>
               </h1>
@@ -552,6 +550,7 @@ watch(
                   v-for="task in group.tasks"
                   :key="task.id"
                   :task="task"
+                  :compact="activeListCompact"
                   :step-count="taskStore.taskStepCounts.get(task.id) ?? null"
                   :list-name="taskListName(task.listId)"
                   :show-due-date="true"
@@ -576,6 +575,7 @@ watch(
                 v-for="task in filteredActiveTasks"
                 :key="task.id"
                 :task="task"
+                :compact="activeListCompact"
                 :step-count="taskStore.taskStepCounts.get(task.id) ?? null"
                 :list-name="routeTag ? taskListName(task.listId) : (taskStore.activeView?.type === 'smart' && taskStore.activeView.smartView === 'important' ? taskListName(task.listId) : null)"
                 :draggable="canDrag"
@@ -614,6 +614,7 @@ watch(
                   v-for="task in filteredCompletedTasks"
                 :key="task.id"
                 :task="task"
+                :compact="activeListCompact"
                 :step-count="taskStore.taskStepCounts.get(task.id) ?? null"
                 :list-name="routeTag ? taskListName(task.listId) : (taskStore.activeView?.type === 'smart' && taskStore.activeView.smartView === 'important' ? taskListName(task.listId) : null)"
                 :task-status-mode="activeListTaskStatusMode"
@@ -640,6 +641,7 @@ watch(
         :steps="taskStore.activeSteps"
         :available-tags="availableTags"
         :available-lists="listStore.lists"
+        :show-steps-by-default="showStepsByDefault"
         @close="taskStore.setActiveTask(null)"
         @save-title="taskStore.updateTask(taskStore.activeTaskId!, { title: $event })"
         @add-step="taskStore.createStep({ taskId: taskStore.activeTaskId!, title: $event })"

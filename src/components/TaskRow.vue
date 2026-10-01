@@ -12,6 +12,7 @@ interface Props {
   listName?: string | null
   showDueDate?: boolean
   draggable?: boolean
+  compact?: boolean
   taskStatusMode?: TaskStatusMode
   availableLists?: List[]
 }
@@ -224,6 +225,7 @@ const reminderDateText = computed(() => {
 <template>
   <article
     class="group relative min-h-14 overflow-visible rounded-lg border-b border-slate-200 bg-white transition focus-within:ring-2 focus-within:ring-inset focus-within:ring-[#2564cf] dark:border-slate-700 dark:bg-slate-900"
+    :class="{ 'min-h-11': compact }"
     role="group"
     tabindex="0"
     :data-task-id="task.id"
@@ -244,7 +246,7 @@ const reminderDateText = computed(() => {
       </button>
     </div>
 
-    <div class="relative flex min-h-14 w-full items-center gap-3 rounded-lg bg-white px-4 py-2 transition-transform dark:bg-slate-900" :style="{ transform: `translateX(${swipeOffset}px)` }">
+    <div class="relative flex min-h-14 w-full items-center gap-3 rounded-lg bg-white px-4 py-2 transition-transform dark:bg-slate-900" :class="{ 'min-h-11 py-1.5': compact }" :style="{ transform: `translateX(${swipeOffset}px)` }">
       <span
         v-if="draggable"
         class="inline-flex shrink-0 cursor-grab touch-none text-slate-400 transition-opacity hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 sm:opacity-0 sm:group-hover:opacity-100"

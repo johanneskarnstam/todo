@@ -117,3 +117,27 @@ test('pastes JSON into a newly created list', async ({ page }) => {
   await expect(page.getByRole('textbox', { name: 'Anteckningar' })).toHaveValue('Texten följer med')
   await expect(page.getByLabel('Uppgiftens förfallotid')).toHaveValue('09:15')
 })
+
+test('restores a full backup with list settings and subtasks', async ({ page }) => {
+  await page.goto('#/settings')
+  const closeButton = page.getByRole('button', { name: 'Jag har sett detta' })
+  if (await closeButton.count()) await closeButton.click()
+
+  await page.getByLabel('Importtyp').selectOption('backup')
+  await page.getByLabel('Klistra in JSON').fill(JSON.stringify({
+    formatVersion: 2,
+    folders: [],
+    lists: [{ id: 'backup-list', name: 'Återställd lista', icon: 'star', viewMode: 'compact', showCompletedTasks: false }],
+    tasks: [{ id: 'backup-task', listId: 'backup-list', title: 'Återställd uppgift', completed: false, status: 'todo' }],
+    steps: [{ taskId: 'backup-task', title: 'Återställt delsteg', completed: true }],
+  }))
+  await page.getByRole('button', { name: 'Importera uppgifter' }).click()
+
+  await expect(page.getByRole('status')).toContainText('1 uppgift importerad till säkerhetskopian.')
+  await page.goto('#/')
+  await page.getByRole('button', { name: /^Återställd lista/ }).click()
+  const restoredTask = page.getByRole('group', { name: 'Uppgift: Återställd uppgift' })
+  await expect(restoredTask).toBeVisible()
+  await restoredTask.click()
+  await expect(page.getByText('Återställt delsteg', { exact: true })).toBeVisible()
+})

@@ -33,6 +33,12 @@ const router = createRouter({
       meta: { smartView: 'planned' },
     },
     {
+      path: '/archived',
+      name: 'archived',
+      component: () => import('../views/HomeView.vue'),
+      meta: { smartView: 'archived' },
+    },
+    {
       path: '/tag/:tag',
       name: 'tag',
       component: () => import('../views/HomeView.vue'),

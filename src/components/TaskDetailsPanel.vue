@@ -9,6 +9,7 @@ interface Props {
   task: Task
   steps: Step[]
   availableTags?: string[]
+  showStepsByDefault?: boolean
 }
 
 interface Emits {
@@ -27,7 +28,9 @@ interface Emits {
   (event: 'delete-task'): void
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  showStepsByDefault: true,
+})
 const emit = defineEmits<Emits>()
 
 const title = ref(props.task.title)
@@ -37,6 +40,7 @@ const stepTitle = ref('')
 const editingStepId = ref<string | null>(null)
 const editingStepTitle = ref('')
 const reminderOffset = ref(String(props.task.reminder?.offsetMinutes ?? ''))
+const stepsExpanded = ref(props.showStepsByDefault ?? true)
 
 const dueDate = computed(() => {
   if (typeof props.task.dueDate === 'string') return props.task.dueDate.slice(0, 10)
@@ -56,6 +60,11 @@ watch(
     tags.value = normalizeTags(props.task.tags ?? [])
     reminderOffset.value = String(props.task.reminder?.offsetMinutes ?? '')
   },
+)
+
+watch(
+  () => [props.task.id, props.showStepsByDefault],
+  () => { stepsExpanded.value = props.showStepsByDefault ?? true },
 )
 
 const saveTitle = () => {
@@ -194,8 +203,16 @@ const saveStepTitle = () => {
       </section>
 
       <section class="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-900" aria-labelledby="steps-heading">
-        <h2 id="steps-heading" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Delsteg</h2>
-        <div class="space-y-1">
+        <h2 id="steps-heading" class="mb-2">
+          <button class="flex min-h-8 w-full items-center justify-between text-left text-xs font-semibold uppercase tracking-wide text-slate-500 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2564cf] dark:text-slate-400 dark:hover:text-slate-100" type="button" :aria-expanded="stepsExpanded" @click="stepsExpanded = !stepsExpanded">
+            <span>Delsteg</span>
+            <span class="flex items-center gap-2 normal-case tracking-normal">
+              <span v-if="steps.length" class="font-normal">{{ steps.length }}</span>
+              <span aria-hidden="true">{{ stepsExpanded ? '−' : '+' }}</span>
+            </span>
+          </button>
+        </h2>
+        <div v-if="stepsExpanded" class="space-y-1">
           <label v-for="step in steps" :key="step.id" class="flex min-h-10 items-center gap-3 rounded-lg px-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800">
             <ToggleSwitch
               :id="`step-toggle-${step.id}`"

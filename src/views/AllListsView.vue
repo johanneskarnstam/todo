@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { ArrowLeft, ChevronRight, FolderOpen, ListTodo, Plus } from '@lucide/vue'
+import { ArrowLeft, ChevronRight, FolderOpen, Plus } from '@lucide/vue'
 import { useRouter } from 'vue-router'
 import TaskDetailsPanel from '@/components/TaskDetailsPanel.vue'
 import TaskRow from '@/components/TaskRow.vue'
+import ListIcon from '@/components/ListIcon.vue'
 import TodoHeader from '@/components/TodoHeader.vue'
 import { useReminderNotifications } from '@/composables/useReminderNotifications'
 import { usePreferences } from '@/composables/usePreferences'
@@ -33,7 +34,6 @@ const desktopGroups = computed(() => [
   })),
   { id: 'ungrouped', name: 'Utan mapp', lists: ungroupedLists.value },
 ])
-const expandedCompletedListIds = ref<string[]>([])
 const isDesktopView = ref(false)
 const pendingDeleteTaskId = ref<string | null>(null)
 const taskTitlesByListId = ref<Record<string, string>>({})
@@ -43,7 +43,7 @@ const tasksByListId = computed(() => {
   const groupedTasks = new Map<string, { active: Task[]; completed: Task[] }>()
 
   for (const list of listStore.lists) {
-    const listTasks = taskStore.tasks.filter((task) => task.listId === list.id)
+    const listTasks = taskStore.tasks.filter((task) => task.listId === list.id && !task.archived)
     groupedTasks.set(list.id, {
       active: sortTasksForMode(listTasks.filter((task) => !isTaskCompleted(task)), list.sortMode ?? 'manual'),
       completed: sortTasksForMode(listTasks.filter(isTaskCompleted), list.sortMode ?? 'manual'),
@@ -58,12 +58,10 @@ const tasksForList = (list: List, completed: boolean) => {
   return completed ? listTasks?.completed ?? [] : listTasks?.active ?? []
 }
 
-const isCompletedExpanded = (listId: string) => expandedCompletedListIds.value.includes(listId)
+const isCompletedExpanded = (listId: string) => listStore.lists.find((list) => list.id === listId)?.showCompletedTasks ?? true
 
 const toggleCompleted = (listId: string) => {
-  expandedCompletedListIds.value = isCompletedExpanded(listId)
-    ? expandedCompletedListIds.value.filter((id) => id !== listId)
-    : [...expandedCompletedListIds.value, listId]
+  void listStore.updateList(listId, { showCompletedTasks: !isCompletedExpanded(listId) })
 }
 
 const addTaskToList = (listId: string) => {
@@ -80,13 +78,21 @@ const handleMoveTaskToList = (taskId: string, targetListId: string) => {
 }
 
 const requestDeleteTask = (taskId: string) => {
-  if (preferences.value.confirmDeletes) {
+  const listId = taskStore.tasks.find((task) => task.id === taskId)?.listId
+  const confirmDeletes = listStore.lists.find((list) => list.id === listId)?.confirmDeletes ?? preferences.value.confirmDeletes
+  if (confirmDeletes) {
     pendingDeleteTaskId.value = taskId
     return
   }
 
   void taskStore.deleteTask(taskId)
 }
+
+const activeTaskList = computed(() => {
+  const task = taskStore.activeTask
+  return task ? listStore.lists.find((list) => list.id === task.listId) ?? null : null
+})
+const showStepsByDefault = computed(() => activeTaskList.value?.showStepsByDefault ?? true)
 
 const handleDeleteActiveTask = () => {
   if (taskStore.activeTaskId) requestDeleteTask(taskStore.activeTaskId)
@@ -184,7 +190,7 @@ onUnmounted(() => desktopMediaQuery?.removeEventListener('change', syncDesktopVi
           </div>
           <div v-if="section.lists.length" class="divide-y divide-slate-100 dark:divide-slate-800">
             <button v-for="list in section.lists" :key="list.id" class="flex min-h-14 w-full items-center gap-3 px-4 text-left transition hover:bg-slate-50 dark:hover:bg-slate-800/70" type="button" @click="openList(list.id)">
-              <ListTodo :size="19" :stroke-width="1.8" class="shrink-0 text-slate-500 dark:text-slate-400" aria-hidden="true" />
+              <ListIcon :name="list.icon" :size="19" class="shrink-0 text-slate-500 dark:text-slate-400" />
               <span class="min-w-0 flex-1 truncate text-sm font-medium">{{ list.name }}</span>
               <span v-if="taskStore.listTaskCounts[list.id]" class="text-xs text-slate-500 dark:text-slate-400">{{ taskStore.listTaskCounts[list.id] }}</span>
               <ChevronRight :size="18" :stroke-width="1.8" class="shrink-0 text-slate-400" aria-hidden="true" />
@@ -201,7 +207,7 @@ onUnmounted(() => desktopMediaQuery?.removeEventListener('change', syncDesktopVi
           </div>
           <div v-if="ungroupedLists.length" class="divide-y divide-slate-100 dark:divide-slate-800">
             <button v-for="list in ungroupedLists" :key="list.id" class="flex min-h-14 w-full items-center gap-3 px-4 text-left transition hover:bg-slate-50 dark:hover:bg-slate-800/70" type="button" @click="openList(list.id)">
-              <ListTodo :size="19" :stroke-width="1.8" class="shrink-0 text-slate-500 dark:text-slate-400" aria-hidden="true" />
+              <ListIcon :name="list.icon" :size="19" class="shrink-0 text-slate-500 dark:text-slate-400" />
               <span class="min-w-0 flex-1 truncate text-sm font-medium">{{ list.name }}</span>
               <span v-if="taskStore.listTaskCounts[list.id]" class="text-xs text-slate-500 dark:text-slate-400">{{ taskStore.listTaskCounts[list.id] }}</span>
               <ChevronRight :size="18" :stroke-width="1.8" class="shrink-0 text-slate-400" aria-hidden="true" />
@@ -261,6 +267,7 @@ onUnmounted(() => desktopMediaQuery?.removeEventListener('change', syncDesktopVi
                   <li v-for="task in tasksForList(list, false)" :key="task.id">
                     <TaskRow
                       :task="task"
+                      :compact="list.viewMode === 'compact'"
                       :step-count="taskStore.taskStepCounts.get(task.id) ?? null"
                       :task-status-mode="list.taskStatusMode ?? 'binary'"
                       :available-lists="listStore.lists"
@@ -289,6 +296,7 @@ onUnmounted(() => desktopMediaQuery?.removeEventListener('change', syncDesktopVi
                       <li v-for="task in tasksForList(list, true)" :key="task.id">
                         <TaskRow
                           :task="task"
+                          :compact="list.viewMode === 'compact'"
                           :step-count="taskStore.taskStepCounts.get(task.id) ?? null"
                           :task-status-mode="list.taskStatusMode ?? 'binary'"
                           :available-lists="listStore.lists"
@@ -322,6 +330,7 @@ onUnmounted(() => desktopMediaQuery?.removeEventListener('change', syncDesktopVi
       :steps="taskStore.activeSteps"
       :available-tags="availableTags"
       :available-lists="listStore.lists"
+      :show-steps-by-default="showStepsByDefault"
       @close="taskStore.setActiveTask(null)"
       @save-title="taskStore.updateTask(taskStore.activeTaskId!, { title: $event })"
       @add-step="taskStore.createStep({ taskId: taskStore.activeTaskId!, title: $event })"

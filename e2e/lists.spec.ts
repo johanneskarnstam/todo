@@ -66,6 +66,12 @@ test('configures list sorting and a three-step task workflow', async ({ page }) 
 
   await expect(page.locator('#list-sort-mode')).toContainText('Min ordning')
   await expect(page.getByLabel('Nya uppgifter överst')).toBeChecked()
+  await expect(page.getByLabel('Visa slutförda uppgifter')).toBeChecked()
+  await expect(page.getByLabel('Arkivera slutförda automatiskt')).not.toBeChecked()
+  await expect(page.getByLabel('Bekräfta innan uppgifter tas bort')).toBeChecked()
+  await expect(page.getByLabel('Visa delsteg direkt')).toBeChecked()
+  await page.getByRole('button', { name: 'Använd listikon Stjärna' }).click()
+  await expect(page.getByRole('status')).toContainText('Inställningen har sparats.')
   await page.locator('#list-sort-mode').click()
   await page.getByRole('option', { name: 'Prioritet' }).click()
   await expect(page.getByLabel('Nya uppgifter överst')).toBeDisabled()
@@ -90,6 +96,26 @@ test('configures list sorting and a three-step task workflow', async ({ page }) 
   await page.goto('/')
   await page.getByRole('button', { name: /^Arbetsflöde/ }).click()
   await expect(page.getByRole('group', { name: `Uppgift: ${taskTitle}` }).getByRole('checkbox', { name: 'Markera uppgift som klar' })).toHaveAttribute('aria-checked', 'mixed')
+})
+
+test('archives completed tasks and restores them from the Archived view', async ({ page }) => {
+  await page.goto('/')
+  await dismissReleaseNotes(page)
+
+  await page.getByRole('button', { name: 'Fler listalternativ' }).click()
+  await page.getByRole('button', { name: 'Listinställningar' }).click()
+  await page.getByLabel('Arkivera slutförda automatiskt').click()
+  await page.getByRole('button', { name: 'Tillbaka till listan' }).click()
+
+  const task = page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' })
+  await task.getByRole('button', { name: 'Markera uppgift som slutförd' }).click()
+  await expect(task).toHaveCount(0)
+
+  await page.getByRole('button', { name: /^Arkiverade/ }).click()
+  const archivedTask = page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' })
+  await expect(archivedTask).toBeVisible()
+  await archivedTask.getByRole('button', { name: 'Markera uppgift som aktiv' }).click()
+  await expect(archivedTask).toHaveCount(0)
 })
 
 test('renames a list and a folder', async ({ page }) => {
@@ -231,13 +257,13 @@ test('shows responsive list columns with horizontal scrolling on large screens',
   await expect(page.getByText('Kontrollera mobilvyn', { exact: true })).toBeVisible()
   await expect(page.getByText('Förbered nästa release', { exact: true })).toBeVisible()
   const emptyList = page.getByRole('heading', { name: 'Översiktslista 2', exact: true }).locator('..')
-  const emptyCompletedToggle = emptyList.getByRole('button', { name: 'Visa slutförda uppgifter i Översiktslista 2' })
+  const emptyCompletedToggle = emptyList.getByRole('button', { name: 'Dölj slutförda uppgifter i Översiktslista 2' })
   await expect(emptyCompletedToggle).toBeVisible()
   await expect(emptyCompletedToggle).toContainText('Slutförda (0)')
   await expect(emptyCompletedToggle).toHaveCSS('font-size', '12px')
   await expect(emptyCompletedToggle).toHaveCSS('text-transform', 'none')
   await emptyCompletedToggle.click()
-  await expect(emptyList.getByText('Inga slutförda uppgifter')).toBeVisible()
+  await expect(emptyList.getByRole('button', { name: 'Visa slutförda uppgifter i Översiktslista 2' })).toBeVisible()
 
   const quickAdd = emptyList.getByRole('textbox', { name: 'Lägg till uppgift i Översiktslista 2' })
   await quickAdd.fill('Uppgift skapad från översikt')
@@ -251,10 +277,8 @@ test('shows responsive list columns with horizontal scrolling on large screens',
 
   const todoList = page.getByRole('heading', { name: 'Att göra', exact: true }).locator('..')
   const completedToggle = todoList.getByRole('button', { name: /slutförda uppgifter i Att göra/ })
-  await expect(completedToggle).toHaveAttribute('aria-expanded', 'false')
+  await expect(completedToggle).toHaveAttribute('aria-expanded', 'true')
   await expect(completedToggle).toContainText('Slutförda (1)')
-  await completedToggle.click()
-  await expect(page.getByText('Testa dra och släppa uppgifter', { exact: true })).toBeVisible()
 
   const activeTask = page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' })
   await activeTask.getByRole('button', { name: 'Markera uppgift som slutförd' }).click()

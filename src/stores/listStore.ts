@@ -69,7 +69,7 @@ interface NewFolderInput {
   name: string
 }
 
-type ListUpdate = Partial<Pick<List, 'name' | 'folderId' | 'icon' | 'order' | 'themeColor' | 'sortMode' | 'newTasksFirst' | 'taskStatusMode'>>
+type ListUpdate = Partial<Pick<List, 'name' | 'folderId' | 'icon' | 'order' | 'themeColor' | 'sortMode' | 'newTasksFirst' | 'showCompletedTasks' | 'archiveCompletedTasks' | 'confirmDeletes' | 'showStepsByDefault' | 'viewMode' | 'taskStatusMode'>>
 type FolderUpdate = Partial<Pick<Folder, 'name' | 'order'>>
 
 export const DEFAULT_LIST_ID = '__default__'
@@ -82,6 +82,11 @@ const defaultList: List = {
   createdAt: Timestamp.fromMillis(0),
   sortMode: 'manual',
   newTasksFirst: true,
+  showCompletedTasks: true,
+  archiveCompletedTasks: false,
+  confirmDeletes: true,
+  showStepsByDefault: true,
+  viewMode: 'detailed',
   taskStatusMode: 'binary',
 }
 
@@ -246,6 +251,11 @@ export const useListStore = defineStore('lists', () => {
       createdAt: Timestamp.now(),
       sortMode: 'manual',
       newTasksFirst: true,
+      showCompletedTasks: true,
+      archiveCompletedTasks: false,
+      confirmDeletes: true,
+      showStepsByDefault: true,
+      viewMode: 'detailed',
       taskStatusMode: 'binary',
     }
 
@@ -267,6 +277,11 @@ export const useListStore = defineStore('lists', () => {
         order: optimisticList.order,
         sortMode: optimisticList.sortMode,
         newTasksFirst: optimisticList.newTasksFirst,
+        showCompletedTasks: optimisticList.showCompletedTasks,
+        archiveCompletedTasks: optimisticList.archiveCompletedTasks,
+        confirmDeletes: optimisticList.confirmDeletes,
+        showStepsByDefault: optimisticList.showStepsByDefault,
+        viewMode: optimisticList.viewMode,
         taskStatusMode: optimisticList.taskStatusMode,
         createdAt: serverTimestamp(),
       }))
@@ -312,7 +327,7 @@ export const useListStore = defineStore('lists', () => {
 
   const updateList = async (listId: string, updates: ListUpdate) => {
     const isDefaultListSettingsUpdate = listId === DEFAULT_LIST_ID
-      && Object.keys(updates).every((key) => key === 'sortMode' || key === 'newTasksFirst' || key === 'taskStatusMode')
+      && Object.keys(updates).every((key) => key === 'sortMode' || key === 'newTasksFirst' || key === 'showCompletedTasks' || key === 'archiveCompletedTasks' || key === 'confirmDeletes' || key === 'showStepsByDefault' || key === 'viewMode' || key === 'taskStatusMode')
     if (listId === DEFAULT_LIST_ID && !isDefaultListSettingsUpdate) return
 
     const currentList = lists.value.find((list) => list.id === listId)
@@ -395,6 +410,11 @@ export const useListStore = defineStore('lists', () => {
             order: deletedList.order,
             ...(deletedList.sortMode ? { sortMode: deletedList.sortMode } : {}),
             ...(deletedList.newTasksFirst !== undefined ? { newTasksFirst: deletedList.newTasksFirst } : {}),
+            ...(deletedList.showCompletedTasks !== undefined ? { showCompletedTasks: deletedList.showCompletedTasks } : {}),
+            ...(deletedList.archiveCompletedTasks !== undefined ? { archiveCompletedTasks: deletedList.archiveCompletedTasks } : {}),
+            ...(deletedList.confirmDeletes !== undefined ? { confirmDeletes: deletedList.confirmDeletes } : {}),
+            ...(deletedList.showStepsByDefault !== undefined ? { showStepsByDefault: deletedList.showStepsByDefault } : {}),
+            ...(deletedList.viewMode ? { viewMode: deletedList.viewMode } : {}),
             ...(deletedList.taskStatusMode ? { taskStatusMode: deletedList.taskStatusMode } : {}),
             ...(deletedList.themeColor ? { themeColor: deletedList.themeColor } : {}),
             createdAt: deletedList.createdAt,
