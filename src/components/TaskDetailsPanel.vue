@@ -46,6 +46,7 @@ const reminderOptions = [
   { value: '0', label: 'Vid förfallotid' },
   { value: '10', label: '10 minuter före' },
   { value: '60', label: '1 timme före' },
+  { value: '120', label: '2 timmar före' },
   { value: '1440', label: '1 dag före' },
 ]
 
@@ -157,7 +158,7 @@ const saveReminder = () => {
   }
 
   const offset = Number(reminderOffset.value)
-  if (![0, 10, 60, 1440].includes(offset)) return
+  if (![0, 10, 60, 120, 1440].includes(offset)) return
   emit('save-reminder', { offsetMinutes: offset as TaskReminder['offsetMinutes'] })
 }
 
