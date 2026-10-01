@@ -79,6 +79,36 @@ test('opens task details from a task row', async ({ page }) => {
   await expect(page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' }).getByRole('img', { name: 'Anteckning finns' })).toBeVisible()
 })
 
+test('asks to complete the parent task when all subtasks are checked', async ({ page }) => {
+  await page.goto('/')
+  const releaseCloseButton = page.getByRole('button', { name: 'Jag har sett detta' })
+  if (await releaseCloseButton.count()) await releaseCloseButton.click()
+
+  const title = `Deluppgiftstest-${Date.now()}`
+  const task = page.getByPlaceholder('Lägg till en uppgift')
+  await task.fill(title)
+  await task.press('Enter')
+
+  const taskRow = page.getByRole('group', { name: `Uppgift: ${title}` })
+  await taskRow.click()
+  const details = page.getByRole('dialog', { name: 'Uppgiftsdetaljer' })
+  const stepInput = details.getByPlaceholder('Lägg till delsteg')
+  await stepInput.fill('Första deluppgiften')
+  await stepInput.press('Enter')
+  await stepInput.fill('Sista deluppgiften')
+  await stepInput.press('Enter')
+
+  await details.getByRole('checkbox', { name: 'Markera delsteg som klart: Första deluppgiften' }).check()
+  await expect(details.getByRole('dialog', { name: 'Hela uppgiften klar?' })).toHaveCount(0)
+
+  await details.getByRole('checkbox', { name: 'Markera delsteg som klart: Sista deluppgiften' }).check()
+  const confirmation = details.getByRole('dialog', { name: 'Hela uppgiften klar?' })
+  await expect(confirmation).toContainText('Alla deluppgifter är klara. Vill du markera huvuduppgiften som slutförd?')
+  await confirmation.getByRole('button', { name: 'Markera huvuduppgiften' }).click()
+
+  await expect(taskRow.getByRole('button', { name: 'Markera uppgift som aktiv' })).toBeVisible()
+})
+
 test('marks a task complete and restores it to active', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: 'Jag har sett detta' }).click()

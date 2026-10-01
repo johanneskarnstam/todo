@@ -88,12 +88,6 @@ const requestDeleteTask = (taskId: string) => {
   void taskStore.deleteTask(taskId)
 }
 
-const activeTaskList = computed(() => {
-  const task = taskStore.activeTask
-  return task ? listStore.lists.find((list) => list.id === task.listId) ?? null : null
-})
-const showStepsByDefault = computed(() => activeTaskList.value?.showStepsByDefault ?? true)
-
 const handleDeleteActiveTask = () => {
   if (taskStore.activeTaskId) requestDeleteTask(taskStore.activeTaskId)
 }
@@ -330,13 +324,13 @@ onUnmounted(() => desktopMediaQuery?.removeEventListener('change', syncDesktopVi
       :steps="taskStore.activeSteps"
       :available-tags="availableTags"
       :available-lists="listStore.lists"
-      :show-steps-by-default="showStepsByDefault"
       @close="taskStore.setActiveTask(null)"
       @save-title="taskStore.updateTask(taskStore.activeTaskId!, { title: $event })"
       @add-step="taskStore.createStep({ taskId: taskStore.activeTaskId!, title: $event })"
       @reorder-steps="taskStore.reorderSteps(taskStore.activeTaskId!, $event)"
       @save-step-title="handleSaveStepTitle"
       @toggle-step="taskStore.toggleStep($event)"
+      @toggle-task-completed="taskStore.toggleCompleted(taskStore.activeTaskId!)"
       @delete-step="taskStore.deleteStep($event)"
       @toggle-my-day="taskStore.toggleMyDay(taskStore.activeTaskId!)"
       @set-due-date="taskStore.setDueDate(taskStore.activeTaskId!, $event)"

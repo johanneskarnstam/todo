@@ -69,7 +69,7 @@ test('configures list sorting and a three-step task workflow', async ({ page }) 
   await expect(page.getByLabel('Visa slutförda uppgifter')).toBeChecked()
   await expect(page.getByLabel('Arkivera slutförda automatiskt')).not.toBeChecked()
   await expect(page.getByLabel('Bekräfta innan uppgifter tas bort')).toBeChecked()
-  await expect(page.getByLabel('Visa delsteg direkt')).toBeChecked()
+  await expect(page.getByLabel('Visa delsteg direkt')).toHaveCount(0)
   await page.getByRole('button', { name: 'Använd listikon Stjärna' }).click()
   await expect(page.getByRole('status')).toContainText('Inställningen har sparats.')
   await page.locator('#list-sort-mode').click()
@@ -96,6 +96,46 @@ test('configures list sorting and a three-step task workflow', async ({ page }) 
   await page.goto('/')
   await page.getByRole('button', { name: /^Arbetsflöde/ }).click()
   await expect(page.getByRole('group', { name: `Uppgift: ${taskTitle}` }).getByRole('checkbox', { name: 'Markera uppgift som klar' })).toHaveAttribute('aria-checked', 'mixed')
+})
+
+test('confirms converting in-progress tasks to the two-step workflow', async ({ page }) => {
+  await page.goto('/')
+  await dismissReleaseNotes(page)
+
+  await page.getByRole('button', { name: 'Ny lista' }).click()
+  await page.getByPlaceholder('Listnamn').fill('Statusbyte')
+  await page.getByPlaceholder('Listnamn').press('Enter')
+  await page.getByRole('button', { name: 'Fler listalternativ' }).click()
+  await page.getByRole('button', { name: 'Listinställningar' }).click()
+  await page.getByLabel('Arbetsflöde').click()
+  await page.getByRole('option', { name: 'Att göra, pågående eller klart' }).click()
+  await page.getByRole('button', { name: 'Tillbaka till listan' }).click()
+
+  const taskTitle = 'Pågående inför statusbyte'
+  await page.getByPlaceholder('Lägg till en uppgift').fill(taskTitle)
+  await page.getByPlaceholder('Lägg till en uppgift').press('Enter')
+  const task = page.getByRole('group', { name: `Uppgift: ${taskTitle}` })
+  await task.getByRole('checkbox', { name: 'Markera uppgift som pågående' }).click()
+
+  await page.getByRole('button', { name: 'Fler listalternativ' }).click()
+  await page.getByRole('button', { name: 'Listinställningar' }).click()
+  const workflow = page.getByLabel('Arbetsflöde')
+  await workflow.click()
+  await page.getByRole('option', { name: 'Att göra eller klart' }).click()
+
+  let confirmation = page.getByRole('dialog', { name: 'Byta arbetsflöde?' })
+  await expect(confirmation).toBeVisible()
+  await confirmation.getByRole('button', { name: 'Avbryt' }).click()
+  await expect(workflow).toContainText('Att göra, pågående eller klart')
+
+  await workflow.click()
+  await page.getByRole('option', { name: 'Att göra eller klart' }).click()
+  confirmation = page.getByRole('dialog', { name: 'Byta arbetsflöde?' })
+  await confirmation.getByRole('button', { name: 'Fortsätt' }).click()
+  await expect(page.getByRole('status')).toContainText('Arbetsflödet har sparats.')
+
+  await page.getByRole('button', { name: 'Tillbaka till listan' }).click()
+  await expect(task.getByRole('button', { name: 'Markera uppgift som slutförd' })).toBeVisible()
 })
 
 test('archives completed tasks and restores them from the Archived view', async ({ page }) => {

@@ -436,6 +436,7 @@ describe('TaskDetailsPanel', () => {
 
     await wrapper.find('input[type="checkbox"]').trigger('change')
     expect(wrapper.emitted('toggle-step')).toEqual([['step-1']])
+    await wrapper.get('[role="dialog"][aria-labelledby="confirm-dialog-title"] button').trigger('click')
 
     await wrapper.find('button[aria-label="Ta bort delsteg: Buy paint"]').trigger('click')
     expect(wrapper.emitted('delete-step')).toEqual([['step-1']])
@@ -459,6 +460,36 @@ describe('TaskDetailsPanel', () => {
     const deleteButton = wrapper.findAll('button').find((button) => button.text().includes('Ta bort uppgift'))
     await deleteButton?.trigger('click')
     expect(wrapper.emitted('delete-task')).toHaveLength(1)
+  })
+
+  it('asks before completing the parent task after the final step is checked', async () => {
+    const wrapper = mount(TaskDetailsPanel, { props: { task, steps } })
+
+    await wrapper.find('input[type="checkbox"]').trigger('change')
+
+    const confirmation = wrapper.get('[role="dialog"][aria-labelledby="confirm-dialog-title"]')
+    expect(confirmation.text()).toContain('Alla deluppgifter är klara. Vill du markera huvuduppgiften som slutförd?')
+    expect(wrapper.emitted('toggle-step')).toEqual([['step-1']])
+    await confirmation.get('button:nth-of-type(2)').trigger('click')
+    expect(wrapper.emitted('toggle-task-completed')).toHaveLength(1)
+  })
+
+  it('does not complete the parent task when the user declines', async () => {
+    const wrapper = mount(TaskDetailsPanel, { props: { task, steps } })
+
+    await wrapper.find('input[type="checkbox"]').trigger('change')
+
+    expect(wrapper.emitted('toggle-step')).toEqual([['step-1']])
+    const confirmation = wrapper.get('[role="dialog"][aria-labelledby="confirm-dialog-title"]')
+    await confirmation.get('button').trigger('click')
+    expect(wrapper.emitted('toggle-task-completed')).toBeUndefined()
+  })
+
+  it('keeps the subtask section expanded without a collapse control', () => {
+    const wrapper = mount(TaskDetailsPanel, { props: { task, steps } })
+
+    expect(wrapper.get('#steps-heading').element.tagName).toBe('H2')
+    expect(wrapper.find('input[aria-label="Markera delsteg som klart: Buy paint"]').exists()).toBe(true)
   })
 
   it('makes a subtask title editable when its text is clicked', async () => {

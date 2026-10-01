@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, BookOpen, ChevronDown, Download, History, LogOut, RefreshCw, Trash2 } from '@lucide/vue'
+import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import ChangeTimelineModal from '@/components/ChangeTimelineModal.vue'
 import FeatureOverviewModal from '@/components/FeatureOverviewModal.vue'
 import ToggleSwitch from '@/components/ToggleSwitch.vue'
@@ -74,6 +75,7 @@ const importError = ref('')
 const isImportFormatOpen = ref(false)
 const isTimelineOpen = ref(false)
 const isFeatureOverviewOpen = ref(false)
+const isClearLocalDataConfirmationOpen = ref(false)
 const editingTag = ref<string | null>(null)
 const editedTagName = ref('')
 const tagError = ref('')
@@ -435,7 +437,7 @@ const importTasks = async () => {
 }
 
 const clearLocalData = () => {
-  if (!window.confirm('Rensa lokala uppgifter och sparade inställningar?')) return
+  isClearLocalDataConfirmationOpen.value = false
   localStorage.removeItem('todo-mock-tasks')
   localStorage.removeItem('todo-preferences')
   resetPreferences()
@@ -608,7 +610,7 @@ const handleLogout = async () => {
             <RefreshCw :size="18" :class="{ 'animate-spin': isUpdatingApp }" class="shrink-0 text-slate-500" aria-hidden="true" />
             <span class="flex-1">{{ isUpdatingApp ? 'Rensar cache och uppdaterar...' : 'Rensa cache och uppdatera appen' }}</span>
           </button>
-          <button class="flex min-h-11 w-full items-center gap-3 rounded-lg px-2 text-left text-sm text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40" type="button" @click="clearLocalData">
+          <button class="flex min-h-11 w-full items-center gap-3 rounded-lg px-2 text-left text-sm text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40" type="button" @click="isClearLocalDataConfirmationOpen = true">
             <Trash2 :size="18" class="shrink-0" aria-hidden="true" />
             <span class="flex-1">Rensa lokala data</span>
           </button>
@@ -635,5 +637,14 @@ const handleLogout = async () => {
     </div>
     <ChangeTimelineModal v-if="isTimelineOpen" :releases="releaseNotes" @close="isTimelineOpen = false" />
     <FeatureOverviewModal v-if="isFeatureOverviewOpen" @close="isFeatureOverviewOpen = false" />
+    <ConfirmDialog
+      v-if="isClearLocalDataConfirmationOpen"
+      title="Rensa lokala data?"
+      message="Lokala uppgifter och sparade inställningar tas bort från den här enheten."
+      confirm-label="Rensa data"
+      destructive
+      @confirm="clearLocalData"
+      @cancel="isClearLocalDataConfirmationOpen = false"
+    />
   </main>
 </template>

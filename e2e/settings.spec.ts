@@ -45,6 +45,22 @@ test('forces the latest app version from settings', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Inställningar', exact: true })).toBeVisible()
 })
 
+test('confirms before clearing local data', async ({ page }) => {
+  await page.goto('#/settings')
+  const releaseCloseButton = page.getByRole('button', { name: 'Jag har sett detta' })
+  if (await releaseCloseButton.count()) await releaseCloseButton.click()
+
+  await page.getByRole('button', { name: 'Rensa lokala data' }).click()
+  const confirmation = page.getByRole('dialog', { name: 'Rensa lokala data?' })
+  await expect(confirmation).toBeVisible()
+  await confirmation.getByRole('button', { name: 'Avbryt' }).click()
+  await expect(page.getByRole('status')).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Rensa lokala data' }).click()
+  await page.getByRole('dialog', { name: 'Rensa lokala data?' }).getByRole('button', { name: 'Rensa data' }).click()
+  await expect(page.getByRole('status')).toContainText('Lokala data har rensats.')
+})
+
 test('imports JSON tasks into a selected list', async ({ page }) => {
   await page.goto('#/settings')
   const closeButton = page.getByRole('button', { name: 'Jag har sett detta' })

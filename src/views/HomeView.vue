@@ -84,11 +84,6 @@ const toggleCompletedTasks = () => {
 }
 
 const activeListCompact = computed(() => activeList.value?.viewMode === 'compact')
-const activeTaskList = computed(() => {
-  const task = taskStore.activeTask
-  return task ? listStore.lists.find((list) => list.id === task.listId) ?? null : activeList.value
-})
-const showStepsByDefault = computed(() => activeTaskList.value?.showStepsByDefault ?? true)
 
 const availableTags = computed(() => [...new Set(taskStore.tasks.flatMap((task) => task.tags ?? []))].sort())
 const filteredVisibleTasks = computed(() => {
@@ -692,13 +687,13 @@ watch(
         :steps="taskStore.activeSteps"
         :available-tags="availableTags"
         :available-lists="listStore.lists"
-        :show-steps-by-default="showStepsByDefault"
         @close="taskStore.setActiveTask(null)"
         @save-title="taskStore.updateTask(taskStore.activeTaskId!, { title: $event })"
         @add-step="taskStore.createStep({ taskId: taskStore.activeTaskId!, title: $event })"
         @reorder-steps="taskStore.reorderSteps(taskStore.activeTaskId!, $event)"
         @save-step-title="handleSaveStepTitle"
         @toggle-step="taskStore.toggleStep($event)"
+        @toggle-task-completed="taskStore.toggleCompleted(taskStore.activeTaskId!)"
         @delete-step="taskStore.deleteStep($event)"
         @toggle-my-day="taskStore.toggleMyDay(taskStore.activeTaskId!)"
         @set-due-date="handleSetDueDate(taskStore.activeTaskId!, $event)"

@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { ArrowLeft, Check, ChevronDown, Settings2 } from '@lucide/vue'
 import { useRoute, useRouter } from 'vue-router'
+import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import ListIcon from '@/components/ListIcon.vue'
 import TodoHeader from '@/components/TodoHeader.vue'
 import ToggleSwitch from '@/components/ToggleSwitch.vue'
@@ -22,13 +23,13 @@ const taskStatusMode = ref<TaskStatusMode>('binary')
 const showCompletedTasks = ref(true)
 const archiveCompletedTasks = ref(false)
 const confirmDeletes = ref(true)
-const showStepsByDefault = ref(true)
 const viewMode = ref<ListViewMode>('detailed')
 const statusMessage = ref('')
 const isInitialized = ref(false)
 const sortMenuOpen = ref(false)
 const taskStatusMenuOpen = ref(false)
 const viewMenuOpen = ref(false)
+const pendingTaskStatusMode = ref<TaskStatusMode | null>(null)
 const themeColors = ['#2564cf', '#107c10', '#d83b01', '#8764b8', '#038387', '#ca5010']
 const iconOptions = [
   { value: 'list', label: 'Lista' },
@@ -70,7 +71,6 @@ const initialize = async () => {
   showCompletedTasks.value = list.showCompletedTasks ?? true
   archiveCompletedTasks.value = list.archiveCompletedTasks ?? false
   confirmDeletes.value = list.confirmDeletes ?? true
-  showStepsByDefault.value = list.showStepsByDefault ?? true
   viewMode.value = list.viewMode ?? 'detailed'
   isInitialized.value = true
 }
@@ -113,7 +113,7 @@ const saveThemeColor = async (themeColor: string) => {
   if (!listStore.error) statusMessage.value = 'Listfärgen har sparats.'
 }
 
-const saveListSettings = async (updates: Partial<Pick<List, 'icon' | 'showCompletedTasks' | 'archiveCompletedTasks' | 'confirmDeletes' | 'showStepsByDefault' | 'viewMode'>>) => {
+const saveListSettings = async (updates: Partial<Pick<List, 'icon' | 'showCompletedTasks' | 'archiveCompletedTasks' | 'confirmDeletes' | 'viewMode'>>) => {
   statusMessage.value = ''
   await listStore.updateList(listId.value, updates)
   if (!listStore.error) statusMessage.value = 'Inställningen har sparats.'
@@ -137,11 +137,6 @@ const saveArchiveCompletedTasks = async (value: boolean) => {
 const saveConfirmDeletes = (value: boolean) => {
   confirmDeletes.value = value
   void saveListSettings({ confirmDeletes: value })
-}
-
-const saveShowStepsByDefault = (value: boolean) => {
-  showStepsByDefault.value = value
-  void saveListSettings({ showStepsByDefault: value })
 }
 
 const saveViewMode = (value: ListViewMode) => {
@@ -169,15 +164,7 @@ const saveNewTasksFirst = async (nextValue: boolean) => {
   if (!listStore.error) statusMessage.value = 'Inställningen har sparats.'
 }
 
-const saveTaskStatusMode = async (nextMode: TaskStatusMode) => {
-  if (nextMode === 'binary' && inProgressTasks.value.length > 0) {
-    const confirmed = window.confirm('Pågående uppgifter ändras till Att göra när listan använder två lägen. Fortsätta?')
-    if (!confirmed) {
-      taskStatusMode.value = 'threeStep'
-      return
-    }
-  }
-
+const applyTaskStatusMode = async (nextMode: TaskStatusMode) => {
   taskStatusMode.value = nextMode
   taskStatusMenuOpen.value = false
   statusMessage.value = ''
@@ -186,6 +173,22 @@ const saveTaskStatusMode = async (nextMode: TaskStatusMode) => {
   }
   await listStore.updateList(listId.value, { taskStatusMode: nextMode })
   if (!listStore.error) statusMessage.value = 'Arbetsflödet har sparats.'
+}
+
+const saveTaskStatusMode = async (nextMode: TaskStatusMode) => {
+  if (nextMode === 'binary' && inProgressTasks.value.length > 0) {
+    pendingTaskStatusMode.value = nextMode
+    taskStatusMenuOpen.value = false
+    return
+  }
+
+  await applyTaskStatusMode(nextMode)
+}
+
+const confirmTaskStatusMode = async () => {
+  const nextMode = pendingTaskStatusMode.value
+  pendingTaskStatusMode.value = null
+  if (nextMode) await applyTaskStatusMode(nextMode)
 }
 
 onMounted(() => void initialize())
@@ -340,14 +343,6 @@ onMounted(() => void initialize())
             <ToggleSwitch id="confirm-list-deletes" :checked="confirmDeletes" aria-label="Bekräfta innan uppgifter tas bort" @change="saveConfirmDeletes" />
           </label>
 
-          <label class="flex min-h-14 items-center gap-4 py-2 text-sm" for="show-steps-by-default">
-            <span class="flex-1">
-              <span class="block font-medium">Visa delsteg direkt</span>
-              <span class="block text-xs text-slate-500 dark:text-slate-400">Öppna delsteg automatiskt i uppgiftsdetaljer.</span>
-            </span>
-            <ToggleSwitch id="show-steps-by-default" :checked="showStepsByDefault" aria-label="Visa delsteg direkt" @change="saveShowStepsByDefault" />
-          </label>
-
           <label class="flex min-h-14 items-center gap-4 py-2 text-sm" for="list-view-mode">
             <span class="flex-1">
               <span class="block font-medium">Listvy</span>
@@ -433,4 +428,12 @@ onMounted(() => void initialize())
     </div>
   </main>
   </div>
+  <ConfirmDialog
+    v-if="pendingTaskStatusMode"
+    title="Byta arbetsflöde?"
+    message="Pågående uppgifter ändras till Att göra när listan använder två lägen. Vill du fortsätta?"
+    confirm-label="Fortsätt"
+    @confirm="confirmTaskStatusMode"
+    @cancel="pendingTaskStatusMode = null"
+  />
 </template>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { ArrowLeft, Bell, CalendarDays, ChevronDown, Clock, Sun } from '@lucide/vue'
+import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import ToggleSwitch from '@/components/ToggleSwitch.vue'
 import type { Step, Task, TaskReminder } from '@/types'
 import { normalizeTag, normalizeTags } from '@/utils/taskTags'
@@ -9,7 +10,6 @@ interface Props {
   task: Task
   steps: Step[]
   availableTags?: string[]
-  showStepsByDefault?: boolean
 }
 
 interface Emits {
@@ -18,6 +18,7 @@ interface Emits {
   (event: 'add-step', title: string): void
   (event: 'save-step-title', stepId: string, title: string): void
   (event: 'toggle-step', stepId: string): void
+  (event: 'toggle-task-completed'): void
   (event: 'delete-step', stepId: string): void
   (event: 'toggle-my-day'): void
   (event: 'set-due-date', dueDate: string): void
@@ -28,9 +29,7 @@ interface Emits {
   (event: 'delete-task'): void
 }
 
-const props = withDefaults(defineProps<Props>(), {
-  showStepsByDefault: true,
-})
+const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
 const title = ref(props.task.title)
@@ -40,7 +39,7 @@ const stepTitle = ref('')
 const editingStepId = ref<string | null>(null)
 const editingStepTitle = ref('')
 const reminderOffset = ref(String(props.task.reminder?.offsetMinutes ?? ''))
-const stepsExpanded = ref(props.showStepsByDefault ?? true)
+const isParentCompletionConfirmationOpen = ref(false)
 const reminderMenuOpen = ref(false)
 const reminderOptions = [
   { value: '', label: 'Ingen' },
@@ -71,11 +70,6 @@ watch(
   },
 )
 
-watch(
-  () => [props.task.id, props.showStepsByDefault],
-  () => { stepsExpanded.value = props.showStepsByDefault ?? true },
-)
-
 const saveTitle = () => {
   const nextTitle = title.value.trim()
   if (nextTitle && nextTitle !== props.task.title) emit('save-title', nextTitle)
@@ -88,6 +82,21 @@ const addStep = () => {
 
   emit('add-step', nextTitle)
   stepTitle.value = ''
+}
+
+const handleToggleStep = (stepId: string) => {
+  const step = props.steps.find((item) => item.id === stepId)
+  const completesAllSteps = Boolean(step && !step.completed && props.steps.every((item) => item.id === stepId || item.completed))
+
+  emit('toggle-step', stepId)
+
+  if (!completesAllSteps || props.task.completed) return
+  isParentCompletionConfirmationOpen.value = true
+}
+
+const confirmParentTaskCompletion = () => {
+  isParentCompletionConfirmationOpen.value = false
+  emit('toggle-task-completed')
 }
 
 const tags = ref<string[]>(normalizeTags(props.task.tags ?? []))
@@ -231,22 +240,17 @@ const saveStepTitle = () => {
       </section>
 
       <section class="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-900" aria-labelledby="steps-heading">
-        <h2 id="steps-heading" class="mb-2">
-          <button class="flex min-h-8 w-full items-center justify-between text-left text-xs font-semibold uppercase tracking-wide text-slate-500 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2564cf] dark:text-slate-400 dark:hover:text-slate-100" type="button" :aria-expanded="stepsExpanded" @click="stepsExpanded = !stepsExpanded">
-            <span>Delsteg</span>
-            <span class="flex items-center gap-2 normal-case tracking-normal">
-              <span v-if="steps.length" class="font-normal">{{ steps.length }}</span>
-              <span aria-hidden="true">{{ stepsExpanded ? '−' : '+' }}</span>
-            </span>
-          </button>
+        <h2 id="steps-heading" class="mb-2 flex min-h-8 items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          <span>Delsteg</span>
+          <span v-if="steps.length" class="font-normal normal-case tracking-normal">{{ steps.length }}</span>
         </h2>
-        <div v-if="stepsExpanded" class="space-y-1">
+        <div class="space-y-1">
           <label v-for="step in steps" :key="step.id" class="flex min-h-10 items-center gap-3 rounded-lg px-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800">
             <ToggleSwitch
               :id="`step-toggle-${step.id}`"
               :checked="step.completed"
               :aria-label="`Markera delsteg som klart: ${step.title}`"
-              @change="emit('toggle-step', step.id)"
+              @change="handleToggleStep(step.id)"
             />
             <input
               v-if="editingStepId === step.id"
@@ -364,5 +368,13 @@ const saveStepTitle = () => {
         <span>Ta bort uppgift</span>
       </button>
     </div>
+    <ConfirmDialog
+      v-if="isParentCompletionConfirmationOpen"
+      title="Hela uppgiften klar?"
+      message="Alla deluppgifter är klara. Vill du markera huvuduppgiften som slutförd?"
+      confirm-label="Markera huvuduppgiften"
+      @confirm="confirmParentTaskCompletion"
+      @cancel="isParentCompletionConfirmationOpen = false"
+    />
   </aside>
 </template>
