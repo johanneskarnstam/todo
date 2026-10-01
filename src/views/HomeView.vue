@@ -542,7 +542,12 @@ watch(
             <input id="new-task-title" v-model="taskTitle" class="min-w-0 flex-1 bg-transparent text-sm text-slate-800 outline-none placeholder:text-[#2564cf] dark:text-slate-100 dark:placeholder:text-blue-400" type="text" placeholder="Lägg till en uppgift" />
           </form>
 
-          <template v-if="isPlannedView">
+          <div v-if="!taskStore.isLoaded" class="mt-16 flex flex-col items-center justify-center gap-3 text-sm text-slate-500 dark:text-slate-400" role="status" aria-label="Läser in uppgifter">
+            <span class="size-7 animate-spin rounded-full border-4 border-slate-200 border-t-[#2564cf] dark:border-slate-700 dark:border-t-blue-400" aria-hidden="true" />
+            <span>Läser in uppgifter...</span>
+          </div>
+
+          <template v-else-if="isPlannedView">
             <section v-for="group in plannedGroups" :key="group.key" class="mt-6" :aria-labelledby="`${group.key}-tasks-heading`">
               <h2 :id="`${group.key}-tasks-heading`" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ { overdue: 'Försenat', today: 'Idag', tomorrow: 'Imorgon', thisWeek: 'Denna veckan', nextWeek: 'Nästa vecka', later: 'Senare' }[group.key] }}</h2>
               <div class="overflow-hidden rounded-xl border border-slate-200 shadow-sm dark:border-slate-700">

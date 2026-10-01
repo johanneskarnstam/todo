@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { ArrowLeft, Check, Settings2 } from '@lucide/vue'
+import { ArrowLeft, Check, ChevronDown, Settings2 } from '@lucide/vue'
 import { useRoute, useRouter } from 'vue-router'
 import ListIcon from '@/components/ListIcon.vue'
+import TodoHeader from '@/components/TodoHeader.vue'
 import ToggleSwitch from '@/components/ToggleSwitch.vue'
 import { useTheme } from '@/composables/useTheme'
 import { useListStore } from '@/stores/listStore'
@@ -14,7 +15,7 @@ const route = useRoute()
 const router = useRouter()
 const listStore = useListStore()
 const taskStore = useTaskStore()
-const { isDark } = useTheme()
+const { isDark, toggleTheme } = useTheme()
 const sortMode = ref<ListSortMode>('manual')
 const newTasksFirst = ref(true)
 const taskStatusMode = ref<TaskStatusMode>('binary')
@@ -174,6 +175,17 @@ onMounted(() => void initialize())
 </script>
 
 <template>
+  <div class="min-h-screen bg-slate-100 text-slate-800 dark:bg-slate-950 dark:text-slate-100" :class="{ dark: isDark }">
+    <TodoHeader
+      :is-dark="isDark"
+      :is-sidebar-open="false"
+      :is-saving="listStore.isSaving || taskStore.isSaving"
+      :show-menu="false"
+      @toggle-theme="toggleTheme"
+      @go-home="router.push({ name: 'home' })"
+      @open-search="router.push({ name: 'search' })"
+      @close-search="router.push({ name: 'search' })"
+    />
   <main class="min-h-screen bg-slate-100 px-3 py-4 text-slate-800 dark:bg-slate-950 dark:text-slate-100 sm:px-6 sm:py-8" :class="{ dark: isDark }" @click="sortMenuOpen = false; taskStatusMenuOpen = false">
     <div class="mx-auto max-w-3xl">
       <header class="mb-4 flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
@@ -185,9 +197,18 @@ onMounted(() => void initialize())
       </header>
 
       <p v-if="listStore.error" class="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-950/40 dark:text-red-200" role="alert">{{ listStore.error }}</p>
-      <p v-if="statusMessage" class="mb-3 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200" role="status">
-        <Check :size="16" aria-hidden="true" />{{ statusMessage }}
-      </p>
+      <Transition
+        enter-active-class="transition duration-300 ease-out"
+        enter-from-class="-translate-y-full opacity-0"
+        enter-to-class="translate-y-0 opacity-100"
+        leave-active-class="transition duration-200 ease-in"
+        leave-from-class="translate-y-0 opacity-100"
+        leave-to-class="-translate-y-full opacity-0"
+      >
+        <p v-if="statusMessage" class="pointer-events-auto fixed inset-x-4 top-3 z-[110] mx-auto flex max-w-xl items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 shadow-xl dark:border-emerald-800 dark:bg-emerald-950/90 dark:text-emerald-200" role="status">
+          <Check :size="16" aria-hidden="true" />{{ statusMessage }}
+        </p>
+      </Transition>
 
       <template v-if="isInitialized && currentList">
         <section class="mb-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-5" aria-labelledby="list-appearance-heading">
@@ -251,7 +272,7 @@ onMounted(() => void initialize())
                 @keydown="handleSortMenuKeydown"
               >
                 <span>{{ sortOptions.find((option) => option.value === sortMode)?.label ?? 'Nya uppgifter först' }}</span>
-                <span aria-hidden="true" class="text-slate-500">⌄</span>
+                <ChevronDown :size="16" :stroke-width="2" class="shrink-0 text-slate-500" aria-hidden="true" />
               </button>
               <div v-if="sortMenuOpen" id="list-sort-options" class="absolute right-0 top-full z-20 mt-1 w-full min-w-44 overflow-hidden rounded-md border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-600 dark:bg-slate-800" role="listbox" aria-label="Sorteringsalternativ">
                 <button
@@ -340,7 +361,7 @@ onMounted(() => void initialize())
                 @keydown="handleTaskStatusMenuKeydown"
               >
                 <span>{{ taskStatusOptions.find((option) => option.value === taskStatusMode)?.label }}</span>
-                <span aria-hidden="true" class="text-slate-500">⌄</span>
+                <ChevronDown :size="16" :stroke-width="2" class="shrink-0 text-slate-500" aria-hidden="true" />
               </button>
               <div v-if="taskStatusMenuOpen" id="task-status-options" class="absolute right-0 top-full z-20 mt-1 w-full min-w-56 overflow-hidden rounded-md border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-600 dark:bg-slate-800" role="listbox" aria-label="Arbetsflödesalternativ">
                 <button
@@ -367,4 +388,5 @@ onMounted(() => void initialize())
       </section>
     </div>
   </main>
+  </div>
 </template>
