@@ -25,6 +25,27 @@ test('opens task details from a task row', async ({ page }) => {
   await expect(details.getByRole('heading', { name: 'Planering' })).toBeVisible()
   await expect(details.getByRole('heading', { name: 'Anteckningar' })).toBeVisible()
 
+  const planningLabels = [
+    details.getByRole('button', { name: /Min dag/ }).locator('span').first(),
+    details.getByText('Förfallodatum', { exact: true }),
+    details.getByText('Förfallotid', { exact: true }),
+    details.getByText('Påminnelse', { exact: true }),
+  ]
+  const planningFontSizes = await Promise.all(planningLabels.map((label) => label.evaluate((element) => getComputedStyle(element).fontSize)))
+  expect(new Set(planningFontSizes).size).toBe(1)
+  const typeScale = await Promise.all([
+    details.getByRole('heading', { name: 'Planering' }),
+    details.getByRole('button', { name: 'Idag' }),
+    details.getByText('Små bokstäver används; mellanslag blir bindestreck.', { exact: true }),
+    details.getByLabel('Uppgiftens titel'),
+  ].map((element) => element.evaluate((node) => getComputedStyle(node).fontSize)))
+  expect(typeScale).toEqual(['12px', '14px', '12px', '18px'])
+  const pickerAppearances = await Promise.all([
+    details.getByLabel('Uppgiftens förfallodatum'),
+    details.getByLabel('Uppgiftens förfallotid'),
+  ].map((input) => input.evaluate((element) => getComputedStyle(element).appearance)))
+  expect(pickerAppearances).toEqual(['none', 'none'])
+
   await details.getByRole('textbox', { name: 'Anteckningar' }).fill('Kom ihåg måtten.')
   await details.getByRole('button', { name: 'Stäng uppgiftsdetaljer' }).click()
 
