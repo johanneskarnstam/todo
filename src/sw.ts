@@ -28,8 +28,8 @@ const firebaseApp = initializeApp({
 const messaging = getMessaging(firebaseApp)
 
 onBackgroundMessage(messaging, (payload) => {
-  const title = payload.notification?.title ?? 'Todo'
-  const body = payload.notification?.body ?? 'Det är dags att se över uppgiften.'
+  const title = payload.data?.title ?? payload.notification?.title ?? 'Todo'
+  const body = payload.data?.body ?? payload.notification?.body ?? 'Det är dags att se över uppgiften.'
   const taskId = payload.data?.taskId
 
   void self.registration.showNotification(title, {

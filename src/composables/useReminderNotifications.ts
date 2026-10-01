@@ -47,7 +47,7 @@ export const useReminderNotifications = () => {
       const remaining = reminderAt - Date.now()
       if (remaining <= 0) {
         reminderTimers.delete(task.id)
-        if (Notification.permission === 'granted') {
+        if (document.visibilityState === 'visible' && Notification.permission === 'granted') {
           new Notification(`Påminnelse: ${task.title}`, {
             body: 'Det är dags att se över uppgiften.',
             tag: `todo-task-${task.id}`,

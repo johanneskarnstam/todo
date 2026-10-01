@@ -106,11 +106,11 @@ async function processReminderJob(
 
     const message: MulticastMessage = {
       tokens,
-      notification: {
+      data: {
+        taskId: initialJob.taskId,
         title: `Påminnelse: ${task.title}`,
         body: "Det är dags att se över uppgiften.",
       },
-      data: {taskId: initialJob.taskId},
     };
     const response = await send(message);
 

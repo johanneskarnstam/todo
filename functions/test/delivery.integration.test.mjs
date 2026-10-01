@@ -55,6 +55,12 @@ test("claims and marks a due job sent through the mock adapter", async () => {
   );
   assert.equal(deliveredMessage.tokens[0], "mock-token");
   assert.equal(deliveredMessage.data.taskId, "task-delivery");
+  assert.equal(deliveredMessage.notification, undefined);
+  assert.equal(deliveredMessage.data.title, "Påminnelse: Mock delivery task");
+  assert.equal(
+    deliveredMessage.data.body,
+    "Det är dags att se över uppgiften.",
+  );
 
   await Promise.all([
     taskReference.delete(),
