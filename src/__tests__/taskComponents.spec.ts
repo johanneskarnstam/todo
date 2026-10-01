@@ -400,7 +400,7 @@ describe('TaskDetailsPanel', () => {
     },
   ]
 
-  it('uses alternating backgrounds for detail sections', () => {
+  it('uses consistent backgrounds for detail sections', () => {
     const wrapper = mount(TaskDetailsPanel, { props: { task, steps } })
     const sections = wrapper.findAll('[aria-labelledby]')
     const content = wrapper.find('div.min-h-0')
@@ -414,11 +414,11 @@ describe('TaskDetailsPanel', () => {
       'planning-heading',
       'notes-heading',
     ])
-    expect(sections[1]?.classes()).toContain('bg-slate-50')
+    expect(sections[1]?.classes()).toContain('bg-white')
     expect(sections[2]?.classes()).toContain('bg-white')
-    expect(sections[3]?.classes()).toContain('bg-slate-50')
+    expect(sections[3]?.classes()).toContain('bg-white')
     expect(sections[4]?.classes()).toContain('bg-white')
-    expect(sections[5]?.classes()).toContain('bg-slate-50')
+    expect(sections[5]?.classes()).toContain('bg-white')
   })
 
   it('emits updates for title, steps, My day, due date, notes, and deletion', async () => {

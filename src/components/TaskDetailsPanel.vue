@@ -156,7 +156,7 @@ const saveStepTitle = () => {
     </div>
 
     <div class="min-h-0 flex flex-1 flex-col gap-3 overflow-y-auto bg-slate-100 p-3 dark:bg-slate-950">
-      <section class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-800/40" aria-labelledby="title-heading">
+      <section class="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-900" aria-labelledby="title-heading">
         <label id="title-heading" class="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400" for="task-title">Titel</label>
         <input
           id="task-title"
@@ -192,7 +192,7 @@ const saveStepTitle = () => {
         <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">Små bokstäver används; mellanslag blir bindestreck.</p>
       </section>
 
-      <section class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-800/40" aria-labelledby="steps-heading">
+      <section class="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-900" aria-labelledby="steps-heading">
         <h2 id="steps-heading" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Delsteg</h2>
         <div class="space-y-1">
           <label v-for="step in steps" :key="step.id" class="flex min-h-10 items-center gap-3 rounded-lg px-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800">
@@ -281,7 +281,7 @@ const saveStepTitle = () => {
         </div>
       </section>
 
-      <section class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-800/40" aria-labelledby="notes-heading">
+      <section class="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-900" aria-labelledby="notes-heading">
         <h2 id="notes-heading" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Anteckningar</h2>
         <label class="sr-only" for="task-note">Anteckningar</label>
         <textarea id="task-note" v-model="note" class="min-h-28 w-full resize-y rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-700 outline-none transition focus:border-[#2564cf] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200" placeholder="Lägg till en anteckning" @blur="saveNote" />
