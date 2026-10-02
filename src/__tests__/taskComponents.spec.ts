@@ -436,7 +436,7 @@ describe('TaskDetailsPanel', () => {
     await wrapper.find('form:has(input[placeholder="Lägg till delsteg"])').trigger('submit')
     expect(wrapper.emitted('add-step')).toEqual([['Protect floor']])
 
-    await wrapper.find('input[type="checkbox"]').trigger('change')
+    await wrapper.get('[role="checkbox"][aria-label="Markera delsteg som klart: Buy paint"]').trigger('click')
     expect(wrapper.emitted('toggle-step')).toEqual([['step-1']])
     await wrapper.get('[role="dialog"][aria-labelledby="confirm-dialog-title"] button').trigger('click')
 
@@ -463,7 +463,7 @@ describe('TaskDetailsPanel', () => {
   it('asks before completing the parent task after the final step is checked', async () => {
     const wrapper = mount(TaskDetailsPanel, { props: { task, steps } })
 
-    await wrapper.find('input[type="checkbox"]').trigger('change')
+    await wrapper.get('[role="checkbox"][aria-label="Markera delsteg som klart: Buy paint"]').trigger('click')
 
     const confirmation = wrapper.get('[role="dialog"][aria-labelledby="confirm-dialog-title"]')
     expect(confirmation.text()).toContain('Alla deluppgifter är klara. Vill du markera huvuduppgiften som slutförd?')
@@ -475,7 +475,7 @@ describe('TaskDetailsPanel', () => {
   it('does not complete the parent task when the user declines', async () => {
     const wrapper = mount(TaskDetailsPanel, { props: { task, steps } })
 
-    await wrapper.find('input[type="checkbox"]').trigger('change')
+    await wrapper.get('[role="checkbox"][aria-label="Markera delsteg som klart: Buy paint"]').trigger('click')
 
     expect(wrapper.emitted('toggle-step')).toEqual([['step-1']])
     const confirmation = wrapper.get('[role="dialog"][aria-labelledby="confirm-dialog-title"]')
@@ -487,7 +487,7 @@ describe('TaskDetailsPanel', () => {
     const wrapper = mount(TaskDetailsPanel, { props: { task, steps } })
 
     expect(wrapper.get('#steps-heading').element.tagName).toBe('H2')
-    expect(wrapper.find('input[aria-label="Markera delsteg som klart: Buy paint"]').exists()).toBe(true)
+    expect(wrapper.find('[role="checkbox"][aria-label="Markera delsteg som klart: Buy paint"]').exists()).toBe(true)
   })
 
   it('makes a subtask title editable when its text is clicked', async () => {

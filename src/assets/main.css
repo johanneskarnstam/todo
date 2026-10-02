@@ -21,9 +21,30 @@ input {
   font-family: inherit;
 }
 
+.planning-picker {
+  text-align: right;
+}
+
 .planning-picker::-webkit-calendar-picker-indicator {
   display: none;
   -webkit-appearance: none;
+}
+
+.planning-picker::-webkit-date-and-time-value {
+  display: block;
+  width: 100%;
+  text-align: right;
+}
+
+.planning-picker::-webkit-datetime-edit {
+  width: 100%;
+  text-align: right;
+}
+
+.planning-picker::-webkit-datetime-edit-fields-wrapper {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
 }
 
 .sidebar-tag-chip {

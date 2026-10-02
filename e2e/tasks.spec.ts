@@ -221,10 +221,10 @@ test('asks to complete the parent task when all subtasks are checked', async ({ 
   await stepInput.fill('Sista deluppgiften')
   await stepInput.press('Enter')
 
-  await details.getByRole('checkbox', { name: 'Markera delsteg som klart: Första deluppgiften' }).check()
+  await details.getByRole('checkbox', { name: 'Markera delsteg som klart: Första deluppgiften' }).click()
   await expect(details.getByRole('dialog', { name: 'Hela uppgiften klar?' })).toHaveCount(0)
 
-  await details.getByRole('checkbox', { name: 'Markera delsteg som klart: Sista deluppgiften' }).check()
+  await details.getByRole('checkbox', { name: 'Markera delsteg som klart: Sista deluppgiften' }).click()
   const confirmation = details.getByRole('dialog', { name: 'Hela uppgiften klar?' })
   await expect(confirmation).toContainText('Alla deluppgifter är klara. Vill du markera huvuduppgiften som slutförd?')
   await confirmation.getByRole('button', { name: 'Markera huvuduppgiften' }).click()

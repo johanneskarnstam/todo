@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { ArrowLeft, Bell, CalendarDays, ChevronDown, Clock, Copy, Sun } from '@lucide/vue'
+import { ArrowLeft, Bell, CalendarDays, Check, ChevronDown, Clock, Copy, Sun } from '@lucide/vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
-import ToggleSwitch from '@/components/ToggleSwitch.vue'
 import type { Step, Task, TaskReminder } from '@/types'
 import { normalizeTag, normalizeTags } from '@/utils/taskTags'
 
@@ -273,12 +272,17 @@ const saveStepTitle = () => {
         </h2>
         <div class="space-y-1">
           <label v-for="step in steps" :key="step.id" class="flex min-h-10 items-center gap-3 rounded-lg px-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800">
-            <ToggleSwitch
-              :id="`step-toggle-${step.id}`"
-              :checked="step.completed"
+            <button
+              class="grid size-6 shrink-0 place-items-center rounded-full border border-slate-400 text-xs text-white transition hover:border-[#2564cf] dark:border-slate-500"
+              :class="{ 'border-[#2564cf] bg-[#2564cf] dark:border-blue-400 dark:bg-blue-400': step.completed }"
+              type="button"
+              role="checkbox"
+              :aria-checked="step.completed"
               :aria-label="`Markera delsteg som klart: ${step.title}`"
-              @change="handleToggleStep(step.id)"
-            />
+              @click="handleToggleStep(step.id)"
+            >
+              <Check v-if="step.completed" :size="14" aria-hidden="true" />
+            </button>
             <input
               v-if="editingStepId === step.id"
               v-model="editingStepTitle"
