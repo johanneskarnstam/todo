@@ -32,6 +32,7 @@ export interface TaskBreakdownInput {
   note?: string
   additionalPrompt?: string
   modelId?: TaskBreakdownModelId
+  apiKey?: string
 }
 
 export interface TaskBreakdownResult {
@@ -97,7 +98,9 @@ const normalizeInput = (input: TaskBreakdownInput) => {
     throw new TaskBreakdownError('invalid-input', 'Den valda AI-modellen är inte tillgänglig.')
   }
 
-  return { title, note, additionalPrompt, modelId }
+  const apiKey = input.apiKey?.trim() || undefined
+
+  return { title, note, additionalPrompt, modelId, apiKey }
 }
 
 const buildPrompt = (input: ReturnType<typeof normalizeInput>) => [
@@ -275,9 +278,14 @@ export const generateWithApiKey = async (
 
 export const generateTaskBreakdown = async (input: TaskBreakdownInput): Promise<TaskBreakdownResult> => {
   const normalizedInput = normalizeInput(input)
+  const chosenKey = normalizedInput.apiKey
   const keys = readAiKeys()
 
-  if (keys.length > 0) {
+  if (chosenKey && chosenKey !== 'auto' && chosenKey !== 'standard') {
+    return await generateWithApiKey(chosenKey, normalizedInput)
+  }
+
+  if (chosenKey !== 'standard' && keys.length > 0) {
     let lastError: TaskBreakdownError | null = null
 
     for (const apiKey of keys) {

@@ -347,10 +347,43 @@ describe('TaskBreakdownModal', () => {
 
     // Open the key panel
     await keyToggle!.trigger('click')
-    await vi.waitFor(() => expect(wrapper.text()).toContain('Egna Gemini API-nycklar'))
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Välj en specifik API-nyckel ovan'))
 
     // Input field for adding a key should be present
     expect(wrapper.find('#modal-new-ai-key').exists()).toBe(true)
   })
+
+  it('allows user to choose a specific API key in the modal and passes it when generating', async () => {
+    const { useAiKeys } = await import('@/composables/useAiKeys')
+    const { addKey, setSelectedKey } = useAiKeys()
+    addKey('AIzaSyKey1111')
+    addKey('AIzaSyKey2222')
+    setSelectedKey('auto')
+
+    const breakdownStore = useTaskBreakdownStore()
+    vi.spyOn(breakdownStore, 'loadLatest').mockResolvedValue(null)
+    const generateSpy = vi.spyOn(breakdownStore, 'generateLatest').mockResolvedValue(sampleBreakdown)
+
+    const wrapper = mountModal({
+      isOpen: true,
+      task: sampleTask(),
+    })
+
+    const keySelect = wrapper.find('#modal-key-select')
+    expect(keySelect.exists()).toBe(true)
+
+    // Select the second key
+    await keySelect.setValue('AIzaSyKey2222')
+
+    // Click generate button
+    const generateBtn = wrapper.findAll('button').find((btn) => btn.text().includes('Generera förslag'))
+    expect(generateBtn).toBeTruthy()
+    await generateBtn!.trigger('click')
+
+    expect(generateSpy).toHaveBeenCalledWith('task-1', expect.objectContaining({
+      apiKey: 'AIzaSyKey2222',
+    }))
+  })
 })
+
 

@@ -68,4 +68,26 @@ describe('useAiKeys', () => {
     expect(aiKeys.value).toEqual(['key-1', 'key-3'])
     expect(JSON.parse(localStorage.getItem(AI_KEYS_STORAGE_KEY)!)).toEqual(['key-1', 'key-3'])
   })
+
+  it('manages selectedApiKey and resets to auto when selected key is removed', () => {
+    const { aiKeys, selectedApiKey, setSelectedKey, addKey, removeKey } = useAiKeys()
+    addKey('key-1')
+    addKey('key-2')
+
+    expect(selectedApiKey.value).toBe('auto')
+
+    setSelectedKey('key-2')
+    expect(selectedApiKey.value).toBe('key-2')
+
+    // Removing an unselected key keeps the selected key
+    removeKey(0) // removes key-1
+    expect(aiKeys.value).toEqual(['key-2'])
+    expect(selectedApiKey.value).toBe('key-2')
+
+    // Removing the selected key resets to auto
+    removeKey(0) // removes key-2
+    expect(aiKeys.value).toEqual([])
+    expect(selectedApiKey.value).toBe('auto')
+  })
 })
+

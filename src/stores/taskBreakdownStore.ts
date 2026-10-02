@@ -19,7 +19,6 @@ import {
   classifyTaskBreakdownError,
   generateTaskBreakdown,
   type TaskBreakdownInput,
-  type TaskBreakdownModelId,
 } from '@/services/taskBreakdownService'
 import type { AiBreakdownMetadata, AiBreakdownSuggestion, AiBreakdownSuggestionStatus, AiSuggestionSelection, Step, TaskAiBreakdown } from '@/types'
 
@@ -227,7 +226,7 @@ export const useTaskBreakdownStore = defineStore('taskBreakdowns', () => {
     }
   }
 
-  const generateLatest = async (taskId: string, input: Omit<TaskBreakdownInput, 'modelId'> & { modelId?: TaskBreakdownModelId }) => {
+  const generateLatest = async (taskId: string, input: TaskBreakdownInput) => {
     if (currentTaskId.value !== taskId) await loadLatest(taskId)
 
     const previousSuggestions = latest.value?.suggestions ?? []

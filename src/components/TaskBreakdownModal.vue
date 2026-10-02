@@ -44,7 +44,7 @@ const {
   clear,
 } = useTaskBreakdown()
 
-const { aiKeys, addKey, removeKey } = useAiKeys()
+const { aiKeys, selectedApiKey, addKey, removeKey } = useAiKeys()
 
 const additionalPrompt = ref('')
 const selectedSuggestionIds = ref<string[]>([])
@@ -104,8 +104,9 @@ const generateSuggestions = async () => {
   const modelId = selectedModelId.value === DEFAULT_TASK_BREAKDOWN_MODEL_ID
     ? undefined
     : selectedModelId.value
+  const apiKey = selectedApiKey.value
   try {
-    await generate(props.task, additionalPrompt.value, modelId)
+    await generate(props.task, additionalPrompt.value, modelId, apiKey)
     syncSelectedSuggestions()
   } catch {
     // The composable keeps a categorized, user-safe error for the modal.
@@ -138,7 +139,8 @@ const handleConfirm = async () => {
 const handleAddKey = () => {
   keyFeedback.value = ''
   keyFeedbackIsError.value = false
-  const res = addKey(newKeyInput.value)
+  const trimmed = newKeyInput.value.trim()
+  const res = addKey(trimmed)
   if (!res.success) {
     keyFeedback.value = res.error ?? 'Kunde inte lägga till nyckeln.'
     keyFeedbackIsError.value = true
@@ -146,6 +148,7 @@ const handleAddKey = () => {
   }
   newKeyInput.value = ''
   keyFeedback.value = 'API-nyckel tillagd.'
+  selectedApiKey.value = trimmed
 }
 
 const closeModal = () => emit('close')
@@ -231,34 +234,58 @@ const errorTitle = computed(() => {
 
           <!-- AI Model & Key Settings -->
           <section class="rounded-lg border border-slate-200 dark:border-slate-700" aria-labelledby="modal-ai-settings-heading">
-            <div class="flex items-center gap-3 px-4 py-3">
-              <label for="modal-model-select" class="shrink-0 text-sm font-medium text-slate-800 dark:text-slate-100">Modell</label>
-              <select
-                id="modal-model-select"
-                v-model="selectedModelId"
-                class="min-h-9 min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-2.5 text-sm text-slate-800 outline-none focus:border-[#2564cf] dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-                :disabled="isGenerating"
-              >
-                <option v-for="model in allModelOptions" :key="model.id" :value="model.id">
-                  {{ model.name }}
-                </option>
-              </select>
-              <button
-                type="button"
-                class="inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-                :aria-expanded="isAiSettingsOpen"
-                aria-controls="modal-ai-key-panel"
-                @click="isAiSettingsOpen = !isAiSettingsOpen"
-              >
-                <Key :size="14" aria-hidden="true" />
-                <span>{{ aiKeys.length ? `${aiKeys.length} ${aiKeys.length === 1 ? 'nyckel' : 'nycklar'}` : 'API-nycklar' }}</span>
-                <ChevronDown :size="14" class="transition-transform" :class="{ 'rotate-180': isAiSettingsOpen }" aria-hidden="true" />
-              </button>
+            <div class="grid gap-3 p-4 sm:grid-cols-2">
+              <div class="flex flex-col gap-1.5">
+                <label for="modal-model-select" class="text-xs font-medium text-slate-700 dark:text-slate-300">Modell</label>
+                <select
+                  id="modal-model-select"
+                  v-model="selectedModelId"
+                  class="min-h-9 w-full rounded-md border border-slate-200 bg-white px-2.5 text-sm text-slate-800 outline-none focus:border-[#2564cf] dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                  :disabled="isGenerating"
+                >
+                  <option v-for="model in allModelOptions" :key="model.id" :value="model.id">
+                    {{ model.name }}
+                  </option>
+                </select>
+              </div>
+
+              <div class="flex flex-col gap-1.5">
+                <div class="flex items-center justify-between">
+                  <label for="modal-key-select" class="text-xs font-medium text-slate-700 dark:text-slate-300">API-nyckel</label>
+                  <button
+                    type="button"
+                    class="inline-flex items-center gap-1 text-[11px] font-medium text-[#2564cf] hover:underline dark:text-blue-400"
+                    :aria-expanded="isAiSettingsOpen"
+                    aria-controls="modal-ai-key-panel"
+                    @click="isAiSettingsOpen = !isAiSettingsOpen"
+                  >
+                    <Key :size="12" aria-hidden="true" />
+                    <span>{{ isAiSettingsOpen ? 'Dölj hantering' : (aiKeys.length ? `${aiKeys.length} API-nycklar` : 'Hantera API-nycklar') }}</span>
+                    <ChevronDown :size="12" class="transition-transform" :class="{ 'rotate-180': isAiSettingsOpen }" aria-hidden="true" />
+                  </button>
+                </div>
+                <select
+                  id="modal-key-select"
+                  v-model="selectedApiKey"
+                  class="min-h-9 w-full rounded-md border border-slate-200 bg-white px-2.5 text-sm text-slate-800 outline-none focus:border-[#2564cf] dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                  :disabled="isGenerating"
+                >
+                  <option v-if="aiKeys.length > 1" value="auto">
+                    Automatiskt (testa alla {{ aiKeys.length }})
+                  </option>
+                  <option v-for="(key, index) in aiKeys" :key="index" :value="key">
+                    Nyckel {{ index + 1 }} ({{ maskApiKey(key) }})
+                  </option>
+                  <option value="standard">
+                    Projektets standard (ingen nyckel)
+                  </option>
+                </select>
+              </div>
             </div>
 
             <div v-if="isAiSettingsOpen" id="modal-ai-key-panel" class="border-t border-slate-200 px-4 py-3 dark:border-slate-700" role="region" aria-label="API-nyckelhantering">
               <p class="mb-2 text-xs text-slate-500 dark:text-slate-400">
-                Egna Gemini API-nycklar testas i turordning. Om kvoten tar slut används nästa nyckel automatiskt.
+                Välj en specifik API-nyckel ovan eller välj automatiskt läge där nycklarna testas i turordning.
               </p>
 
               <form class="mb-2 flex gap-2" @submit.prevent="handleAddKey">
@@ -292,18 +319,31 @@ const errorTitle = computed(() => {
                     <span class="truncate font-mono text-xs text-slate-700 dark:text-slate-200">
                       {{ maskApiKey(key) }}
                     </span>
-                    <span v-if="index === 0" class="rounded bg-blue-100 px-1 py-0.5 text-[10px] font-medium text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
-                      Primär
+                    <span v-if="selectedApiKey === key" class="rounded bg-blue-100 px-1 py-0.5 text-[10px] font-medium text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
+                      Vald
+                    </span>
+                    <span v-else-if="index === 0 && selectedApiKey === 'auto'" class="rounded bg-slate-100 px-1 py-0.5 text-[10px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                      Första i tur
                     </span>
                   </div>
-                  <button
-                    type="button"
-                    class="grid size-7 shrink-0 place-items-center rounded text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-                    :aria-label="`Ta bort nyckel ${index + 1}`"
-                    @click="removeKey(index)"
-                  >
-                    <Trash2 :size="14" aria-hidden="true" />
-                  </button>
+                  <div class="flex items-center gap-1">
+                    <button
+                      v-if="selectedApiKey !== key"
+                      type="button"
+                      class="rounded px-2 py-1 text-[11px] font-medium text-[#2564cf] hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/40"
+                      @click="selectedApiKey = key"
+                    >
+                      Välj
+                    </button>
+                    <button
+                      type="button"
+                      class="grid size-7 shrink-0 place-items-center rounded text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+                      :aria-label="`Ta bort nyckel ${index + 1}`"
+                      @click="removeKey(index)"
+                    >
+                      <Trash2 :size="14" aria-hidden="true" />
+                    </button>
+                  </div>
                 </li>
               </ul>
               <p v-else class="text-xs text-slate-500 dark:text-slate-400">
@@ -311,6 +351,7 @@ const errorTitle = computed(() => {
               </p>
             </div>
           </section>
+
 
           <p v-if="contextIsStale" class="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200" role="status">
             Förslagen skapades från en äldre titel eller anteckning.

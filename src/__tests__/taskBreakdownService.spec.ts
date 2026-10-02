@@ -147,7 +147,46 @@ describe('generateTaskBreakdown', () => {
     expect(fetchSpy).toHaveBeenCalledTimes(2)
     fetchSpy.mockRestore()
   })
+
+  it('uses explicitly chosen API key directly without failover', async () => {
+    localStorage.setItem('todo-gemini-api-keys', JSON.stringify(['key-1', 'key-2']))
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+    fetchSpy.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        candidates: [{
+          content: { parts: [{ text: JSON.stringify({ steps: ['Direkt från specifik nyckel'] }) }] },
+        }],
+      }),
+    } as Response)
+
+    const result = await generateTaskBreakdown({ title: 'Vald nyckel', apiKey: 'key-2' })
+
+    expect(result.steps).toEqual(['Direkt från specifik nyckel'])
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    expect(fetchSpy.mock.calls[0][0]).toContain('key=key-2')
+    expect(aiMocks.generateContent).not.toHaveBeenCalled()
+
+    fetchSpy.mockRestore()
+  })
+
+  it('bypasses saved keys when standard quota is chosen', async () => {
+    localStorage.setItem('todo-gemini-api-keys', JSON.stringify(['key-1', 'key-2']))
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+
+    const result = await generateTaskBreakdown({ title: 'Standardkvot', apiKey: 'standard' })
+
+    expect(result.steps).toEqual(['Köp färg', 'Mät väggen'])
+    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(aiMocks.generateContent).toHaveBeenCalled()
+
+    fetchSpy.mockRestore()
+  })
 })
+
 
 describe('classifyTaskBreakdownError', () => {
   it('offers alternative models only for recoverable model-capacity errors', () => {
