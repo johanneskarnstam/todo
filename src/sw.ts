@@ -17,12 +17,12 @@ self.addEventListener('message', (event) => {
 })
 
 const firebaseApp = initializeApp({
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'mock-api-key',
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'localhost',
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'todo-app',
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'todo-app.appspot.com',
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '1234567890',
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:1234567890:web:mock-app-id',
 })
 
 const messaging = getMessaging(firebaseApp)
