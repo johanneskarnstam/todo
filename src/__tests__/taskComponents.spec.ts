@@ -421,7 +421,7 @@ describe('TaskDetailsPanel', () => {
     expect(sections[5]?.classes()).toContain('bg-white')
   })
 
-  it('emits updates for title, steps, My day, due date, notes, and deletion', async () => {
+  it('emits updates for title, steps, My day, notes, and deletion', async () => {
     const wrapper = mount(TaskDetailsPanel, { props: { task, steps } })
 
     const titleInput = wrapper.find('input[aria-label="Uppgiftens titel"]')
@@ -447,10 +447,6 @@ describe('TaskDetailsPanel', () => {
     const myDayButton = wrapper.findAll('button').find((button) => button.text().includes('Lägg till i Min dag'))
     await myDayButton?.trigger('click')
     expect(wrapper.emitted('toggle-my-day')).toHaveLength(1)
-
-    const dateInput = wrapper.find('input[type="date"]')
-    await dateInput.setValue('2026-10-01')
-    expect(wrapper.emitted('set-due-date')).toEqual([['2026-10-01']])
 
     const noteInput = wrapper.find('textarea')
     await noteInput.setValue('Use the blue paint.')
@@ -554,6 +550,31 @@ describe('TaskDetailsPanel', () => {
 
     expect(wrapper.emitted('set-due-date')).toEqual([['2026-10-01T14:30']])
     expect(wrapper.emitted('save-reminder')).toEqual([[{ offsetMinutes: 60 }]])
+  })
+
+  it('emits a selected due date from the native date input', async () => {
+    const wrapper = mount(TaskDetailsPanel, { props: { task, steps } })
+
+    const dateInput = wrapper.get('input[aria-label="Uppgiftens förfallodatum"]')
+    expect(dateInput.attributes('type')).toBe('date')
+    await dateInput.setValue('2026-10-01')
+
+    expect(wrapper.emitted('set-due-date')).toEqual([['2026-10-01']])
+  })
+
+  it('renders a task due time and emits changes with its due date', async () => {
+    const wrapper = mount(TaskDetailsPanel, {
+      props: { task: { ...task, dueDate: '2026-10-01T09:15' }, steps },
+    })
+    const dateInput = wrapper.get('input[aria-label="Uppgiftens förfallodatum"]')
+    const timeInput = wrapper.get('input[aria-label="Uppgiftens förfallotid"]')
+
+    expect((dateInput.element as HTMLInputElement).value).toBe('2026-10-01')
+    expect((timeInput.element as HTMLInputElement).value).toBe('09:15')
+    expect((timeInput.element as HTMLInputElement).disabled).toBe(false)
+    await timeInput.setValue('14:30')
+
+    expect(wrapper.emitted('set-due-date')).toEqual([['2026-10-01T14:30']])
   })
 
 })
