@@ -109,7 +109,7 @@ async function processReminderJob(
       data: {
         taskId: initialJob.taskId,
         title: `Påminnelse: ${task.title}`,
-        body: "Det är dags att se över uppgiften.",
+        body: task.title,
       },
     };
     const response = await send(message);

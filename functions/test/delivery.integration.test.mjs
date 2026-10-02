@@ -59,7 +59,7 @@ test("claims and marks a due job sent through the mock adapter", async () => {
   assert.equal(deliveredMessage.data.title, "Påminnelse: Mock delivery task");
   assert.equal(
     deliveredMessage.data.body,
-    "Det är dags att se över uppgiften.",
+    "Mock delivery task",
   );
 
   await Promise.all([

@@ -27,7 +27,10 @@ describe('useReminderNotifications', () => {
     })
   })
 
-  afterEach(() => vi.unstubAllGlobals())
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+  })
 
   const mountReminderNotifications = () => {
     const api = ref<ReturnType<typeof useReminderNotifications> | null>(null)
@@ -79,6 +82,33 @@ describe('useReminderNotifications', () => {
     await expect(api.enablePushForReminder()).resolves.toBe('unavailable')
     expect(reminderMocks.enablePush).not.toHaveBeenCalled()
 
+    wrapper.unmount()
+  })
+
+  it('includes the task title in the reminder notification body', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-02T12:00:00'))
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
+    const notificationConstructor = Object.assign(vi.fn(), {
+      permission: 'granted',
+      requestPermission: vi.fn().mockResolvedValue('granted'),
+    })
+    vi.stubGlobal('Notification', notificationConstructor)
+    const { api, wrapper } = mountReminderNotifications()
+    const title = 'Review release notes'
+
+    api.scheduleTaskReminder({
+      id: 'task-reminder',
+      title,
+      dueDate: new Date(Date.now() + 1_000).toISOString(),
+      reminder: { offsetMinutes: 0 },
+    })
+    await vi.advanceTimersByTimeAsync(1_000)
+
+    expect(notificationConstructor).toHaveBeenCalledWith(`Påminnelse: ${title}`, {
+      body: title,
+      tag: 'todo-task-task-reminder',
+    })
     wrapper.unmount()
   })
 })

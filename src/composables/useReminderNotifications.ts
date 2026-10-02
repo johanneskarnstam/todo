@@ -59,7 +59,7 @@ export const useReminderNotifications = () => {
         reminderTimers.delete(task.id)
         if (document.visibilityState === 'visible' && Notification.permission === 'granted') {
           new Notification(`Påminnelse: ${task.title}`, {
-            body: 'Det är dags att se över uppgiften.',
+            body: task.title,
             tag: `todo-task-${task.id}`,
           })
         }
