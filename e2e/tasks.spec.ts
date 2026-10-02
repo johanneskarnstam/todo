@@ -296,6 +296,7 @@ test('adds a tag and uses a quick due-date preset', async ({ page }) => {
   await details.getByLabel('Påminnelse').click()
   await details.getByRole('option', { name: '1 timme före' }).click()
   await expect(details.getByText('Påminnelse aktiv')).toBeVisible()
+  await expect(page.getByRole('alert').filter({ hasText: 'den här enheten kunde inte registreras för pushaviseringar.' })).toBeVisible()
 
   await details.getByRole('button', { name: 'Stäng uppgiftsdetaljer' }).click()
   await page.getByRole('button', { name: 'Taggar' }).click()

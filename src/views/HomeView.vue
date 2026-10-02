@@ -32,7 +32,7 @@ const isRenamingList = ref(false)
 const listStore = useListStore()
 const taskStore = useTaskStore()
 const toastStore = useToastStore()
-const { requestPermission, scheduleTaskReminder, cancelTaskReminder } = useReminderNotifications()
+const { enablePushForReminder, scheduleTaskReminder, cancelTaskReminder } = useReminderNotifications()
 const { isDark, toggleTheme } = useTheme()
 const { preferences } = usePreferences()
 const route = useRoute()
@@ -493,8 +493,9 @@ const handleSetDueDate = async (taskId: string, dueDate: string) => {
 const handleSaveReminder = async (taskId: string, reminder: TaskReminder | null) => {
   const updatePromise = taskStore.updateTask(taskId, { reminder })
   if (reminder) {
-    const granted = await requestPermission()
-    if (!granted) toastStore.show('Påminnelsen sparas, men aviseringar är blockerade i webbläsaren.')
+    const pushSetup = await enablePushForReminder()
+    if (pushSetup === 'disabled') toastStore.show('Påminnelsen sparas, men pushaviseringar är avstängda i inställningarna.')
+    if (pushSetup === 'unavailable') toastStore.show('Påminnelsen sparas, men den här enheten kunde inte registreras för pushaviseringar.')
   }
   await updatePromise
 }

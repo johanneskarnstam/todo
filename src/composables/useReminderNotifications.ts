@@ -1,9 +1,12 @@
 import { onUnmounted } from 'vue'
 import type { Task } from '@/types'
 import { usePreferences } from '@/composables/usePreferences'
+import { usePushNotifications } from '@/composables/usePushNotifications'
 
 const reminderTimers = new Map<string, ReturnType<typeof setTimeout>>()
 const maxTimeout = 2_147_000_000
+
+export type ReminderPushSetupResult = 'enabled' | 'disabled' | 'unavailable'
 
 const reminderTime = (dueDate: Task['dueDate']): number | null => {
   if (!dueDate) return null
@@ -25,6 +28,7 @@ const clearTaskReminder = (taskId: string) => {
 
 export const useReminderNotifications = () => {
   const { preferences } = usePreferences()
+  const { enablePush } = usePushNotifications()
   const isSupported = typeof window !== 'undefined' && 'Notification' in window
 
   const requestPermission = async (): Promise<boolean> => {
@@ -33,6 +37,12 @@ export const useReminderNotifications = () => {
     if (Notification.permission === 'denied') return false
 
     return (await Notification.requestPermission()) === 'granted'
+  }
+
+  const enablePushForReminder = async (): Promise<ReminderPushSetupResult> => {
+    if (!preferences.value.notifications) return 'disabled'
+    if (!(await requestPermission())) return 'unavailable'
+    return await enablePush() ? 'enabled' : 'unavailable'
   }
 
   const scheduleTaskReminder = (task: Pick<Task, 'id' | 'title' | 'dueDate' | 'reminder'>) => {
@@ -71,5 +81,5 @@ export const useReminderNotifications = () => {
     for (const taskId of reminderTimers.keys()) clearTaskReminder(taskId)
   })
 
-  return { requestPermission, scheduleTaskReminder, cancelTaskReminder }
+  return { requestPermission, enablePushForReminder, scheduleTaskReminder, cancelTaskReminder }
 }

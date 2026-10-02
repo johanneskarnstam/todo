@@ -21,7 +21,7 @@ const router = useRouter()
 const listStore = useListStore()
 const taskStore = useTaskStore()
 const toastStore = useToastStore()
-const { requestPermission } = useReminderNotifications()
+const { enablePushForReminder } = useReminderNotifications()
 const { preferences } = usePreferences()
 const { isDark, toggleTheme } = useTheme()
 
@@ -105,8 +105,10 @@ const handleSaveStepTitle = (stepId: string, title: string) => {
 
 const handleSaveReminder = async (taskId: string, reminder: TaskReminder | null) => {
   const updatePromise = taskStore.updateTask(taskId, { reminder })
-  if (reminder && !(await requestPermission())) {
-    toastStore.show('Påminnelsen sparas, men aviseringar är blockerade i webbläsaren.')
+  if (reminder) {
+    const pushSetup = await enablePushForReminder()
+    if (pushSetup === 'disabled') toastStore.show('Påminnelsen sparas, men pushaviseringar är avstängda i inställningarna.')
+    if (pushSetup === 'unavailable') toastStore.show('Påminnelsen sparas, men den här enheten kunde inte registreras för pushaviseringar.')
   }
   await updatePromise
 }
