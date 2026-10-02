@@ -17,6 +17,7 @@ const authMocks = vi.hoisted(() => ({
 const pushMocks = vi.hoisted(() => ({ disablePush: vi.fn() }))
 
 vi.mock('@/firebase', () => ({
+  app: {},
   auth: authMocks.auth,
   db: {},
 }))

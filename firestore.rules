@@ -2,6 +2,94 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function taskExists(userId, taskId) {
+      return exists(/databases/$(database)/documents/users/$(userId)/tasks/$(taskId));
+    }
+
+    function isValidAiBreakdown(data) {
+      return data.keys().hasAll([
+          'schemaVersion',
+          'modelId',
+          'sourceTitle',
+          'sourceNote',
+          'sourcePrompt',
+          'generatedAt',
+          'suggestionCount',
+          'suggestionIds',
+        ])
+        && data.keys().hasOnly([
+          'schemaVersion',
+          'modelId',
+          'sourceTitle',
+          'sourceNote',
+          'sourcePrompt',
+          'generatedAt',
+          'suggestionCount',
+          'suggestionIds',
+        ])
+        && data.schemaVersion == 1
+        && data.modelId in [
+          'gemini-3.8-flash',
+          'gemini-3.7-flash',
+          'gemini-3.6-flash',
+          'gemini-3.5-flash-lite',
+        ]
+        && data.sourceTitle is string
+        && data.sourceTitle.size() > 0
+        && data.sourceTitle.size() <= 200
+        && data.sourceNote is string
+        && data.sourceNote.size() <= 4000
+        && data.sourcePrompt is string
+        && data.sourcePrompt.size() <= 1000
+        && data.generatedAt is timestamp
+        && data.suggestionCount is int
+        && data.suggestionCount >= 1
+        && data.suggestionCount <= 20
+        && data.suggestionIds is list
+        && data.suggestionIds.size() == data.suggestionCount
+        && data.suggestionIds.size() <= 20;
+    }
+
+    function isValidAiSuggestion(data) {
+      return data.keys().hasAll(['title', 'order', 'status'])
+        && data.keys().hasOnly(['title', 'order', 'status', 'stepId'])
+        && data.title is string
+        && data.title.size() > 0
+        && data.title.size() <= 180
+        && data.order is int
+        && data.order >= 0
+        && data.order < 20
+        && data.status in ['available', 'skipped', 'added']
+        && (
+          (data.status == 'added'
+            && 'stepId' in data
+            && data.stepId is string
+            && data.stepId.size() > 0
+            && data.stepId.size() <= 150)
+          || (data.status != 'added' && !('stepId' in data))
+        );
+    }
+
+    function isValidAiSuggestionTransition(userId, taskId) {
+      return (resource.data.status == 'available'
+          && request.resource.data.status in ['skipped', 'added'])
+        || (resource.data.status == 'skipped'
+          && request.resource.data.status in ['available', 'added'])
+        || (resource.data.status == 'added'
+          && request.resource.data.status == 'available'
+          && 'stepId' in resource.data
+          && resource.data.stepId is string
+          && !('stepId' in request.resource.data));
+    }
+
     match /users/{userId}/reminderJobs/{jobId} {
       allow read, write: if false;
     }
@@ -27,6 +115,52 @@ service cloud.firestore {
 
     match /users/{userId}/tasks/{taskId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    match /users/{userId}/tasks/{taskId}/aiBreakdowns/{breakdownId} {
+      allow read: if isOwner(userId)
+        && taskExists(userId, taskId)
+        && breakdownId == 'latest';
+      allow create, update: if isOwner(userId)
+        && taskExists(userId, taskId)
+        && breakdownId == 'latest'
+        && isValidAiBreakdown(request.resource.data);
+      allow delete: if isOwner(userId)
+        && taskExists(userId, taskId)
+        && breakdownId == 'latest';
+
+      match /suggestions/{suggestionId} {
+        allow read: if isOwner(userId)
+          && taskExists(userId, taskId)
+          && breakdownId == 'latest'
+          && exists(/databases/$(database)/documents/users/$(userId)/tasks/$(taskId)/aiBreakdowns/latest);
+        allow create: if isOwner(userId)
+          && taskExists(userId, taskId)
+          && breakdownId == 'latest'
+          && suggestionId.size() > 0
+          && suggestionId.size() <= 150
+          && existsAfter(/databases/$(database)/documents/users/$(userId)/tasks/$(taskId)/aiBreakdowns/latest)
+          && suggestionId in getAfter(/databases/$(database)/documents/users/$(userId)/tasks/$(taskId)/aiBreakdowns/latest).data.suggestionIds
+          && isValidAiSuggestion(request.resource.data)
+          && request.resource.data.status == 'available'
+          && !('stepId' in request.resource.data);
+        allow update: if isOwner(userId)
+          && taskExists(userId, taskId)
+          && breakdownId == 'latest'
+          && exists(/databases/$(database)/documents/users/$(userId)/tasks/$(taskId)/aiBreakdowns/latest)
+          && suggestionId in get(/databases/$(database)/documents/users/$(userId)/tasks/$(taskId)/aiBreakdowns/latest).data.suggestionIds
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'stepId'])
+          && isValidAiSuggestion(request.resource.data)
+          && isValidAiSuggestionTransition(userId, taskId)
+          && (resource.data.status != 'added'
+            || request.resource.data.status != 'available'
+            || !existsAfter(/databases/$(database)/documents/users/$(userId)/tasks/$(taskId)/steps/$(resource.data.stepId)))
+          && (request.resource.data.status != 'added'
+            || existsAfter(/databases/$(database)/documents/users/$(userId)/tasks/$(taskId)/steps/$(request.resource.data.stepId)));
+        allow delete: if isOwner(userId)
+          && taskExists(userId, taskId)
+          && breakdownId == 'latest';
+      }
     }
 
     match /users/{userId}/tasks/{taskId}/steps/{stepId} {

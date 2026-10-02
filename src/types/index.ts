@@ -58,11 +58,44 @@ export interface Step {
   completed: boolean
   createdAt: Timestamp
   order?: number
+  aiSuggestionId?: string
+}
+
+export interface AiSuggestionSelection {
+  suggestionId: string
+  selected: boolean
+  title?: string
 }
 
 export interface StepCount {
   completed: number
   total: number
+}
+
+export type AiBreakdownSuggestionStatus = 'available' | 'skipped' | 'added'
+
+export interface AiBreakdownMetadata {
+  schemaVersion: 1
+  modelId: string
+  sourceTitle: string
+  sourceNote: string
+  sourcePrompt: string
+  generatedAt: Timestamp
+  suggestionCount: number
+  suggestionIds: string[]
+}
+
+export interface AiBreakdownSuggestion {
+  id: string
+  title: string
+  order: number
+  status: AiBreakdownSuggestionStatus
+  stepId?: string
+}
+
+export interface TaskAiBreakdown {
+  metadata: AiBreakdownMetadata
+  suggestions: AiBreakdownSuggestion[]
 }
 
 export type SmartView = 'myDay' | 'important' | 'planned' | 'archived'

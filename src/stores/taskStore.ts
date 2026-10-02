@@ -6,6 +6,7 @@ import {
   deleteField,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   getDocsFromCache,
   serverTimestamp,
@@ -18,8 +19,9 @@ import { auth, db } from '@/firebase'
 import { isMockAuthEnabled, MOCK_USER_ID } from '@/devMode'
 import { useListStore } from '@/stores/listStore'
 import { useToastStore } from '@/stores/toastStore'
+import { clearMockBreakdown, useTaskBreakdownStore } from '@/stores/taskBreakdownStore'
 import { isBrowserOffline } from '@/composables/useNetworkStatus'
-import type { SmartView, Step, StepCount, Task, TaskReminder, TaskStatus, TaskStatusMode, TaskView } from '@/types'
+import type { AiSuggestionSelection, SmartView, Step, StepCount, Task, TaskReminder, TaskStatus, TaskStatusMode, TaskView } from '@/types'
 import { sortTasksForMode } from '@/utils/taskSorting'
 import { normalizeTags } from '@/utils/taskTags'
 import { vibrateOnTaskCompletion } from '@/utils/deviceFeedback'
@@ -189,6 +191,12 @@ export const useTaskStore = defineStore('tasks', () => {
 
   const taskStepsCollection = (taskId: string) =>
     collection(db, 'users', userId(), 'tasks', taskId, 'steps')
+
+  const aiBreakdownReference = (taskId: string) =>
+    doc(db, 'users', userId(), 'tasks', taskId, 'aiBreakdowns', 'latest')
+
+  const aiSuggestionsCollection = (taskId: string) =>
+    collection(db, 'users', userId(), 'tasks', taskId, 'aiBreakdowns', 'latest', 'suggestions')
 
   const fetchStepsForTask = async (taskId: string): Promise<Step[] | null> => {
     try {
@@ -489,6 +497,110 @@ export const useTaskStore = defineStore('tasks', () => {
     }
   }
 
+  const createStepsFromAi = async (taskId: string, selections: AiSuggestionSelection[]) => {
+    const uniqueSelectionIds = new Set(selections.map((selection) => selection.suggestionId))
+    if (!selections.length || selections.length > 20 || uniqueSelectionIds.size !== selections.length) return []
+
+    const selectedIds = new Set(selections.filter((selection) => selection.selected).map((selection) => selection.suggestionId))
+    if (selectedIds.size === 0) return []
+
+    let suggestionsById: Map<string, Record<string, unknown>>
+    if (isMockAuthEnabled) {
+      suggestionsById = new Map(selections.map((selection) => [selection.suggestionId, {
+        title: selection.title ?? selection.suggestionId,
+        order: 0,
+        status: 'available',
+      }]))
+    } else {
+      const breakdownSnapshot = await getDoc(aiBreakdownReference(taskId))
+      if (!breakdownSnapshot.exists()) return []
+      const metadata = breakdownSnapshot.data()
+      if (
+        !Array.isArray(metadata.suggestionIds) ||
+        selections.some((selection) => !metadata.suggestionIds.includes(selection.suggestionId))
+      ) return []
+
+      const suggestionSnapshot = await getDocs(aiSuggestionsCollection(taskId))
+      suggestionsById = new Map(suggestionSnapshot.docs.map((suggestion) => [suggestion.id, suggestion.data()]))
+      if (selections.some((selection) => !suggestionsById.has(selection.suggestionId))) return []
+    }
+
+    const eligibleSelections = selections.filter((selection) => {
+      const suggestion = suggestionsById.get(selection.suggestionId)
+      return suggestion?.status !== 'added'
+    })
+    const selectedSuggestions = eligibleSelections
+      .filter((selection) => selection.selected)
+      .map((selection) => ({
+        selection,
+        suggestion: suggestionsById.get(selection.suggestionId)!,
+      }))
+    if (!selectedSuggestions.length) return []
+
+    const existingTaskSteps = allSteps.value.filter((step) => step.taskId === taskId)
+    let nextOrder = existingTaskSteps.reduce((highest, step) => Math.max(highest, step.order ?? -1), -1) + 1
+    const optimisticSteps: Step[] = selectedSuggestions.map(({ selection, suggestion }) => ({
+      id: `optimistic-${crypto.randomUUID()}`,
+      taskId,
+      title: String(suggestion.title),
+      completed: false,
+      createdAt: Timestamp.now(),
+      order: nextOrder++,
+      aiSuggestionId: selection.suggestionId,
+    }))
+
+    allSteps.value = [...allSteps.value, ...optimisticSteps]
+    error.value = null
+
+    if (isMockAuthEnabled) return optimisticSteps
+
+    const batch = writeBatch(db)
+    const stepReferences = selectedSuggestions.map(() => doc(taskStepsCollection(taskId)))
+    for (let index = 0; index < selectedSuggestions.length; index += 1) {
+      const { selection } = selectedSuggestions[index]
+      const optimisticStep = optimisticSteps[index]
+      const stepReference = stepReferences[index]
+      batch.set(stepReference, {
+        taskId,
+        title: optimisticStep.title,
+        completed: false,
+        order: optimisticStep.order,
+        aiSuggestionId: selection.suggestionId,
+        createdAt: serverTimestamp(),
+      })
+      batch.update(doc(aiSuggestionsCollection(taskId), selection.suggestionId), {
+        status: 'added',
+        stepId: stepReference.id,
+      })
+    }
+
+    for (const selection of eligibleSelections.filter((item) => !item.selected)) {
+      const suggestion = suggestionsById.get(selection.suggestionId)
+      if (suggestion?.status === 'available') {
+        batch.update(doc(aiSuggestionsCollection(taskId), selection.suggestionId), { status: 'skipped' })
+      }
+    }
+
+    try {
+      await trackWrite(() => batch.commit())
+      const createdIds = stepReferences.map((stepReference) => stepReference.id)
+      const createdBySuggestion = new Map(selectedSuggestions.map(({ selection }, index) => [
+        selection.suggestionId,
+        createdIds[index],
+      ]))
+      allSteps.value = allSteps.value.map((step) => {
+        if (!step.id.startsWith('optimistic-') || !createdBySuggestion.has(step.aiSuggestionId ?? '')) return step
+        return { ...step, id: createdBySuggestion.get(step.aiSuggestionId ?? '')! }
+      })
+      return optimisticSteps.map((step, index) => ({ ...step, id: createdIds[index] }))
+    } catch (saveError) {
+      const optimisticIds = new Set(optimisticSteps.map((step) => step.id))
+      allSteps.value = allSteps.value.filter((step) => !optimisticIds.has(step.id))
+      reportWriteError(saveError, 'AI-delstegen kunde inte sparas.')
+      return []
+    }
+  }
+
   const toggleStep = (stepId: string) => {
     const step = allSteps.value.find((item) => item.id === stepId)
     const taskId = activeTaskId.value
@@ -535,17 +647,52 @@ export const useTaskStore = defineStore('tasks', () => {
     error.value = null
 
     try {
-      await trackWrite(() => deleteDoc(doc(taskStepsCollection(taskId), stepId)))
+      if (deletedStep.aiSuggestionId) {
+        if (isMockAuthEnabled) {
+          useTaskBreakdownStore().releaseMockStep(taskId, deletedStep.aiSuggestionId)
+        } else {
+          const batch = writeBatch(db)
+          batch.delete(doc(taskStepsCollection(taskId), stepId))
+          batch.update(doc(aiSuggestionsCollection(taskId), deletedStep.aiSuggestionId), {
+            status: 'available',
+            stepId: deleteField(),
+          })
+          await trackWrite(() => batch.commit())
+        }
+      } else {
+        await trackWrite(() => deleteDoc(doc(taskStepsCollection(taskId), stepId)))
+      }
       toastStore.showAction('Delsteg borttaget', 'Ångra', () => {
         allSteps.value.splice(Math.min(stepIndex, allSteps.value.length), 0, deletedStep)
-        if (!isMockAuthEnabled) {
-          void trackWrite(() => setDoc(doc(taskStepsCollection(taskId), deletedStep.id), {
-            taskId: deletedStep.taskId,
-            title: deletedStep.title,
-            completed: deletedStep.completed,
-            ...(deletedStep.order !== undefined ? { order: deletedStep.order } : {}),
-            createdAt: deletedStep.createdAt,
-          }))
+        if (isMockAuthEnabled) {
+          if (deletedStep.aiSuggestionId) {
+            useTaskBreakdownStore().reattachMockStep(taskId, deletedStep.aiSuggestionId, deletedStep.id)
+          }
+        } else {
+          if (deletedStep.aiSuggestionId) {
+            const batch = writeBatch(db)
+            batch.set(doc(taskStepsCollection(taskId), deletedStep.id), {
+              taskId: deletedStep.taskId,
+              title: deletedStep.title,
+              completed: deletedStep.completed,
+              ...(deletedStep.order !== undefined ? { order: deletedStep.order } : {}),
+              aiSuggestionId: deletedStep.aiSuggestionId,
+              createdAt: deletedStep.createdAt,
+            })
+            batch.update(doc(aiSuggestionsCollection(taskId), deletedStep.aiSuggestionId), {
+              status: 'added',
+              stepId: deletedStep.id,
+            })
+            void trackWrite(() => batch.commit())
+          } else {
+            void trackWrite(() => setDoc(doc(taskStepsCollection(taskId), deletedStep.id), {
+              taskId: deletedStep.taskId,
+              title: deletedStep.title,
+              completed: deletedStep.completed,
+              ...(deletedStep.order !== undefined ? { order: deletedStep.order } : {}),
+              createdAt: deletedStep.createdAt,
+            }))
+          }
         }
       })
     } catch (deleteError) {
@@ -591,6 +738,7 @@ export const useTaskStore = defineStore('tasks', () => {
 
     try {
       await trackWrite(() => deleteDoc(doc(userCollection(), taskId)))
+      if (isMockAuthEnabled) clearMockBreakdown(taskId)
       allSteps.value = allSteps.value.filter((step) => step.taskId !== taskId)
       if (activeTaskId.value === taskId) setActiveTask(null)
       toastStore.showAction('Uppgift borttagen', 'Ångra', () => void restoreTask(deletedTask, taskIndex))
@@ -733,6 +881,7 @@ export const useTaskStore = defineStore('tasks', () => {
     setActiveTask,
     createTask,
     createStep,
+    createStepsFromAi,
     updateTask,
     toggleCompleted,
     setTaskStatus,

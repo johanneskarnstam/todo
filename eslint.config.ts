@@ -20,6 +20,7 @@ export default defineConfigWithVueTs(
     '**/dist-ssr/**',
     '**/coverage/**',
     '**/functions/lib/**',
+    '**/src_foodhero/**',
   ]),
 
   pluginVue.configs['flat/essential'],

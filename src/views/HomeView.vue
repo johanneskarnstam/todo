@@ -6,6 +6,7 @@ import TodoHeader from '@/components/TodoHeader.vue'
 import TodoSidebar from '@/components/TodoSidebar.vue'
 import TaskRow from '@/components/TaskRow.vue'
 import TaskDetailsPanel from '@/components/TaskDetailsPanel.vue'
+import TaskBreakdownModal from '@/components/TaskBreakdownModal.vue'
 import ListIcon from '@/components/ListIcon.vue'
 import ToggleSwitch from '@/components/ToggleSwitch.vue'
 import { useTheme } from '@/composables/useTheme'
@@ -22,6 +23,7 @@ import type { ListSortMode, SmartView, TaskReminder } from '@/types'
 
 const isSidebarOpen = ref(typeof window === 'undefined' ? true : window.innerWidth >= 1024)
 const isSearchOpen = ref(false)
+const isTaskBreakdownModalOpen = ref(false)
 const taskTitle = ref('')
 const pendingDeleteTaskId = ref<string | null>(null)
 const pendingDeleteListId = ref<string | null>(null)
@@ -275,6 +277,7 @@ const copyActiveTaskLink = async () => {
 }
 
 const closeActiveTask = async () => {
+  isTaskBreakdownModalOpen.value = false
   const task = taskStore.activeTask
   if (!routeTaskId.value) {
     taskStore.setActiveTask(null)
@@ -775,6 +778,7 @@ watch(
         @copy-link="copyActiveTaskLink"
         @save-title="taskStore.updateTask(taskStore.activeTaskId!, { title: $event })"
         @add-step="taskStore.createStep({ taskId: taskStore.activeTaskId!, title: $event })"
+        @open-ai-breakdown="isTaskBreakdownModalOpen = true"
         @reorder-steps="taskStore.reorderSteps(taskStore.activeTaskId!, $event)"
         @save-step-title="handleSaveStepTitle"
         @toggle-step="taskStore.toggleStep($event)"
@@ -788,6 +792,13 @@ watch(
         @select-tag="handleSelectTag"
         @move-to-list="handleMoveTaskToList(taskStore.activeTaskId!, $event)"
         @delete-task="handleDeleteActiveTask"
+      />
+
+      <TaskBreakdownModal
+        v-if="taskStore.activeTask && isTaskBreakdownModalOpen"
+        :is-open="isTaskBreakdownModalOpen"
+        :task="taskStore.activeTask"
+        @close="isTaskBreakdownModalOpen = false"
       />
 
       <div v-if="pendingDeleteTaskId" class="fixed inset-0 z-[100] grid place-items-center bg-slate-950/40 px-4" role="presentation" @click.self="cancelDeleteTask">

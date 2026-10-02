@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # === KONFIGURATION ===
-GITHUB_REPO="johanneskarnstam/foodhero"
+GITHUB_REPO=$(git remote get-url origin | sed -E 's#.*github.com[:/]([^/]+/[^/.]+)(\.git)?$#\1#')
 ENV_FILE="${1:-.env}"
 
 # 1. Kontrollera att .env-filen finns
@@ -32,10 +32,10 @@ while IFS= read -r line || [ -n "$line" ]; do
 
   if [ -n "$KEY" ]; then
     echo -n "🚀 Överför $KEY till GitHub Secrets... "
-    
+
     # Sätt som Secret i GitHub
     echo -n "$VALUE" | gh secret set "$KEY" --repo "$GITHUB_REPO"
-    
+
     echo "✅ Klart!"
     COUNT=$((COUNT + 1))
   fi

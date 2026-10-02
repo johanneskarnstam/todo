@@ -52,6 +52,7 @@ export const syncReminderJob = onDocumentWritten(
       const taskReference = db.doc(`users/${userId}/tasks/${taskId}`);
       if (!(await taskReference.get()).exists) {
         await cancelReminderJob(jobReference);
+        await db.recursiveDelete(taskReference);
       }
       return;
     }

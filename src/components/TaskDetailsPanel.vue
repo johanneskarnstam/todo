@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { ArrowLeft, Bell, CalendarDays, Check, ChevronDown, Clock, Copy, Sun } from '@lucide/vue'
+import { ArrowLeft, Bell, CalendarDays, Check, ChevronDown, Clock, Copy, Sparkles, Sun } from '@lucide/vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import type { Step, Task, TaskReminder } from '@/types'
 import { normalizeTag, normalizeTags } from '@/utils/taskTags'
@@ -16,6 +16,7 @@ interface Emits {
   (event: 'copy-link'): void
   (event: 'save-title', title: string): void
   (event: 'add-step', title: string): void
+  (event: 'open-ai-breakdown'): void
   (event: 'save-step-title', stepId: string, title: string): void
   (event: 'toggle-step', stepId: string): void
   (event: 'toggle-task-completed'): void
@@ -266,9 +267,20 @@ const saveStepTitle = () => {
       </section>
 
       <section class="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-900" aria-labelledby="steps-heading">
-        <h2 id="steps-heading" class="mb-2 flex min-h-8 items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+        <h2 id="steps-heading" class="mb-2 flex min-h-8 items-center justify-between gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
           <span>Delsteg</span>
-          <span v-if="steps.length" class="font-normal normal-case tracking-normal">{{ steps.length }}</span>
+          <span class="flex items-center gap-2">
+            <span v-if="steps.length" class="font-normal normal-case tracking-normal">{{ steps.length }}</span>
+            <button
+              class="inline-flex min-h-8 items-center gap-1.5 rounded-lg px-2 text-xs font-medium normal-case tracking-normal text-[#2564cf] transition hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/40"
+              type="button"
+              aria-label="Bryt ner med AI"
+              @click="emit('open-ai-breakdown')"
+            >
+              <Sparkles :size="14" aria-hidden="true" />
+              <span>AI-förslag</span>
+            </button>
+          </span>
         </h2>
         <div class="space-y-1">
           <label v-for="step in steps" :key="step.id" class="flex min-h-10 items-center gap-3 rounded-lg px-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800">

@@ -20,12 +20,13 @@ Användaren ska kunna be AI föreslå konkreta delsteg utifrån uppgiftens titel
 - Initiera och konfigurera Firebase App Check för webbappen. Använd debug-token lokalt och i CI, och en riktig provider i produktion. App Check kompletterar autentisering och Firestore-regler, men ersätter inte kvot- och kostnadskontroll.
 - AI-servicen ska endast generera och validera förslag; den skapar aldrig delsteg direkt. Spara en enda aktuell förslagsuppsättning under uppgiften med status för varje förslag.
 - Visa före generering den exakta kontext som ska skickas: titel, eventuell anteckning och det frivilliga extra promptet. Informera användaren att texten skickas till Firebase AI Logic/Gemini. Begränsa indata och antal utdata för att hålla svarstid och kostnad under kontroll.
-- Spara senaste förslagsuppsättningen i ett fast dokument, exempelvis `users/{userId}/tasks/{taskId}/aiBreakdowns/latest`. Varje förslag behöver stabilt ID, titel, status (`available`, `skipped` eller `added`) och vid accepterande en referens till skapat `stepId`. Kryssruteval är tillfälligt UI-state; en lyckad bekräftelse sparar statusen. En lyckad ny generering skriver över dokumentet; historiska genereringar sparas inte.
+- Spara senaste förslagsuppsättningen som metadata i `users/{userId}/tasks/{taskId}/aiBreakdowns/latest` och ett dokument per förslag i dess `suggestions`-subcollection. Varje förslagsdokument har stabilt dokument-ID, titel, status (`available`, `skipped` eller `added`) och vid accepterande en referens till skapat `stepId`. Kryssruteval är tillfälligt UI-state; en lyckad bekräftelse sparar statusen. En lyckad ny generering ersätter metadata och förslagsdokument; historiska genereringar sparas inte.
+- Metadata innehåller listan med högst 20 tillåtna förslags-ID:n; varje förslagsdokument måste matcha listan så en klient inte kan överskrida maxgränsen med extra dokument.
 - Spara en enda snapshot av kontexten som skapade de aktuella förslagen, så UI kan visa om titel, anteckning eller extra prompt har ändrats. Snapshoten skyddas av samma ägarregler, skrivs över vid ny lyckad generering och raderas när uppgiften tas bort.
 - Börja med standardmodellen. Vid modellrelaterad överbelastning eller tillfälligt otillgänglig modell ska användaren få ett begripligt fel och en dropdown med tre verifierade alternativa modeller. Användaren väljer alternativ och startar ett uttryckligt nytt försök; byt inte modell tyst.
 - Visa inte modellväljaren för fel där modellbyte inte hjälper. Skilj på nätverk, App Check/autentisering, projektkvot, ogiltigt modellresultat och modellöverbelastning; ge ett konkret felmeddelande och nästa steg för varje kategori.
 - Definiera och verkställ gränser för titel, anteckning, extra prompt och svar, inklusive ett maxantal föreslagna delsteg, så att promptstorlek och atomära Firestore-batcher är begränsade.
-- Lägg till uttryckliga Firestore-regler för `aiBreakdowns`-subcollectionen. Reglerna för task-dokumentet är inte automatiskt ärvda av underliggande subcollections.
+- Lägg till uttryckliga Firestore-regler för `aiBreakdowns/latest` och dess `suggestions`-subcollection. Reglerna för task-dokumentet är inte automatiskt ärvda av underliggande subcollections. Separata förslagsdokument låter reglerna validera varje titel/status/stepId utan att försöka loopa över en lista i Rules.
 - Skapa accepterade delsteg och uppdatera den aktuella förslagsuppsättningens valstatus i en Firestore-batch. Endast användarens uttryckliga val ska skapa `Step`-dokument.
 - Använd strukturerat utdata med ett typat kontrakt, exempelvis `{ steps: string[] }`. Validera svaret i appen även om modellen ombeds följa ett schema. Trimma tomma titlar, begränsa antal och längd och filtrera uppenbara dubbletter före förhandsgranskning.
 
@@ -33,86 +34,90 @@ Användaren ska kunna be AI föreslå konkreta delsteg utifrån uppgiftens titel
 
 ### 1. Firebase och säkerhet
 
-- [ ] Aktivera/provisionera Firebase AI Logic för rätt Firebase-projekt och kontrollera aktuell modell, kvoter, autentisering och eventuell fakturering.
-- [ ] Välj och verifiera tre alternativa modell-ID:n som Firebase AI Logic stöder vid implementationstillfället. Dokumentera standardmodellen och vilka tillfälliga modellfel som motiverar alternativväljaren.
-- [ ] Lägg till App Check i webbappens initiering med debug-token lokalt/CI och en produktionsprovider. Dokumentera Firebase Console- och miljökonfiguration utan att checka in hemligheter.
+- [x] Verifiera Firebase CLI-projektet `todo-de1c0` och dess enda registrerade webbapp (`1:341595834624:web:d45ffb423c7feff91d8be5`).
+- [x] Aktivera/provisionera Firebase AI Logic för projektet och webbappen med `firebase init ailogic --project todo-de1c0 --interactive`; CLI bekräftade att AI Logic aktiverats.
+- [ ] Verifiera faktisk modellåtkomst, kvoter, autentisering och eventuell fakturering i Firebase-projektet innan produktionsanrop.
+- [x] Verifiera modellkandidater mot Firebase AI Logic-dokumentationen den 2026-10-02: standard `gemini-3.8-flash`; alternativ `gemini-3.7-flash`, `gemini-3.6-flash` och `gemini-3.5-flash-lite`. De första tre anges som stable men short-term availability; kontrollera projektåtkomst och livscykel igen innan produktionssättning.
+- [x] Initiera App Check före Auth/Firestore: debug-token endast i lokal utveckling med riktig Firebase-konfiguration, inget App Check-anrop i testläge eller E2E mock-auth, och reCAPTCHA Enterprise-provider i produktion när site-key finns. Deploy- och release-builds läser `VITE_RECAPTCHA_ENTERPRISE_SITE_KEY` från GitHub Actions variable.
+- [ ] Kör webbappen lokalt, registrera den genererade App Check-debug-token i Firebase Console och verifiera att Firebase AI Logic har baseline enforcement aktiverad. CLI-kontroll 2026-10-02 hittade inga registrerade debug-token för webbappen. Token ska inte checkas in eller delas.
+- [ ] Skapa/registrera reCAPTCHA Enterprise-provider för produktionsdomäner och sätt GitHub Actions variable `VITE_RECAPTCHA_ENTERPRISE_SITE_KEY`; verifiera produktionsbygge och App Check-token innan release.
 - [ ] Informera användaren att uppgiftens titel, eventuell anteckning och extra prompt skickas till AI-tjänsten när en ny generering begärs.
-- [ ] Lägg till Firestore-regler för `users/{userId}/tasks/{taskId}/aiBreakdowns/latest` så att endast uppgiftens ägare kan läsa och skriva den aktuella förslagsuppsättningen.
-- [ ] Lägg till emulatorbaserade regler-tester för ägaråtkomst och nekad åtkomst för andra användare.
+- [x] Lägg till Firestore-regler för `aiBreakdowns/latest` och `aiBreakdowns/latest/suggestions/{suggestionId}` med ägarkontroll och validering av tillåtna fält, statusar, längder, maxantal och `stepId`-koppling till ett delsteg i samma task.
+- [x] Lägg till emulatorbaserade regler-tester för ägaråtkomst och nekad åtkomst för andra användare, inklusive gränsvärden, ogiltiga fält, statusövergångar, stepId-koppling och parent-task.
 
 ### 2. AI-service och kontrakt
 
-- [ ] Skapa `src/services/taskBreakdownService.ts` som tar titel, valfri anteckning, valfritt extra prompt och ett tillåtet modell-ID och returnerar validerade stegförslag via Firebase AI Logic.
-- [ ] Skriv en svensk instruktion för små, konkreta och handlingsbara delsteg i logisk ordning.
-- [ ] Använd strukturerat utdata/schema där SDK-stödet tillåter det och validera alltid svaret i appen.
-- [ ] Sätt explicita maxgränser för indata och förslagsantal, inledningsvis högst 20 förslag; trimma tomma titlar och hantera dubbletter, feltypade värden och tomma/ogiltiga svar.
-- [ ] Använd en central allowlist med standardmodellen och tre verifierade alternativ; acceptera inte godtyckliga modellnamn från UI eller lagrade data.
-- [ ] Klassificera fel i återhämtningsbara modellfel och icke-modellfel. Returnera maskinläsbar feltyp så UI kan visa rätt fel och rätt åtgärd.
-- [ ] Skapa tydliga svenska felmeddelanden för överbelastning, nätverk/offline, projektkvot, App Check/autentisering, konfiguration/behörighet och ogiltigt svar. Dölj råa providerfel och känslig prompttext från användarens felvy.
+- [x] Skapa `src/services/taskBreakdownService.ts` som tar titel, valfri anteckning, valfritt extra prompt och ett tillåtet modell-ID och returnerar validerade stegförslag via Firebase AI Logic.
+- [x] Skriv en svensk instruktion för små, konkreta och handlingsbara delsteg i logisk ordning.
+- [x] Använd strukturerat utdata/schema där SDK-stödet tillåter det och validera alltid svaret i appen.
+- [x] Sätt explicita maxgränser för indata och förslagsantal, inledningsvis högst 20 förslag; trimma tomma titlar och hantera dubbletter, feltypade värden och tomma/ogiltiga svar.
+- [x] Använd en central allowlist med standardmodellen och tre verifierade alternativ; acceptera inte godtyckliga modellnamn från UI eller lagrade data.
+- [x] Klassificera fel i återhämtningsbara modellfel och icke-modellfel. Returnera maskinläsbar feltyp så UI kan visa rätt fel och rätt åtgärd.
+- [x] Skapa tydliga svenska felmeddelanden för överbelastning, nätverk/offline, projektkvot, App Check/autentisering, konfiguration/behörighet och ogiltigt svar. Dölj råa providerfel och känslig prompttext från användarens felvy.
 
 ### 3. Senaste AI-förslag
 
-- [ ] Definiera typade modeller för den aktuella förslagsuppsättningen och dess förslag. Förslag ska ha stabilt ID, titel, status (`available`, `skipped` eller `added`) och valfri koppling till skapat `stepId`.
-- [ ] Spara en enda aktuell uppsättning i `aiBreakdowns/latest` under uppgiften. Spara den lyckade genereringen så att förslag och valstatus finns kvar när modalen stängs eller appen laddas om.
-- [ ] Spara en snapshot av titel, anteckning och extra prompt som användes, enbart för den senaste uppsättningen. Rensa eller ersätt snapshoten vid borttagning respektive ny lyckad generering.
-- [ ] Jämför snapshoten med uppgiftens aktuella titel och anteckning när modalen öppnas. Markera förslagen som skapade från äldre kontext om värdena har ändrats; låt användaren öppna dem ändå eller generera nya.
-- [ ] Vid en ny lyckad generering ersätts den tidigare uppsättningen helt. Behåll befintliga `Step`-dokument; den nya genereringen får aldrig radera delsteg.
-- [ ] Läs den aktuella uppsättningen när användaren öppnar AI-modalen, inte för varje taskrad.
-- [ ] Lägg till idempotent rensning av dokumentet när en task tas bort. Firestore raderar inte subcollections automatiskt; välj en tillförlitlig cleanup-väg, exempelvis en Cloud Function-trigger, och testa den.
+- [x] Definiera typade modeller för metadata i `aiBreakdowns/latest` och förslagsdokument i `suggestions`. Varje förslag har stabilt dokument-ID, titel, status (`available`, `skipped` eller `added`) och valfri koppling till skapat `stepId`.
+- [x] Spara en enda aktuell metadatauppsättning i `aiBreakdowns/latest` och ett dokument per förslag i dess `suggestions`-subcollection. Spara den lyckade genereringen så att förslag och valstatus finns kvar när modalen stängs eller appen laddas om.
+- [x] Spara en snapshot av titel, anteckning och extra prompt som användes, enbart för den senaste uppsättningen. En lyckad ny generering ersätter snapshoten.
+- [x] Jämför snapshoten med uppgiftens aktuella titel och anteckning när modalen öppnas. Markera förslagen som skapade från äldre kontext om värdena har ändrats; låt användaren öppna dem ändå eller generera nya.
+- [x] Vid en ny lyckad generering ersätts metadata och alla föregående förslagsdokument i samma batch. Behåll befintliga `Step`-dokument; den nya genereringen rör dem inte.
+- [x] Läs den aktuella uppsättningen när användaren öppnar AI-modalen, inte för varje taskrad.
+- [x] Lägg till idempotent rensning av metadata och förslagsdokument när en task tas bort. Firestore raderar inte subcollections automatiskt; välj en tillförlitlig cleanup-väg, exempelvis en Cloud Function-trigger, och testa den rekursiva rensningen.
 
 ### 4. Composable och request-state
 
-- [ ] Skapa `src/composables/useTaskBreakdown.ts` för att läsa senaste förslagen, begära ny generering och hålla aktuell uppsättning, laddning och fel.
-- [ ] Förhindra dubbla samtidiga anrop och ignorera sena svar om användaren har bytt uppgift eller stängt modalen.
-- [ ] Skicka visad titel, eventuell anteckning och frivilligt extra prompt vid generering. Anropa inte AI automatiskt när uppgiften öppnas eller ändras.
-- [ ] Börja varje ny generering med standardmodellen. Vid klassificerat modellöverbelastnings-/otillgänglighetsfel exponeras de tre alternativen; ett modellbyte ska följas av ett uttryckligt nytt försök.
-- [ ] Behåll valt alternativ bara för den aktuella modal-/retry-sessionen; återgå till standardmodellen för en ny generering om inte en permanent inställning beslutas senare.
-- [ ] Öppna senaste sparade förslag när de finns. Erbjud en separat åtgärd för att generera om med aktuell kontext.
-- [ ] Behåll aktuell förslagsuppsättning efter ett misslyckat sparförsök så att användaren kan försöka igen.
+- [x] Skapa `src/composables/useTaskBreakdown.ts` för att läsa senaste förslagen, begära ny generering och hålla aktuell uppsättning, laddning och fel.
+- [x] Förhindra dubbla samtidiga anrop och ignorera sena svar om användaren har bytt uppgift eller stängt modalen.
+- [x] Skicka visad titel, eventuell anteckning och frivilligt extra prompt vid generering. Anropa inte AI automatiskt när uppgiften öppnas eller ändras.
+- [x] Börja varje ny generering med standardmodellen. Vid klassificerat modellöverbelastnings-/otillgänglighetsfel exponeras de tre alternativen; ett modellbyte ska följas av ett uttryckligt nytt försök.
+- [x] Behåll valt alternativ bara för den aktuella modal-/retry-sessionen; återgå till standardmodellen för en ny generering om inte en permanent inställning beslutas senare.
+- [x] Öppna senaste sparade förslag när de finns. Erbjud en separat åtgärd för att generera om med aktuell kontext.
+- [x] Behåll aktuell förslagsuppsättning efter ett misslyckat sparförsök så att användaren kan försöka igen.
 
 ### 5. UI i uppgiftsdetaljer
 
-- [ ] Lägg till en AI-knapp i **Delsteg** på `TaskDetailsPanel.vue`. Den ska alltid vara tillgänglig för inloggade användare.
-- [ ] Knappen öppnar en modal. Visa titel och eventuell anteckning som den kontext som skickas, samt ett frivilligt textfält för ytterligare prompt.
-- [ ] Om sparade förslag finns öppnas de med sina tidigare valstatusar. Erbjud **Generera nya förslag** som använder den aktuella titeln, anteckningen och promptfältet; när nya förslag lyckas ersätts den tidigare förslagsuppsättningen.
-- [ ] Visa förslag som kryssrutor, markerade som valda från början vid ny generering. Användaren kan avmarkera irrelevanta förslag.
-- [ ] Erbjud **Lägg till valda** för ett eller flera valda förslag. Om alla är avmarkerade ska användaren kunna stänga modalen utan att något delsteg skapas.
-- [ ] Vid återöppning ska `added` visas som redan tillagda och inte kunna skapa dubbletter; `skipped` visas omarkerade men kan väljas igen; `available` visas valda som standard.
-- [ ] Om kontext-snapshoten inte längre matchar titel/anteckning ska UI visa att förslagen bygger på äldre kontext och erbjuda generering på nytt.
-- [ ] Vid modellrelaterad överbelastning visa ett tydligt fel, en dropdown med exakt tre verifierade alternativa modeller och en **Försök igen**-åtgärd. Visa vilket alternativ som valts.
-- [ ] Vid nätverks-, kvot-, App Check-, behörighets- eller svarformatfel visa kategorispecifikt felmeddelande och rekommenderad åtgärd; erbjud inte modellbyte om det inte kan lösa felet.
-- [ ] När användaren bekräftat och öppnar modalen igen visas både valda och bortvalda förslag från senaste genereringen. Redan tillagda delsteg ska visas som tillagda och får inte skapas dubbelt.
-- [ ] Visa laddning, fel, tomma resultat och offline-status utan att blockera manuell delstegshantering. Säkerställ tillgängliga namn och mobil layout.
+- [x] Lägg till en AI-knapp i **Delsteg** på `TaskDetailsPanel.vue`. Den ska alltid vara tillgänglig för inloggade användare.
+- [x] Knappen öppnar en modal. Visa titel och eventuell anteckning som den kontext som skickas, samt ett frivilligt textfält för ytterligare prompt.
+- [x] Om sparade förslag finns öppnas de med sina tidigare valstatusar. Erbjud **Generera nya förslag** som använder den aktuella titeln, anteckningen och promptfältet; när nya förslag lyckas ersätts den tidigare förslagsuppsättningen.
+- [x] Visa förslag som kryssrutor, markerade som valda från början vid ny generering. Användaren kan avmarkera irrelevanta förslag.
+- [x] Erbjud **Lägg till valda** för ett eller flera valda förslag. Om alla är avmarkerade ska användaren kunna stänga modalen utan att något delsteg skapas.
+- [x] Vid återöppning ska `added` visas som redan tillagda och inte kunna skapa dubbletter; `skipped` visas omarkerade men kan väljas igen; `available` visas valda som standard.
+- [x] Om kontext-snapshoten inte längre matchar titel/anteckning ska UI visa att förslagen bygger på äldre kontext och erbjuda generering på nytt.
+- [x] Vid modellrelaterad överbelastning visa ett tydligt fel, en dropdown med exakt tre verifierade alternativa modeller och en **Försök igen**-åtgärd. Visa vilket alternativ som valts.
+- [x] Vid nätverks-, kvot-, App Check-, behörighets- eller svarformatfel visa kategorispecifikt felmeddelande och rekommenderad åtgärd; erbjud inte modellbyte om det inte kan lösa felet.
+- [x] När användaren bekräftat och öppnar modalen igen visas både valda och bortvalda förslag från senaste genereringen. Redan tillagda delsteg ska visas som tillagda och får inte skapas dubbelt.
+- [x] Visa laddning, fel, tomma resultat och offline-status utan att blockera manuell delstegshantering. Säkerställ tillgängliga namn och mobil layout.
 
 ### 6. Persistens och koppling till delsteg
 
-- [ ] Lägg till en store-operation för batchskapande av flera delsteg med optimistisk state, stabil ordning och `completed: false`.
-- [ ] Skapa valda `Step`-dokument och uppdatera aktuell förslagsstatus/`stepId` i samma Firestore-batch.
-- [ ] Spara avmarkerade förslag som `skipped`. Om alla förslag är avmarkerade och användaren stänger modalen ska inga `Step`-dokument skapas.
-- [ ] När ett kopplat delsteg raderas ska förslaget bli möjligt att lägga till igen; rensningen av `stepId`/status ska vara atomär eller återställbar.
-- [ ] Håll antalet förslag så lågt att skapande av delsteg och uppdatering av senaste förslagsdokumentet ryms i en Firestore-batch.
-- [ ] Återställ alla optimistiska steg och behåll förslagen tillgängliga om batchen misslyckas.
-- [ ] Stöd mock-auth-läget utan riktiga Firebase-anrop och visa befintligt fel-/toastmeddelande vid lagringsfel.
+- [x] Lägg till en store-operation för batchskapande av flera delsteg med optimistisk state, stabil ordning och `completed: false`.
+- [x] Skapa valda `Step`-dokument och uppdatera aktuell förslagsstatus/`stepId` i samma Firestore-batch.
+- [x] Spara avmarkerade förslag som `skipped`. Om alla förslag är avmarkerade och användaren stänger modalen ska inga `Step`-dokument skapas.
+- [x] När ett kopplat delsteg raderas ska förslaget bli möjligt att lägga till igen; rensningen av `stepId`/status ska vara atomär eller återställbar.
+- [x] Håll antalet förslag så lågt att skapande av delsteg och uppdatering av senaste förslagsdokumentet ryms i en Firestore-batch.
+- [x] Återställ alla optimistiska steg och behåll förslagen tillgängliga om batchen misslyckas.
+- [x] Stöd mock-auth-läget utan riktiga Firebase-anrop och visa befintligt fel-/toastmeddelande vid lagringsfel.
 
 ### 7. Tester
 
-- [ ] Service-unit-tester med mockad Firebase AI Logic: indata, tre tillåtna alternativ, giltigt/ogiltigt svar, gränsvärden, dubbletter, nätverk, kvot och klassificering av modellöverbelastning.
-- [ ] Composable-/komponenttester för laddning, sena svar, byte av uppgift, senaste förslag, kontext-snapshot/stale-status och generering med aktuell titel/anteckning/extra prompt.
-- [ ] UI-tester för kontextvisning, extra prompt, avmarkering, lägg till valda, stängning när alla är avmarkerade, återöppning av valstatus, modell-dropdown och tydliga kategoriserade fel.
-- [ ] Verifiera att modell-dropdown endast visas för återhämtningsbara modellfel, att val av alternativ skickar nytt anrop med rätt modell och att projektkvot-/App Check-fel inte triggar modellbyte.
-- [ ] Testa att misslyckad omgenerering behåller den tidigare sparade förslagsuppsättningen och kontext-snapshoten.
-- [ ] Store-tester för atomär batch, status/`stepId`, ordning, rollback, dubbelinläggningsskydd och mock-auth.
-- [ ] E2E-tester i `e2e/tasks.spec.ts` med deterministiskt AI-mock: visa kontext, val/avval, bekräfta, återöppna valda och bortvalda, stäng utan delsteg och generera om efter titel-/anteckningsändring utan att radera redan skapade steg.
-- [ ] Utöka Firestore Rules Emulator-testerna för den aktuella AI-förslagsuppsättningens ägarisolering. Inga tester får använda riktiga modell- eller Firebase-anrop.
+- [x] Service-unit-tester med mockad Firebase AI Logic: indata, tre tillåtna alternativ, giltigt/ogiltigt svar, gränsvärden, dubbletter, nätverk, kvot och klassificering av modellöverbelastning.
+- [x] Composable-/komponenttester för laddning, sena svar, byte av uppgift, senaste förslag, kontext-snapshot/stale-status och generering med aktuell titel/anteckning/extra prompt.
+- [x] UI-tester för kontextvisning, extra prompt, avmarkering, lägg till valda, stängning när alla är avmarkerade, återöppning av valstatus, modell-dropdown och tydliga kategoriserade fel.
+- [x] Verifiera att modell-dropdown endast visas för återhämtningsbara modellfel, att val av alternativ skickar nytt anrop med rätt modell och att projektkvot-/App Check-fel inte triggar modellbyte.
+- [x] Testa att misslyckad AI-generering behåller den tidigare sparade förslagsuppsättningen och kontext-snapshoten.
+- [x] Store-tester för atomär batch, status/`stepId`, ordning, rollback, dubbelinläggningsskydd och mock-auth.
+- [x] E2E-tester i `e2e/tasks.spec.ts` med deterministiskt AI-mock: visa kontext, val/avval, bekräfta, återöppna valda och bortvalda, stäng utan delsteg och generera om efter titel-/anteckningsändring utan att radera redan skapade steg.
+- [x] Utöka Firestore Rules Emulator-testerna för den aktuella AI-förslagsuppsättningens ägarisolering. Inga tester får använda riktiga modell- eller Firebase-anrop.
 
 ### 8. Validering och leverans
 
-- [ ] Kör relevanta Vitest-tester för service, composable, komponent och task-store.
-- [ ] Kör Firestore Rules Emulator-tester och relevanta E2E-tester med mock-auth.
-- [ ] Kör obligatoriska kontroller: `npm run type-check` och `npm run lint`.
-- [ ] Kör `npm run validate` när emulator-/Playwright-förutsättningarna tillåter det och kontrollera produktionsbygget.
-- [ ] Verifiera manuellt att funktionen är synlig för inloggade användare, att förslag inte skapar delsteg utan bekräftelse, att senaste valstatus överlever omladdning, att generera om endast ersätter förslagen och att offlinefel är begripliga.
-- [ ] Höj paketversionen enligt repoets SemVer-regel när implementationen är färdig och validerad, före eventuell commit.
+- [x] Kör relevanta Vitest-tester för service, composable, komponent och task-store.
+- [x] Kör Firestore Rules Emulator-tester och relevanta E2E-tester med mock-auth.
+- [x] Kör obligatoriska kontroller: `npm run type-check` och `npm run lint`.
+- [x] Kör `npm run validate` när emulator-/Playwright-förutsättningarna tillåter det och kontrollera produktionsbygget.
+- [x] Verifiera manuellt att funktionen är synlig för inloggade användare, att förslag inte skapar delsteg utan bekräftelse, att senaste valstatus överlever omladdning, att generera om endast ersätter förslagen och att offlinefel är begripliga.
+- [x] Höj paketversionen enligt repoets SemVer-regel när implementationen är färdig och validerad, före eventuell commit.
 
 ## Risker och avgränsningar
 

@@ -8,7 +8,7 @@ export default mergeConfig(
     test: {
       environment: 'jsdom',
       setupFiles: ['./src/__tests__/setup.ts'],
-      exclude: [...configDefaults.exclude, 'e2e/**', 'functions/**'],
+      exclude: [...configDefaults.exclude, 'e2e/**', 'functions/**', 'src_foodhero/**'],
       root: fileURLToPath(new URL('./', import.meta.url)),
       coverage: {
         provider: 'v8',
