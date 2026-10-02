@@ -2,27 +2,23 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   classifyTaskBreakdownError,
   DEFAULT_TASK_BREAKDOWN_MODEL_ID,
+  fetchAvailableTaskBreakdownModels,
   generateTaskBreakdown,
+  TASK_BREAKDOWN_FALLBACK_MODEL_ID,
   TASK_BREAKDOWN_MODEL_OPTIONS,
   TaskBreakdownError,
 } from '@/services/taskBreakdownService'
 
-const aiMocks = vi.hoisted(() => ({
-  getAI: vi.fn(() => ({})),
+const sdkMocks = vi.hoisted(() => ({
+  GoogleGenerativeAI: vi.fn(),
   getGenerativeModel: vi.fn(),
   generateContent: vi.fn(),
 }))
 
-vi.mock('@/firebase', () => ({ app: {} }))
-
-vi.mock('firebase/ai', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('firebase/ai')>()
-  return {
-    ...actual,
-    getAI: aiMocks.getAI,
-    getGenerativeModel: aiMocks.getGenerativeModel,
-  }
-})
+vi.mock('@google/generative-ai', () => ({
+  GoogleGenerativeAI: sdkMocks.GoogleGenerativeAI,
+  SchemaType: { OBJECT: 'OBJECT', ARRAY: 'ARRAY', STRING: 'STRING' },
+}))
 
 const response = (steps: unknown) => ({
   response: { text: () => JSON.stringify({ steps }) },
@@ -32,8 +28,12 @@ describe('generateTaskBreakdown', () => {
   beforeEach(() => {
     localStorage.clear()
     vi.clearAllMocks()
-    aiMocks.getGenerativeModel.mockReturnValue({ generateContent: aiMocks.generateContent })
-    aiMocks.generateContent.mockResolvedValue(response(['  Köp färg  ', 'Köp färg', 'Mät väggen']))
+    vi.stubEnv('VITE_GEMINI_KEY', 'test-api-key')
+    sdkMocks.GoogleGenerativeAI.mockImplementation(function () {
+      return { getGenerativeModel: sdkMocks.getGenerativeModel }
+    })
+    sdkMocks.getGenerativeModel.mockReturnValue({ generateContent: sdkMocks.generateContent })
+    sdkMocks.generateContent.mockResolvedValue(response(['  Köp färg  ', 'Köp färg', 'Mät väggen']))
   })
 
   it('uses the default model, sends available context and normalizes returned steps', async () => {
@@ -47,14 +47,14 @@ describe('generateTaskBreakdown', () => {
       modelId: DEFAULT_TASK_BREAKDOWN_MODEL_ID,
       steps: ['Köp färg', 'Mät väggen'],
     })
-    expect(aiMocks.getGenerativeModel).toHaveBeenCalledWith(
-      expect.anything(),
+    expect(sdkMocks.GoogleGenerativeAI).toHaveBeenCalledWith('test-api-key')
+    expect(sdkMocks.getGenerativeModel).toHaveBeenCalledWith(
       expect.objectContaining({ model: DEFAULT_TASK_BREAKDOWN_MODEL_ID }),
     )
-    expect(aiMocks.generateContent).toHaveBeenCalledWith(
+    expect(sdkMocks.generateContent).toHaveBeenCalledWith(
       expect.stringContaining('ANTECKNING:\nVäggen behöver grundmålas.'),
     )
-    expect(aiMocks.generateContent).toHaveBeenCalledWith(
+    expect(sdkMocks.generateContent).toHaveBeenCalledWith(
       expect.stringContaining('EXTRA INSTRUKTION:\nDela upp arbetet över två dagar.'),
     )
   })
@@ -65,8 +65,7 @@ describe('generateTaskBreakdown', () => {
     const result = await generateTaskBreakdown({ title: 'Packa inför flytt', modelId })
 
     expect(result.modelId).toBe(modelId)
-    expect(aiMocks.getGenerativeModel).toHaveBeenCalledWith(
-      expect.anything(),
+    expect(sdkMocks.getGenerativeModel).toHaveBeenCalledWith(
       expect.objectContaining({ model: modelId }),
     )
   })
@@ -75,115 +74,83 @@ describe('generateTaskBreakdown', () => {
     await expect(generateTaskBreakdown({ title: '   ' })).rejects.toMatchObject({ kind: 'invalid-input' })
     await expect(generateTaskBreakdown({ title: 'Planera resa', modelId: 'unlisted-model' as never }))
       .rejects.toMatchObject({ kind: 'invalid-input' })
-    expect(aiMocks.generateContent).not.toHaveBeenCalled()
+    expect(sdkMocks.generateContent).not.toHaveBeenCalled()
   })
 
   it('rejects oversized context before calling the provider', async () => {
     await expect(generateTaskBreakdown({ title: 'Uppgift', note: 'x'.repeat(4001) }))
       .rejects.toMatchObject({ kind: 'invalid-input' })
-    expect(aiMocks.generateContent).not.toHaveBeenCalled()
+    expect(sdkMocks.generateContent).not.toHaveBeenCalled()
   })
 
   it('rejects malformed or oversized model responses', async () => {
-    aiMocks.generateContent.mockResolvedValueOnce({ response: { text: () => 'not json' } })
+    sdkMocks.generateContent.mockResolvedValueOnce({ response: { text: () => 'not json' } })
     await expect(generateTaskBreakdown({ title: 'Planera resa' }))
       .rejects.toMatchObject({ kind: 'invalid-response' })
 
-    aiMocks.generateContent.mockResolvedValueOnce(response(Array.from({ length: 21 }, (_, index) => `Steg ${index}`)))
+    sdkMocks.generateContent.mockResolvedValueOnce(response(Array.from({ length: 21 }, (_, index) => `Steg ${index}`)))
     await expect(generateTaskBreakdown({ title: 'Planera resa' }))
       .rejects.toMatchObject({ kind: 'invalid-response' })
   })
 
-  it('uses custom API key when configured and falls over to next key on quota error', async () => {
-    localStorage.setItem('todo-gemini-api-keys', JSON.stringify(['key-1', 'key-2']))
+  it('reports MAX_TOKENS responses as truncated before trying to parse JSON', async () => {
+    sdkMocks.generateContent.mockResolvedValueOnce({
+      response: {
+        candidates: [{ finishReason: 'MAX_TOKENS' }],
+        text: () => { throw new Error('response.text should not be called for a truncated response') },
+      },
+    })
 
-    const fetchSpy = vi.spyOn(globalThis, 'fetch')
-    // Key 1 fails with quota 429
-    fetchSpy.mockResolvedValueOnce({
-      ok: false,
-      status: 429,
-      statusText: 'Too Many Requests',
-      json: async () => ({ error: { code: 429, message: 'Quota exceeded for project' } }),
-    } as Response)
-    // Key 2 succeeds
-    fetchSpy.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => ({
-        candidates: [{
-          content: { parts: [{ text: JSON.stringify({ steps: ['Steg från nyckel 2'] }) }] },
-        }],
-      }),
-    } as Response)
-
-    const result = await generateTaskBreakdown({ title: 'Testa failover' })
-
-    expect(result.steps).toEqual(['Steg från nyckel 2'])
-    expect(fetchSpy).toHaveBeenCalledTimes(2)
-    expect(fetchSpy.mock.calls[0][0]).toContain('key=key-1')
-    expect(fetchSpy.mock.calls[1][0]).toContain('key=key-2')
-    expect(aiMocks.generateContent).not.toHaveBeenCalled()
-
-    fetchSpy.mockRestore()
-  })
-
-  it('throws quota error indicating all keys failed when all custom keys hit quota', async () => {
-    localStorage.setItem('todo-gemini-api-keys', JSON.stringify(['key-1', 'key-2']))
-
-    const fetchSpy = vi.spyOn(globalThis, 'fetch')
-    fetchSpy.mockResolvedValue({
-      ok: false,
-      status: 429,
-      statusText: 'Too Many Requests',
-      json: async () => ({ error: { code: 429, message: 'Quota exceeded' } }),
-    } as Response)
-
-    await expect(generateTaskBreakdown({ title: 'Testa failover' }))
+    await expect(generateTaskBreakdown({ title: 'Frigör utrymme på Google One' }))
       .rejects.toMatchObject({
-        kind: 'quota',
-        message: expect.stringContaining('alla (2) sparade API-nycklar'),
+        kind: 'invalid-response',
+        message: expect.stringContaining('avklippt'),
       })
-
-    expect(fetchSpy).toHaveBeenCalledTimes(2)
-    fetchSpy.mockRestore()
+    expect(sdkMocks.getGenerativeModel).toHaveBeenCalledWith(expect.objectContaining({
+      generationConfig: expect.objectContaining({ maxOutputTokens: 4096 }),
+    }))
   })
 
-  it('uses explicitly chosen API key directly without failover', async () => {
-    localStorage.setItem('todo-gemini-api-keys', JSON.stringify(['key-1', 'key-2']))
+  it('tries the fallback model once after a capacity error', async () => {
+    sdkMocks.generateContent
+      .mockRejectedValueOnce(new Error('[503 Service Unavailable] high demand'))
+      .mockResolvedValueOnce(response(['Dela upp arbetet']))
 
-    const fetchSpy = vi.spyOn(globalThis, 'fetch')
-    fetchSpy.mockResolvedValueOnce({
+    const result = await generateTaskBreakdown({ title: 'Testa fallback' })
+
+    expect(result).toEqual({ modelId: TASK_BREAKDOWN_FALLBACK_MODEL_ID, steps: ['Dela upp arbetet'] })
+    expect(sdkMocks.getGenerativeModel.mock.calls.map(([options]) => options.model)).toEqual([
+      DEFAULT_TASK_BREAKDOWN_MODEL_ID,
+      TASK_BREAKDOWN_FALLBACK_MODEL_ID,
+    ])
+  })
+
+  it('does not try another model for quota errors', async () => {
+    sdkMocks.generateContent.mockRejectedValueOnce(new Error('[429 Too Many Requests] quota exceeded'))
+
+    await expect(generateTaskBreakdown({ title: 'Kontrollera kvot' })).rejects.toMatchObject({ kind: 'quota' })
+    expect(sdkMocks.getGenerativeModel).toHaveBeenCalledTimes(1)
+  })
+
+  it('discovers supported Gemini models and caches the filtered result', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
-      status: 200,
       json: async () => ({
-        candidates: [{
-          content: { parts: [{ text: JSON.stringify({ steps: ['Direkt från specifik nyckel'] }) }] },
-        }],
+        models: [
+          { name: 'models/gemini-3.6-flash', displayName: 'Gemini Flash', supportedGenerationMethods: ['generateContent'] },
+          { name: 'models/gemini-2.5-flash-audio', supportedGenerationMethods: ['generateContent'] },
+          { name: 'models/gemini-2.5-flash', supportedGenerationMethods: ['embedContent'] },
+        ],
       }),
     } as Response)
 
-    const result = await generateTaskBreakdown({ title: 'Vald nyckel', apiKey: 'key-2' })
+    const models = await fetchAvailableTaskBreakdownModels()
+    const cachedModels = await fetchAvailableTaskBreakdownModels()
 
-    expect(result.steps).toEqual(['Direkt från specifik nyckel'])
+    expect(models).toEqual([{ id: 'gemini-3.6-flash', name: 'Gemini Flash' }])
+    expect(cachedModels).toEqual(models)
     expect(fetchSpy).toHaveBeenCalledTimes(1)
-    expect(fetchSpy.mock.calls[0][0]).toContain('key=key-2')
-    expect(aiMocks.generateContent).not.toHaveBeenCalled()
-
-    fetchSpy.mockRestore()
-  })
-
-  it('bypasses saved keys when standard quota is chosen', async () => {
-    localStorage.setItem('todo-gemini-api-keys', JSON.stringify(['key-1', 'key-2']))
-
-    const fetchSpy = vi.spyOn(globalThis, 'fetch')
-
-    const result = await generateTaskBreakdown({ title: 'Standardkvot', apiKey: 'standard' })
-
-    expect(result.steps).toEqual(['Köp färg', 'Mät väggen'])
-    expect(fetchSpy).not.toHaveBeenCalled()
-    expect(aiMocks.generateContent).toHaveBeenCalled()
-
-    fetchSpy.mockRestore()
+    expect(fetchSpy.mock.calls[0][0]).toContain('key=test-api-key')
   })
 })
 
@@ -201,10 +168,7 @@ describe('classifyTaskBreakdownError', () => {
     })).kind).toBe('overloaded')
   })
 
-  it('returns distinct actionable categories for network, App Check and setup failures', () => {
-    expect(classifyTaskBreakdownError(Object.assign(new Error('App Check token rejected'), {
-      customErrorData: { status: 403 },
-    })).kind).toBe('app-check')
+  it('returns distinct actionable categories for network and setup failures', () => {
     expect(classifyTaskBreakdownError(new TypeError('Failed to fetch')).kind).toBe('network')
     expect(classifyTaskBreakdownError(Object.assign(new Error('Unknown model'), {
       customErrorData: { status: 404 },

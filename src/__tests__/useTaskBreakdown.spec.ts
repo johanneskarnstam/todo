@@ -101,14 +101,13 @@ describe('useTaskBreakdown', () => {
     const composable = useTaskBreakdown()
     const task = sampleTask()
 
-    const result = await composable.generate(task, 'Dela upp i korta pass', 'gemini-3.7-flash', 'my-api-key')
+    const result = await composable.generate(task, 'Dela upp i korta pass', 'gemini-3.7-flash')
 
     expect(generateSpy).toHaveBeenCalledWith('task-1', {
       title: 'Måla sovrummet',
       note: 'Grundmåla väggarna.',
       additionalPrompt: 'Dela upp i korta pass',
       modelId: 'gemini-3.7-flash',
-      apiKey: 'my-api-key',
     })
     expect(result).toEqual(sampleBreakdown)
   })

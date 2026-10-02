@@ -26,7 +26,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'VITE_DEV_AUTH_BYPASS=true npm run dev -- --host 127.0.0.1 --port 4173',
+    command: 'VITE_DEV_AUTH_BYPASS=true VITE_GEMINI_KEY=e2e-test-placeholder npm run dev -- --host 127.0.0.1 --port 4173',
     url: 'http://127.0.0.1:4173/todo/',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

@@ -1,6 +1,4 @@
-import { getAI, getGenerativeModel, GoogleAIBackend, Schema } from 'firebase/ai'
-import { app } from '@/firebase'
-import { readAiKeys } from '@/composables/useAiKeys'
+import { GoogleGenerativeAI, SchemaType, type Schema } from '@google/generative-ai'
 
 export const TASK_BREAKDOWN_MODEL_OPTIONS = [
   { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash' },
@@ -8,21 +6,30 @@ export const TASK_BREAKDOWN_MODEL_OPTIONS = [
   { id: 'gemini-3.5-flash-lite', name: 'Gemini 3.5 Flash-Lite' },
 ] as const
 
-export const DEFAULT_TASK_BREAKDOWN_MODEL_ID = 'gemini-3.8-flash'
+export const DEFAULT_TASK_BREAKDOWN_MODEL_ID = import.meta.env.VITE_GEMINI_MODEL || 'gemini-3.8-flash'
+export const TASK_BREAKDOWN_FALLBACK_MODEL_ID = 'gemini-2.5-flash'
+export const TASK_BREAKDOWN_MODEL_STORAGE_KEY = 'todo-gemini-selected-model'
+export const TASK_BREAKDOWN_MODELS_CACHE_KEY = 'todo-gemini-models-cache'
 
 export const TASK_BREAKDOWN_MODEL_IDS = [
   DEFAULT_TASK_BREAKDOWN_MODEL_ID,
   ...TASK_BREAKDOWN_MODEL_OPTIONS.map((model) => model.id),
 ] as const
 
-export type TaskBreakdownModelId = (typeof TASK_BREAKDOWN_MODEL_IDS)[number]
+export type TaskBreakdownModelId = string
+
+export interface TaskBreakdownModelOption {
+  id: TaskBreakdownModelId
+  name: string
+  description?: string
+  performanceIndex?: number
+}
 
 export type TaskBreakdownErrorKind =
   | 'invalid-input'
   | 'overloaded'
   | 'quota'
   | 'network'
-  | 'app-check'
   | 'configuration'
   | 'invalid-response'
   | 'unknown'
@@ -32,7 +39,6 @@ export interface TaskBreakdownInput {
   note?: string
   additionalPrompt?: string
   modelId?: TaskBreakdownModelId
-  apiKey?: string
 }
 
 export interface TaskBreakdownResult {
@@ -55,18 +61,127 @@ const MAX_NOTE_LENGTH = 4000
 const MAX_ADDITIONAL_PROMPT_LENGTH = 1000
 const MAX_STEP_COUNT = 20
 const MAX_STEP_TITLE_LENGTH = 180
+const MAX_OUTPUT_TOKENS = 4096
 
-let aiInstance: ReturnType<typeof getAI> | null = null
-const getAiInstance = () => (aiInstance ??= getAI(app, { backend: new GoogleAIBackend() }))
-
-const responseSchema = Schema.object({
+const MODEL_CACHE_TTL = 24 * 60 * 60 * 1000
+const FALLBACK_MODELS: TaskBreakdownModelOption[] = [
+  { id: DEFAULT_TASK_BREAKDOWN_MODEL_ID, name: `${DEFAULT_TASK_BREAKDOWN_MODEL_ID} (standard)` },
+  ...TASK_BREAKDOWN_MODEL_OPTIONS,
+]
+const EXCLUDED_MODEL_KEYWORDS = [
+  'embedding', 'aqa', 'image', 'banana', 'imagen', 'tts', 'audio', 'transcribe',
+  'robotics', 'computer-use', 'customtools', 'vision',
+]
+const responseSchema: Schema = {
+  type: SchemaType.OBJECT,
   properties: {
-    steps: Schema.array({
-      items: Schema.string(),
-      maxItems: MAX_STEP_COUNT,
-    }),
+    steps: {
+      type: SchemaType.ARRAY,
+      items: { type: SchemaType.STRING },
+    },
   },
-})
+  required: ['steps'],
+}
+
+const getGeminiApiKey = () =>
+  import.meta.env.VITE_GEMINI_KEY?.trim() || import.meta.env.VITE_GEMINI_API_KEY?.trim() || ''
+
+const isValidModelId = (modelId: string): boolean => /^gemini-[a-z0-9.-]+$/i.test(modelId)
+
+export const getSelectedTaskBreakdownModelId = (): TaskBreakdownModelId => {
+  try {
+    const saved = localStorage.getItem(TASK_BREAKDOWN_MODEL_STORAGE_KEY)?.trim()
+    if (saved && isValidModelId(saved)) return saved
+  } catch {
+    // Use the configured default when browser storage is unavailable.
+  }
+  return DEFAULT_TASK_BREAKDOWN_MODEL_ID
+}
+
+export const setSelectedTaskBreakdownModelId = (modelId: TaskBreakdownModelId): void => {
+  if (!isValidModelId(modelId)) return
+  try {
+    localStorage.setItem(TASK_BREAKDOWN_MODEL_STORAGE_KEY, modelId)
+  } catch {
+    // Model selection remains usable for the current session.
+  }
+}
+
+const scoreModel = (modelId: string): number => {
+  const version = modelId.match(/(\d+)(?:\.(\d+))?/)?.slice(1)
+  const versionScore = version ? Number(version[0]) * 1000 + Number(version[1] ?? 0) * 100 : 0
+  const tierScore = modelId.includes('flash') ? 90 : modelId.includes('pro') ? 85 : 0
+  return versionScore + tierScore - (modelId.includes('preview') ? 15 : 0)
+}
+
+interface CachedModelOptions {
+  timestamp: number
+  models: TaskBreakdownModelOption[]
+}
+
+const readCachedModels = (): TaskBreakdownModelOption[] | null => {
+  try {
+    const cached = JSON.parse(localStorage.getItem(TASK_BREAKDOWN_MODELS_CACHE_KEY) ?? 'null') as Partial<CachedModelOptions> | null
+    if (!cached || typeof cached.timestamp !== 'number' || !Array.isArray(cached.models)) return null
+    if (Date.now() - cached.timestamp >= MODEL_CACHE_TTL) return null
+    const models = cached.models.filter((model): model is TaskBreakdownModelOption =>
+      typeof model?.id === 'string' && isValidModelId(model.id) && typeof model.name === 'string',
+    )
+    return models.length ? models : null
+  } catch {
+    return null
+  }
+}
+
+export const fetchAvailableTaskBreakdownModels = async (forceRefresh = false): Promise<TaskBreakdownModelOption[]> => {
+  if (!forceRefresh) {
+    const cached = readCachedModels()
+    if (cached) return cached
+  }
+
+  const apiKey = getGeminiApiKey()
+  if (!apiKey) return FALLBACK_MODELS
+
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`,
+    )
+    if (!response.ok) return FALLBACK_MODELS
+
+    const payload: unknown = await response.json()
+    if (!payload || typeof payload !== 'object' || !('models' in payload) || !Array.isArray(payload.models)) {
+      return FALLBACK_MODELS
+    }
+
+    const models = payload.models
+      .filter((model): model is { name: string; displayName?: string; supportedGenerationMethods?: string[] } =>
+        typeof model === 'object' && model !== null &&
+        'name' in model && typeof model.name === 'string' &&
+        'supportedGenerationMethods' in model && Array.isArray(model.supportedGenerationMethods) &&
+        model.supportedGenerationMethods.includes('generateContent'),
+      )
+      .map((model) => {
+        const id = model.name.replace(/^models\//, '')
+        const displayName = typeof model.displayName === 'string' ? model.displayName : id
+        return { id, name: displayName }
+      })
+      .filter((model) =>
+        isValidModelId(model.id) &&
+        !EXCLUDED_MODEL_KEYWORDS.some((keyword) => `${model.id} ${model.name}`.toLowerCase().includes(keyword)),
+      )
+      .sort((first, second) => scoreModel(second.id) - scoreModel(first.id))
+
+    if (!models.length) return FALLBACK_MODELS
+    try {
+      localStorage.setItem(TASK_BREAKDOWN_MODELS_CACHE_KEY, JSON.stringify({ timestamp: Date.now(), models }))
+    } catch {
+      // The fetched list is still available for this session.
+    }
+    return models
+  } catch {
+    return FALLBACK_MODELS
+  }
+}
 
 const systemInstruction = [
   'Du hjälper till att bryta ner en uppgift i små, konkreta och handlingsbara delsteg.',
@@ -80,7 +195,7 @@ const normalizeInput = (input: TaskBreakdownInput) => {
   const title = input.title.trim()
   const note = input.note?.trim() ?? ''
   const additionalPrompt = input.additionalPrompt?.trim() ?? ''
-  const modelId = input.modelId ?? DEFAULT_TASK_BREAKDOWN_MODEL_ID
+  const modelId = input.modelId ?? getSelectedTaskBreakdownModelId()
 
   if (!title) {
     throw new TaskBreakdownError('invalid-input', 'Skriv en uppgiftstitel innan du ber AI om delsteg.')
@@ -94,13 +209,10 @@ const normalizeInput = (input: TaskBreakdownInput) => {
   if (additionalPrompt.length > MAX_ADDITIONAL_PROMPT_LENGTH) {
     throw new TaskBreakdownError('invalid-input', `Extratexten får vara högst ${MAX_ADDITIONAL_PROMPT_LENGTH} tecken.`)
   }
-  if (!TASK_BREAKDOWN_MODEL_IDS.includes(modelId)) {
+  if (!isValidModelId(modelId)) {
     throw new TaskBreakdownError('invalid-input', 'Den valda AI-modellen är inte tillgänglig.')
   }
-
-  const apiKey = input.apiKey?.trim() || undefined
-
-  return { title, note, additionalPrompt, modelId, apiKey }
+  return { title, note, additionalPrompt, modelId }
 }
 
 const buildPrompt = (input: ReturnType<typeof normalizeInput>) => [
@@ -153,10 +265,13 @@ const getErrorDetails = (error: unknown) => {
     customErrorData?: { status?: unknown; statusText?: unknown }
   }
 
+  const message = typeof candidate.message === 'string' ? candidate.message : String(error)
   return {
     code: typeof candidate.code === 'string' ? candidate.code.toLowerCase() : '',
-    message: typeof candidate.message === 'string' ? candidate.message : String(error),
-    status: typeof candidate.customErrorData?.status === 'number' ? candidate.customErrorData.status : undefined,
+    message,
+    status: typeof candidate.customErrorData?.status === 'number'
+      ? candidate.customErrorData.status
+      : Number(message.match(/\[(\d{3})\b/)?.[1]) || undefined,
   }
 }
 
@@ -165,10 +280,6 @@ export const classifyTaskBreakdownError = (error: unknown): TaskBreakdownError =
 
   const { code, message, status } = getErrorDetails(error)
   const lowerMessage = message.toLowerCase()
-
-  if (lowerMessage.includes('app check') || lowerMessage.includes('app_check')) {
-    return new TaskBreakdownError('app-check', 'App Check kunde inte verifiera appen. Kontrollera Firebase App Check-konfigurationen och försök igen.')
-  }
 
   if (
     status === 429 &&
@@ -190,146 +301,59 @@ export const classifyTaskBreakdownError = (error: unknown): TaskBreakdownError =
   }
 
   if (status === 401 || status === 403 || status === 404 || /api key not valid|api not enabled|model .*not found|permission_denied/.test(lowerMessage)) {
-    return new TaskBreakdownError('configuration', 'Firebase AI Logic kunde inte använda den valda modellen. Kontrollera projekt-, API- och modellkonfigurationen.')
+    return new TaskBreakdownError('configuration', 'Gemini kunde inte använda den valda modellen. Kontrollera API-nyckel, API- och modellkonfiguration.')
   }
 
   return new TaskBreakdownError('unknown', 'Det gick inte att generera delsteg just nu. Försök igen senare.')
 }
 
-export const generateWithApiKey = async (
-  apiKey: string,
+const generateWithModel = async (
+  client: GoogleGenerativeAI,
+  modelId: TaskBreakdownModelId,
   input: ReturnType<typeof normalizeInput>,
 ): Promise<TaskBreakdownResult> => {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${input.modelId}:generateContent?key=${encodeURIComponent(apiKey)}`
-  const body = {
-    systemInstruction: {
-      parts: [{ text: systemInstruction }],
-    },
-    contents: [
-      {
-        role: 'user',
-        parts: [{ text: buildPrompt(input) }],
-      },
-    ],
-    generationConfig: {
-      temperature: 0.35,
-      maxOutputTokens: 1200,
-      responseMimeType: 'application/json',
-      responseSchema: {
-        type: 'OBJECT',
-        properties: {
-          steps: {
-            type: 'ARRAY',
-            items: { type: 'STRING' },
-          },
-        },
-        required: ['steps'],
-      },
-    },
-  }
-
-  let response: Response
-  try {
-    response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    })
-  } catch (fetchErr) {
-    throw classifyTaskBreakdownError(fetchErr)
-  }
-
-  if (!response.ok) {
-    let errorJson: unknown
-    try {
-      errorJson = await response.json()
-    } catch {
-      // ignore JSON parse error on non-ok response
-    }
-    const errObj = (errorJson as { error?: { message?: string; status?: string; code?: number } })?.error
-    const status = errObj?.code ?? response.status
-    const message = errObj?.message ?? `HTTP ${response.status} ${response.statusText}`
-    throw classifyTaskBreakdownError({
-      message,
-      customErrorData: { status },
-    })
-  }
-
-  let data: Record<string, unknown>
-  try {
-    data = await response.json() as Record<string, unknown>
-  } catch {
-    throw new TaskBreakdownError('invalid-response', 'AI:n returnerade ett svar som inte gick att läsa. Försök generera nya förslag.')
-  }
-
-  const candidates = data.candidates as Array<{ content?: { parts?: Array<{ text?: string }> } }> | undefined
-  const text = candidates?.[0]?.content?.parts?.[0]?.text
-  if (typeof text !== 'string') {
-    throw new TaskBreakdownError('invalid-response', 'AI:n returnerade ett svar utan delsteg. Försök generera nya förslag.')
-  }
-
-  return {
-    modelId: input.modelId,
-    steps: parseSteps(text),
-  }
-}
-
-export const generateTaskBreakdown = async (input: TaskBreakdownInput): Promise<TaskBreakdownResult> => {
-  const normalizedInput = normalizeInput(input)
-  const chosenKey = normalizedInput.apiKey
-  const keys = readAiKeys()
-
-  if (chosenKey && chosenKey !== 'auto' && chosenKey !== 'standard') {
-    return await generateWithApiKey(chosenKey, normalizedInput)
-  }
-
-  if (chosenKey !== 'standard' && keys.length > 0) {
-    let lastError: TaskBreakdownError | null = null
-
-    for (const apiKey of keys) {
-      try {
-        return await generateWithApiKey(apiKey, normalizedInput)
-      } catch (error) {
-        const classified = classifyTaskBreakdownError(error)
-        if (classified.kind === 'quota' || classified.kind === 'overloaded' || classified.kind === 'configuration') {
-          lastError = classified
-          continue
-        }
-        throw classified
-      }
-    }
-
-    if (lastError) {
-      if (lastError.kind === 'quota') {
-        throw new TaskBreakdownError(
-          'quota',
-          `AI-kvoten är nådd för alla (${keys.length}) sparade API-nycklar. Kontrollera dina nycklar eller lägg till fler i inställningarna.`,
-        )
-      }
-      throw lastError
-    }
-  }
-
-  const model = getGenerativeModel(getAiInstance(), {
-    model: normalizedInput.modelId,
+  const model = client.getGenerativeModel({
+    model: modelId,
     systemInstruction,
     generationConfig: {
-      maxOutputTokens: 1200,
+      maxOutputTokens: MAX_OUTPUT_TOKENS,
       responseMimeType: 'application/json',
       responseSchema,
       temperature: 0.35,
     },
   })
+  const result = await model.generateContent(buildPrompt(input))
+  if (result.response.candidates?.[0]?.finishReason === 'MAX_TOKENS') {
+    throw new TaskBreakdownError(
+      'invalid-response',
+      'AI-svaret blev avklippt när modellens svarstak nåddes. Försök igen eller välj en annan modell.',
+    )
+  }
+  return {
+    modelId,
+    steps: parseSteps(result.response.text()),
+  }
+}
 
+export const generateTaskBreakdown = async (input: TaskBreakdownInput): Promise<TaskBreakdownResult> => {
+  const normalizedInput = normalizeInput(input)
+  const apiKey = getGeminiApiKey()
+  if (!apiKey) {
+    throw new TaskBreakdownError('configuration', 'Gemini API-nyckel saknas. Kontrollera VITE_GEMINI_KEY i deployment-konfigurationen.')
+  }
+
+  const client = new GoogleGenerativeAI(apiKey)
   try {
-    const result = await model.generateContent(buildPrompt(normalizedInput))
-    return {
-      modelId: normalizedInput.modelId,
-      steps: parseSteps(result.response.text()),
-    }
+    return await generateWithModel(client, normalizedInput.modelId, normalizedInput)
   } catch (error) {
-    throw classifyTaskBreakdownError(error)
+    const classified = classifyTaskBreakdownError(error)
+    if (classified.kind !== 'overloaded' || normalizedInput.modelId === TASK_BREAKDOWN_FALLBACK_MODEL_ID) {
+      throw classified
+    }
+    try {
+      return await generateWithModel(client, TASK_BREAKDOWN_FALLBACK_MODEL_ID, normalizedInput)
+    } catch (fallbackError) {
+      throw classifyTaskBreakdownError(fallbackError)
+    }
   }
 }

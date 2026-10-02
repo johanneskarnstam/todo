@@ -1,6 +1,6 @@
 {
   "name": "todo",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -28,6 +28,7 @@
     "rename": "node scripts/rename-app.js"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@lucide/vue": "^1.48.0",
     "firebase": "^12.13.0",
     "pinia": "^3.0.4",

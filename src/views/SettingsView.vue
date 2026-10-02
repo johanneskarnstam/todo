@@ -15,7 +15,7 @@ import { usePushNotifications } from '@/composables/usePushNotifications'
 import { useReminderNotifications } from '@/composables/useReminderNotifications'
 import { useTheme } from '@/composables/useTheme'
 import { useAppUpdate } from '@/composables/useAppUpdate'
-import { useAiKeys } from '@/composables/useAiKeys'
+import { useTaskBreakdownModels } from '@/composables/useTaskBreakdownModels'
 import type { List, TaskReminder, TaskStatus } from '@/types'
 import { normalizeTag, normalizeTags } from '@/utils/taskTags'
 import { releaseNotes } from '@/releaseNotes'
@@ -82,27 +82,10 @@ const editedTagName = ref('')
 const tagError = ref('')
 const availableTags = computed(() => [...new Set(taskStore.tasks.flatMap((task) => task.tags ?? []))].sort())
 
-const { aiKeys, selectedApiKey, addKey, removeKey, maskApiKey } = useAiKeys()
-const newAiKeyInput = ref('')
-const aiKeyFeedback = ref('')
-const aiKeyFeedbackIsError = ref(false)
-
-const handleAddAiKey = () => {
-  aiKeyFeedback.value = ''
-  aiKeyFeedbackIsError.value = false
-  const trimmed = newAiKeyInput.value.trim()
-  const res = addKey(trimmed)
-  if (!res.success) {
-    aiKeyFeedback.value = res.error ?? 'Kunde inte lägga till nyckeln.'
-    aiKeyFeedbackIsError.value = true
-    return
-  }
-  newAiKeyInput.value = ''
-  aiKeyFeedback.value = 'API-nyckel har lagts till.'
-  selectedApiKey.value = trimmed
-}
+const { models: taskBreakdownModels, selectedModelId, isLoadingModels, loadModels } = useTaskBreakdownModels()
 
 onMounted(async () => {
+  void loadModels()
   await Promise.all([listStore.fetchLists(), taskStore.fetchTasks()])
   importListId.value = listStore.lists[0]?.id ?? CREATE_NEW_LIST_OPTION
 })
@@ -555,97 +538,35 @@ const handleLogout = async () => {
         <p v-if="tagError" class="mt-2 text-sm text-red-700 dark:text-red-300" role="alert">{{ tagError }}</p>
       </section>
 
-      <section id="ai-keys" class="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:px-5" aria-labelledby="ai-settings-heading">
-        <div class="mb-2 flex items-center gap-2">
+      <section id="ai-model" class="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:px-5" aria-labelledby="ai-settings-heading">
+        <div class="mb-3 flex items-center gap-2">
           <Sparkles :size="18" class="text-[#2564cf] dark:text-blue-400" aria-hidden="true" />
-          <h2 id="ai-settings-heading" class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">AI-uppdelning & API-nycklar</h2>
+          <h2 id="ai-settings-heading" class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">AI-modell</h2>
         </div>
-        <p class="mb-3 text-sm text-slate-600 dark:text-slate-300">
-          Lägg till en eller flera personliga Gemini API-nycklar från Google AI Studio. Om kvoten tar slut för en nyckel testar appen automatiskt nästa i listan.
-        </p>
-
-        <form class="mb-3 flex flex-col gap-2 sm:flex-row" @submit.prevent="handleAddAiKey">
-          <label class="sr-only" for="new-ai-key">Ny Gemini API-nyckel</label>
-          <input
-            id="new-ai-key"
-            v-model="newAiKeyInput"
-            type="password"
-            autocomplete="off"
-            placeholder="Klistra in Gemini API-nyckel (AIzaSy...)"
-            class="min-h-10 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-[#2564cf] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-          />
-          <button
-            type="submit"
-            class="min-h-10 rounded-lg bg-[#2564cf] px-4 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
-            :disabled="!newAiKeyInput.trim()"
+        <div class="flex items-center gap-2">
+          <label class="sr-only" for="settings-model-select">Gemini-modell</label>
+          <select
+            id="settings-model-select"
+            v-model="selectedModelId"
+            class="min-h-10 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-[#2564cf] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           >
-            Lägg till nyckel
+            <option v-for="model in taskBreakdownModels" :key="model.id" :value="model.id">
+              {{ model.name }}
+            </option>
+          </select>
+          <button
+            type="button"
+            class="grid size-10 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800"
+            aria-label="Uppdatera Gemini-modeller"
+            title="Uppdatera modellista"
+            :disabled="isLoadingModels"
+            @click="loadModels(true)"
+          >
+            <RefreshCw :size="16" :class="{ 'animate-spin': isLoadingModels }" aria-hidden="true" />
           </button>
-        </form>
-        <p v-if="aiKeyFeedback" class="mb-3 text-xs" :class="aiKeyFeedbackIsError ? 'text-red-700 dark:text-red-300' : 'text-emerald-700 dark:text-emerald-400'" role="status">
-          {{ aiKeyFeedback }}
-        </p>
-
-        <div v-if="aiKeys.length" class="space-y-3">
-          <div class="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
-            <label for="settings-key-select" class="text-xs font-medium text-slate-700 dark:text-slate-300">Vald API-nyckel:</label>
-            <select
-              id="settings-key-select"
-              v-model="selectedApiKey"
-              class="min-h-9 rounded-md border border-slate-200 bg-white px-2.5 text-xs text-slate-800 outline-none focus:border-[#2564cf] dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-            >
-              <option v-if="aiKeys.length > 1" value="auto">
-                Automatiskt (testa alla {{ aiKeys.length }})
-              </option>
-              <option v-for="(key, index) in aiKeys" :key="index" :value="key">
-                Nyckel {{ index + 1 }} ({{ maskApiKey(key) }})
-              </option>
-              <option value="standard">
-                Projektets standard (ingen nyckel)
-              </option>
-            </select>
-          </div>
-
-          <h3 class="text-xs font-medium text-slate-500 dark:text-slate-400">Sparade nycklar (används i turordning vid automatiskt läge):</h3>
-          <ul class="divide-y divide-slate-200 rounded-lg border border-slate-200 dark:divide-slate-700 dark:border-slate-700">
-            <li v-for="(key, index) in aiKeys" :key="index" class="flex items-center justify-between gap-3 p-3">
-              <div class="flex min-w-0 items-center gap-2">
-                <span class="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                  {{ index + 1 }}
-                </span>
-                <span class="truncate font-mono text-xs text-slate-800 dark:text-slate-200">
-                  {{ maskApiKey(key) }}
-                </span>
-                <span v-if="selectedApiKey === key" class="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
-                  Vald
-                </span>
-                <span v-else-if="index === 0 && selectedApiKey === 'auto'" class="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
-                  Första i tur
-                </span>
-              </div>
-              <div class="flex items-center gap-2">
-                <button
-                  v-if="selectedApiKey !== key"
-                  type="button"
-                  class="rounded px-2 py-1 text-xs font-medium text-[#2564cf] hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/40"
-                  @click="selectedApiKey = key"
-                >
-                  Välj
-                </button>
-                <button
-                  type="button"
-                  class="p-1 text-xs font-medium text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-                  :aria-label="`Ta bort nyckel ${index + 1}`"
-                  @click="removeKey(index)"
-                >
-                  Ta bort
-                </button>
-              </div>
-            </li>
-          </ul>
         </div>
-        <p v-else class="text-xs text-slate-500 dark:text-slate-400">
-          Inga egna nycklar tillagda. Appen använder projektets standardkvot.
+        <p v-if="isLoadingModels" class="mt-2 text-xs text-slate-500 dark:text-slate-400" role="status">
+          Hämtar Gemini-modeller…
         </p>
       </section>
 

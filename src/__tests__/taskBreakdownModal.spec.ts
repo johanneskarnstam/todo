@@ -6,6 +6,7 @@ import TaskBreakdownModal from '@/components/TaskBreakdownModal.vue'
 import { useTaskBreakdownStore } from '@/stores/taskBreakdownStore'
 import { useTaskStore } from '@/stores/taskStore'
 import { TaskBreakdownError } from '@/services/taskBreakdownService'
+import { useTaskBreakdownModels } from '@/composables/useTaskBreakdownModels'
 import type { Task, TaskAiBreakdown } from '@/types'
 
 vi.mock('@/firebase', () => ({
@@ -55,6 +56,7 @@ describe('TaskBreakdownModal', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
+    useTaskBreakdownModels().selectedModelId.value = 'gemini-3.8-flash'
   })
 
   it('renders task context and informative disclosure text', async () => {
@@ -70,7 +72,7 @@ describe('TaskBreakdownModal', () => {
     expect(wrapper.text()).toContain('Måla sovrummet')
     expect(wrapper.text()).toContain('Grundmåla väggarna.')
     expect(wrapper.text()).toContain(
-      'Titel, anteckning och eventuell extratext skickas till Firebase AI Logic/Gemini när du genererar.',
+      'Titel, anteckning och eventuell extratext skickas till Gemini Developer API när du genererar.',
     )
     expect(wrapper.find('textarea').exists()).toBe(true)
   })
@@ -133,7 +135,7 @@ describe('TaskBreakdownModal', () => {
     expect(wrapper.text()).toContain('Förslagen skapades från en äldre titel eller anteckning.')
   })
 
-  it('shows error banner with link to open inline key settings on quota error', async () => {
+  it('does not suggest a model change for quota errors', async () => {
     const breakdownStore = useTaskBreakdownStore()
     vi.spyOn(breakdownStore, 'loadLatest').mockImplementation(async () => {
       const err = new TaskBreakdownError('quota', 'AI-tjänstens kvot har överskridits.')
@@ -148,7 +150,7 @@ describe('TaskBreakdownModal', () => {
     await vi.waitFor(() => expect(wrapper.text()).toContain('AI-kvoten är nådd'))
 
     expect(wrapper.text()).toContain('AI-tjänstens kvot har överskridits.')
-    expect(wrapper.text()).toContain('Hantera API-nycklar och modell')
+    expect(wrapper.text()).not.toContain('Välj en annan modell')
   })
 
   it('always shows model selector and allows retry with different model on overload', async () => {
@@ -332,58 +334,6 @@ describe('TaskBreakdownModal', () => {
     expect(retryButton).toBeUndefined()
   })
 
-  it('renders inline API key management section', async () => {
-    const breakdownStore = useTaskBreakdownStore()
-    vi.spyOn(breakdownStore, 'loadLatest').mockResolvedValue(null)
-
-    const wrapper = mountModal({
-      isOpen: true,
-      task: sampleTask(),
-    })
-
-    // The key settings toggle should be visible
-    const keyToggle = wrapper.findAll('button').find((btn) => btn.text().includes('API-nycklar'))
-    expect(keyToggle).toBeTruthy()
-
-    // Open the key panel
-    await keyToggle!.trigger('click')
-    await vi.waitFor(() => expect(wrapper.text()).toContain('Välj en specifik API-nyckel ovan'))
-
-    // Input field for adding a key should be present
-    expect(wrapper.find('#modal-new-ai-key').exists()).toBe(true)
-  })
-
-  it('allows user to choose a specific API key in the modal and passes it when generating', async () => {
-    const { useAiKeys } = await import('@/composables/useAiKeys')
-    const { addKey, setSelectedKey } = useAiKeys()
-    addKey('AIzaSyKey1111')
-    addKey('AIzaSyKey2222')
-    setSelectedKey('auto')
-
-    const breakdownStore = useTaskBreakdownStore()
-    vi.spyOn(breakdownStore, 'loadLatest').mockResolvedValue(null)
-    const generateSpy = vi.spyOn(breakdownStore, 'generateLatest').mockResolvedValue(sampleBreakdown)
-
-    const wrapper = mountModal({
-      isOpen: true,
-      task: sampleTask(),
-    })
-
-    const keySelect = wrapper.find('#modal-key-select')
-    expect(keySelect.exists()).toBe(true)
-
-    // Select the second key
-    await keySelect.setValue('AIzaSyKey2222')
-
-    // Click generate button
-    const generateBtn = wrapper.findAll('button').find((btn) => btn.text().includes('Generera förslag'))
-    expect(generateBtn).toBeTruthy()
-    await generateBtn!.trigger('click')
-
-    expect(generateSpy).toHaveBeenCalledWith('task-1', expect.objectContaining({
-      apiKey: 'AIzaSyKey2222',
-    }))
-  })
 })
 
 

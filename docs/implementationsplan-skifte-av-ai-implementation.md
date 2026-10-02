@@ -1,26 +1,26 @@
-# Implementationsplan: Skifte av AI-implementation
+# Implementationsplan: Gemini-klient enligt Foodhero-mönstret
 
 ## Syfte
 
-Utvärdera och ersätta klientbaserade Gemini-anrop med ett serverlager, samtidigt som det godkända AI-flödet för uppgiftsnedbrytning, senaste förslagsuppsättningen och användarens val bevaras.
+Ändra Todo:s uppgiftsnedbrytning så att Gemini-anrop, modellval och kapacitetsfallback fungerar på samma sätt som i `src_foodhero/services/aiService.ts`. Behåll Todo:s befintliga gränssnitt för förhandsgranskning, val av delsteg och sparande i Firestore.
 
-## Undersökningsresultat
+## Målbild från Foodhero
 
-- `src_foodhero/services/aiService.ts` använder `@google/generative-ai` direkt i webbläsaren. Den läser `VITE_GEMINI_KEY`/`VITE_GEMINI_API_KEY`, inkluderar nyckeln även i REST-anrop för modellistan och implementerar JSON-parsning, felmeddelanden, fallback och modellval.
-- `src_looplist/services/aiService.ts` använder också `@google/generative-ai` direkt i webbläsaren med `VITE_GEMINI_KEY`. `AIListGeneratorModal.tsx` ger bra UX-inspiration: prompt, förhandsgranskning, generera om och spara först efter användarens val. `isAIGenerated` och `aiPrompt` är listmetadata, inte en alternativ serverarkitektur.
-- Todo:s aktuella `src/services/taskBreakdownService.ts` använder Firebase AI Logic men innehåller nu även ett direkt REST-anrop med användarvald API-nyckel. `src/composables/useAiKeys.ts` sparar dessa nycklar i `localStorage`, och inställningar/modal läser och redigerar dem.
-- Todo har redan Cloud Functions v2 i `functions/`, Node.js 24, region `europe-west1`, `maxInstances`-konfiguration, Auth, App Check-initiering och senaste AI-förslag i Firestore. Functions-kodbasen använder ännu ingen callable AI-funktion eller Gemini-SDK.
-- `functions/package.json` är separat från webbappens beroenden. Servernyckeln ska därför aldrig vara en `VITE_*`-variabel eller ingå i en webbuild.
+- Använd `@google/generative-ai` direkt från webbklienten. Ingen callable Cloud Function används för generering.
+- Skapa SDK-klienten från `VITE_GEMINI_KEY`, med `VITE_GEMINI_API_KEY` som kompatibel reservvariabel.
+- Låt användaren välja modell. Spara modell-ID i `localStorage`; använd `VITE_GEMINI_MODEL` och därefter en standardmodell om inget sparat val finns.
+- Hämta modeller som stöder `generateContent` från Gemini Models REST API. Filtrera bort irrelevanta modeller, sortera användbara alternativ och cacha listan i `localStorage` med en tidsbegränsad cache.
+- Anropa den valda modellen först. Vid ett klassificerat kapacitetsfel gör klienten ett nytt försök med en fast fallbackmodell, på samma sätt som Foodhero. Andra fel ska inte utlösa modellfallback.
+- Be Gemini returnera JSON och validera/parsa svaret i klienttjänsten innan det skickas vidare till Todo-gränssnittet.
 
-## Alternativ och rekommendation
+## Säkerhetsbeslut
 
-| Alternativ | Fördelar | Nackdelar och risker | Bedömning |
-| --- | --- | --- | --- |
-| Firebase AI Logic från webbläsaren | Minst backendkod; Firebase hanterar AI-gateway och App Check; ingen Gemini-API-nyckel behöver ligga i klienten. | Klienten väljer och skickar prompt direkt; projektkvoter delas; svårare att lägga på serverstyrd policy och användarspecifik begränsning. | Fortsatt rimligt för enkel prototyp, men ger mindre central kontroll. |
-| Direkt Gemini-anrop från webbläsaren | Enkel modell-API och lätt att prova olika modeller. | Delad `VITE_*`-nyckel blir publik. BYOK-nycklar i `localStorage` är åtkomliga för JavaScript i origin och användarens webbläsarprofil. Båda inspirationsprojekten har detta mönster; det bör inte kopieras till produktion. | Avråds för Todo. |
-| Callable Cloud Function med Gemini Developer API | Nyckeln ligger i Secret Manager; servern kan kräva Auth och App Check, validera prompt/modell, begränsa anrop per användare, kontrollera fallback och returnera säkra fel. Webbappen kan behålla samma modala UX och Firestore-modell. | Mer kod och ytterligare nätverkshopp; kräver Secret Manager, Functions-deploy och Functions-kostnader/billing. | **Rekommenderas för skiftet**, eftersom projektet redan har en Functions-kodbas och kraven omfattar modellfallback och felkontroll. |
+> Den här arkitekturen innebär avsiktligt att Gemini API-nyckeln är publik: `VITE_*`-värden byggs in i JavaScript och Gemini-anrop görs från användarens webbläsare. Det är samma modell som Foodhero, men nyckeln är inte en serverhemlighet och får inte ges skyddsvärde.
 
-Firebase AI Logic är fortfarande ett giltigt alternativ och kan lämnas provisionerat under migreringen. Planen rekommenderar att själva inference-anropet flyttas till en callable Function, inte att de befintliga Firestore- och AI-förslagsmodellerna byggs om.
+- [ ] Produktägaren bekräftar att en gemensam projektägd Gemini-nyckel i webbläsaren är acceptabel, inklusive risken för missbruk och oväntade kostnader.
+- [ ] Begränsa nyckeln hos Google till nödvändiga API:er och webb-origin/referrers där det stöds; sätt kvoter, kostnadsaviseringar och rutin för nyckelrotation.
+- [ ] Använd aldrig denna nyckel för privilegierad åtkomst eller skicka hemlig/personlig information i promptar. Firebase App Check skyddar inte direkta Gemini-anrop från webbläsaren.
+- [ ] Använd en separat utvecklingsnyckel och CI/E2E-mocks. Äkta nycklar får inte hamna i Git, tester, loggar eller screenshots.
 
 ## Målarkitektur
 
@@ -29,101 +29,92 @@ sequenceDiagram
     actor User as Användare
     participant UI as TaskBreakdownModal
     participant Client as taskBreakdownService
-    participant Function as Callable Function
-    participant Secret as Secret Manager
     participant Gemini as Gemini Developer API
     participant Store as Firestore latest/suggestions
 
     User->>UI: Begär förslag
-    UI->>Client: Titel, anteckning, extra prompt
-    Client->>Function: httpsCallable + Firebase Auth/App Check
-    Function->>Function: Validera input, UID, kvot och tillåten modell
-    Function->>Secret: Läs Gemini API-nyckel
-    Function->>Gemini: Generera strukturerat JSON
-    Gemini-->>Function: Förslag
-    Function-->>Client: Validerade förslag eller typat fel
-    Client-->>UI: Visa förhandsgranskning
-    User->>UI: Välj och bekräfta
-    UI->>Store: Spara senaste förslag och valda Steps atomärt
+    UI->>Client: Titel, anteckning, extra prompt, modell-ID
+    Client->>Client: Validera input och läs klientkonfiguration
+    Client->>Gemini: SDK generateContent med JSON-schema
+    Gemini-->>Client: JSON med delsteg
+    Client->>Client: Validera, trimma och deduplicera delsteg
+    Client-->>UI: Förslag eller klassificerat fel
+    UI-->>User: Förhandsgranska och välj delsteg
+    User->>UI: Bekräfta val
+    UI->>Store: Spara latest/suggestions och valda Steps
 ```
 
-- Webbappen anropar bara `httpsCallable`; den importerar inte `firebase/ai`, `@google/generative-ai` eller `@google/genai` och gör inga anrop till `generativelanguage.googleapis.com`.
-- Callable-funktionen validerar Firebase Auth, `request.app`/App Check, titel/anteckning/prompt, modell-ID och maxantal innan den kontaktar Gemini.
-- Gemini API-nyckeln hämtas från `defineSecret('GEMINI_API_KEY')` i Cloud Secret Manager. Endast den AI-callable funktionen binds till hemligheten.
-- Functionen returnerar endast validerade steg och valt modell-ID. Klienten fortsätter hantera `aiBreakdowns/latest`, suggestion-status och `Step`-batchar via befintliga ägarregler.
-- Användarens prompt, anteckning, API-nyckel och fullständiga Gemini-svar loggas inte. Funktionsloggar innehåller bara säkra fält som UID, modell-ID, felkategori, svarstid och request-id.
+- Lägg `@google/generative-ai` i webbappens beroenden, inte i `functions/`. `taskBreakdownService` äger SDK-initiering, modellkatalog, cache, felklassificering och validering.
+- Ta bort Firebase AI Logic och direkt REST-generering med användarens BYOK-nyckel från genereringsflödet. Modellen väljs i Todo-gränssnittet, men API-nycklar hanteras inte av användaren.
+- Behåll den befintliga Todo-kontrakttypen: tjänsten returnerar `{ modelId, steps }`; UI ska inte känna till SDK:ns response-objekt.
+- Endast en lyckad och validerad generering får ersätta senaste förslagsuppsättningen. Bekräftelse och Firestore-skrivningar fortsätter följa befintliga ägarregler och atomiska batchar.
 
 ## Genomförande
 
-### 1. Beslut och hemligheter
+### 1. Klientkonfiguration och modeller
 
-- [ ] Bekräfta att Gemini Developer API med en projektägd API-nyckel i Secret Manager är önskad backend-provider.
-- [ ] Kontrollera att projektets billing-plan och IAM tillåter Cloud Functions, Secret Manager och Gemini Developer API.
-- [ ] Skapa `GEMINI_API_KEY` med `firebase functions:secrets:set GEMINI_API_KEY`; håll värdet utanför `.env`, GitHub build-secrets och webappen.
-- [ ] Bestäm hantering av befintliga BYOK-nycklar i `localStorage`. Rekommenderat standardval: sluta läsa/använda dem och rensa gamla `todo-gemini-api-keys` och `todo-gemini-selected-key` efter tydlig migreringsinformation.
-- [ ] Kontrollera att App Check är enforced för Cloud Functions och att lokal utveckling/E2E använder registrerad debug-token utan att exponera den i repo.
+- [x] Lägg till `@google/generative-ai` som beroende för webbappen och initiera SDK:t från `VITE_GEMINI_KEY || VITE_GEMINI_API_KEY`.
+- [x] Läs standardmodell från `VITE_GEMINI_MODEL`; tillåt användarens modellval att sparas i en egen, versionsstabil `localStorage`-nyckel.
+- [x] Implementera dynamisk hämtning av modeller som stöder `generateContent`, med filtrering, visningsmetadata, sortering och fallback till en statisk modellista när nyckel/nätverk/API inte är tillgängligt.
+- [x] Cacha modellistan lokalt med TTL och stöd för tvingad uppdatering. Hantera trasig/otillgänglig `localStorage` utan att AI-flödet kraschar.
+- [x] Bekräfta modellernas tillgänglighet och välj stabila standard-/fallback-ID:n före release. Hårdkoda inte tillfälliga modell-ID:n utan verifiering.
+- [x] Ta bort nyckelhantering från `useAiKeys`, inställningar och AI-modal; rensa tidigare Todo BYOK-poster efter att migrationsbeteendet är beslutat och testat.
 
-### 2. Callable AI-funktion
+### 2. Generering och svar
 
-- [ ] Lägg till `@google/genai` endast i `functions/package.json` och använd dess server-API från en ny modul, exempelvis `functions/src/taskBreakdown.ts`.
-- [ ] Skapa `generateTaskBreakdown` med `onCall({ region: 'europe-west1', enforceAppCheck: true, secrets: [geminiApiKey] })`; kräv alltid `request.auth` och avvisa saknad Auth/App Check.
-- [ ] Validera request-shape på servern: titel högst 200 tecken, anteckning högst 4000, extra prompt högst 1000, modell från allowlist och högst 20 delsteg.
-- [ ] Skicka titel, eventuell anteckning och extra prompt som opålitlig användarkontext till modellen. Använd separat systeminstruktion och JSON-schema för `{ steps: string[] }`.
-- [ ] Validera modellsvaret på servern: JSON/schema, högst 20 steg, trimma tomma titlar, max 180 tecken och deduplicera normaliserade titlar.
-- [ ] Håll modell-ID:n centrala och serverkontrollerade: standard `gemini-3.8-flash`, alternativ `gemini-3.7-flash`, `gemini-3.6-flash`, `gemini-3.5-flash-lite`. Kontrollera status och projektåtkomst igen innan release; de första tre är dokumenterade som korttidsmodeller.
-- [ ] Implementera en användar-/projektkvot före varje provider-anrop, exempelvis en transaktion i en separat `aiUsage`-path. Bestäm gräns, fönster, samtidighet och hur en misslyckad modellrequest debiteras.
-- [ ] Begränsa Functionens `maxInstances`, timeout och minne. Lägg inte till en retry-loop som automatiskt spenderar flera modellrequest på användarens vägnar.
+- [x] Ersätt `firebase/ai`, `GoogleAIBackend` och `generateWithApiKey` REST-flödet i `src/services/taskBreakdownService.ts` med `GoogleGenerativeAI` och `getGenerativeModel`.
+- [x] Behåll lokal validering: titel högst 200 tecken, anteckning högst 4000, extra prompt högst 1000, högst 20 delsteg och högst 180 tecken per delsteg.
+- [x] Skicka titel, anteckning och extra prompt som användarkontext med en separat svensk systeminstruktion. Begär `{ steps: string[] }` med JSON-mime type/schema och lämplig output-token-gräns.
+- [x] Validera SDK-svaret även när response schema används: reservera tillräcklig outputbudget, upptäck `MAX_TOKENS` innan JSON-parsning, kontrollera strukturen, trimma och ta bort tomma/för långa värden, deduplicera delsteg och avvisa tomt resultat.
+- [x] Returnera bara normaliserade delsteg och det modell-ID som faktiskt användes. Lägg aldrig rått providerfel, prompt eller API-nyckel i användarvända felmeddelanden/loggar.
 
-### 3. Fallback och säkra fel
+### 3. Fallback och fel
 
-- [ ] Anropa standardmodellen först. Vid uttryckligt modellkapacitetsfel returneras en `HttpsError` med säker `details.reason = 'model-overloaded'` och de tre tillåtna modellalternativen; klienten visar dropdown och användaren startar själv retry.
-- [ ] Om användaren skickar ett alternativ vid retry kontrollerar Functionen modell-ID:t mot samma allowlist innan anrop.
-- [ ] Skilj modellöverbelastning från projekt-/providerkvot, billing, invalid input, Auth, App Check, nätverksfel, konfigurationsfel och ogiltigt svar. Visa alternativa modeller endast för modellkapacitetsfel.
-- [ ] Mappa fel till generiska svenska meddelanden. Lägg aldrig providerfel, stack traces, nycklar, råa promptar eller anteckningar i callable-svaret eller loggar.
-- [ ] Testa hur Functions SDK:s `HttpsError.code` och `details` mappas till befintlig `TaskBreakdownError` i webappen.
+- [x] Implementera Foodhero-lik klassificering av kapacitetsfel, exempelvis 503, high demand, capacity och overloaded; var försiktig med 429 eftersom det även kan betyda projektkvot/billing.
+- [x] Vid kapacitetsfel på vald modell, försök en gång med en separat fast fallbackmodell. Ingen retry-loop och ingen automatisk kedja av flera modeller.
+- [x] Behåll modellväljaren så användaren kan välja ett annat tillgängligt alternativ. Visa fallback/modellförslag endast när felet rimligen beror på modellkapacitet; kvot, billing, nätverk, konfiguration och ogiltigt svar ska få separata feltyper.
+- [x] Om fallback också misslyckas, mappa felet till ett kort svenskt meddelande utan att exponera Gemini:s råa svar eller nyckel.
 
-### 4. Klientmigration
+### 4. UI och befintligt Todo-flöde
 
-- [ ] Ersätt Firebase AI Logic och browser-REST-grenen i `src/services/taskBreakdownService.ts` med en typed `httpsCallable`-wrapper riktad mot `europe-west1`.
-- [ ] Ta bort `apiKey` från `TaskBreakdownInput` och ta bort `readAiKeys()` från genereringsflödet.
-- [ ] Ta bort `src/composables/useAiKeys.ts`, dess `localStorage`-nyckelhantering, inställningssektionen för Gemini API-nycklar och nyckelinmatningen i AI-modalen; uppdatera tester som förutsätter BYOK.
-- [ ] Behåll de tre modellerna i reserv-dropdownen, men låt inte klienten anropa modellen direkt eller välja modell-ID utanför allowlisten.
-- [ ] Bevara modalens kontextvisning, extra prompt, preview, val/avval, senaste förslagsuppsättning, felpresentation och befintliga Firestore-batch för valda delsteg.
-- [ ] Behåll en stabil client-service-kontraktstyp så UI inte blir beroende av Firebase callable response envelope.
+- [x] Uppdatera modellväljaren i AI-modal/inställningar för dynamisk modellista, laddnings-/offline-/tomt tillstånd och valt modell-ID.
+- [x] Behåll kontextvisning, extra prompt, preview, välja/avvälja, generera om, latest-förslag, felpresentation och bekräftelse innan delsteg skrivs.
+- [x] Behåll befintligt Firestore-format och batch för `aiBreakdowns/latest`, suggestion-status och valda `Step`-dokument; en generering ensam får inte skriva delsteg.
+- [x] Ta bort API-nyckelinmatning och val av sparad användarnyckel. Låt inga API-nycklar passera genom `TaskBreakdownInput` eller Pinia-store.
 
-### 5. Tester och emulatorer
+### 5. Tester och validering
 
-- [ ] Unit-tester för serverns inputvalidering, allowlist, JSON-resultat, maxgränser, deduplicering, auth/appCheck-avslag, användarkvot och varje felkategori.
-- [ ] Provider-tester med injicerad/mockad Gemini-klient; inga externa Gemini-anrop eller verkliga Secret Manager-hemligheter i CI.
-- [ ] Callable-emulator-/integrationstester för Auth och App Check-krav samt säkert `HttpsError.details`-kontrakt.
-- [ ] Uppdatera `src/__tests__/taskBreakdownService.spec.ts` till att mocka `httpsCallable` i stället för Firebase AI Logic/fetch och ta bort tester som skickar nycklar från klienten.
-- [ ] Uppdatera `e2e/tasks.spec.ts` att mocka callable-endpointen och täcka defaultanrop, val av alternativ vid modellöverbelastning, quota/App Check-fel utan dropdown, bekräftelse/återöppning och att generering inte skriver delsteg.
-- [ ] Kör befintliga Firestore Rules Emulator-tester för `latest/suggestions` och `Step`-batchar; håll AI-generering och secrets mockade.
+- [x] Uppdatera `src/__tests__/taskBreakdownService.spec.ts` för att mocka `@google/generative-ai`; täck prompt, modellval, JSON-validering, ogiltigt/tomt svar, gränser och felklassificering.
+- [x] Testa fallback: vald modell lyckas utan retry; kapacitetsfel provar fallback exakt en gång; kvot-, konfigurations- och nätverksfel provar inte fallback.
+- [x] Uppdatera tester för `useAiKeys`, inställningar och AI-modal när BYOK tas bort; lägg till täckning för modellval och modellcache.
+- [x] Uppdatera `e2e/tasks.spec.ts` att mocka SDK-/Gemini-anrop deterministiskt och verifiera modellöverbelastning, användarens omförsök/modellval, bekräftelse/återöppning och att generering inte skriver delsteg.
+- [x] Uppdatera `e2e/settings.spec.ts` att verifiera dynamiskt modellval och persistens utan API-nyckelinmatning.
+- [ ] Kör Firestore Rules Emulator-tester för `latest/suggestions` och `Step`-batchar; inga riktiga Gemini-anrop eller produktionsnycklar i CI/E2E.
+- [x] Kör obligatoriskt `npm run type-check && npm run lint`, relevanta Vitest/E2E-tester och därefter `npm run validate` när miljön stöder det.
 
-### 6. Stegvis utrullning och avveckling
+### 6. Utrullning
 
-- [ ] Implementera Functionen och klient-wrappen medan Firebase AI Logic-koden ännu finns kvar, men aktivera nya callable-flödet för ett begränsat testläge först.
-- [ ] Verifiera Auth, App Check enforcement, Secret Manager-bindning, kvotgräns, fallback-dropdown och redigerbar latest-förslagsuppsättning i staging.
-- [ ] Växla alla genereringar till callable-funktionen; blockera klientens direkta Gemini-anrop.
-- [ ] Rensa tidigare BYOK-nycklar efter migreringsinformationen och verifiera att ingen `VITE_GEMINI_KEY`, `VITE_GEMINI_API_KEY` eller `apiKey` finns i production bundle eller nätverksrequest från webben.
-- [ ] Behåll Firebase AI Logic provisionerat tills sökningar och telemetri visar att ingen klient längre använder det; avveckla först därefter om projektet inte har andra AI Logic-konsumenter.
-- [ ] Höj paketversion enligt repoets SemVer-regel när implementationen är validerad, före eventuell commit.
+- [ ] Lägg in miljövariabeln för Vite i lokal utveckling och deployment-miljöer utan att committa värdet. Verifiera att appen ger ett tydligt konfigurationsfel om nyckeln saknas.
+- [ ] Testa i staging med en begränsad Gemini-nyckel: modellistan, cache, valt modell-ID, normal generering, kapacitetsfallback, felmeddelanden och Firestore-bekräftelse.
+- [ ] Bygg och granska webbpaketet samt nätverksanropen: förvänta dig att klientnyckeln är synlig och säkerställ att inga andra credentials eller råa promptar läcker.
+- [ ] Ta bort oanvänd Firebase AI Logic-konfiguration först efter att Todo:s klient inte längre använder den och efter kontroll av eventuella andra konsumenter.
+- [x] Ta bort oanvända Functions-/Secret Manager-plansteg; någon Gemini callable-funktion eller serverhemlighet ingår inte i denna målarkitektur.
 
 ## Risker och avgränsningar
 
 | Risk | Hantering |
 | --- | --- |
-| API-nyckel läcker via frontend bundle eller browser storage | Endast Secret Manager för servernyckeln; inga `VITE_*`-nycklar eller BYOK-värden i webben. |
-| Otillåtna callable-anrop ger modellkostnad | Auth, App Check enforcement, servervalidering, per-user-kvot, max-instansbegränsning och kostnadsmonitorering. |
-| 429 kan betyda kvot eller kapacitet | Klassificera felmeddelande/providerfel på servern; dropdown endast för kapacitetsfel. |
-| Funktionsregion ökar svarstid | Behåll `europe-west1`, klientens Functions-instans och Auth-/Firestore-region där möjligt; mät verklig latens. |
-| Omgenerering eller retry skriver över förslag | Ersätt latest endast när en ny request lyckats och validerats; behåll tidigare latest vid fel. |
-| BYOK-nycklar raderas utan användarens vetskap | Visa tydlig migreringsinformation och avgör uttryckligen om projektet ska sluta stödja BYOK före utrullning. |
-| Två AI-implementationer kör parallellt | Feature flag/staging, mätning av callable-fel och tydlig rollback innan gamla klientvägen tas bort. |
+| Klientnyckeln kan extraheras ur webbuild och användas utanför appen | Acceptera uttryckligen risken, begränsa nyckel/API/origins, sätt kvoter och kostnadsaviseringar, rotera vid missbruk. Det finns ingen serverbaserad per-user-kvot i denna arkitektur. |
+| Direkt Gemini-anrop kan ge oväntad kostnad eller kvotförbrukning | Använd projektkvoter och monitorering; fallback gör högst ett extra anrop och endast vid kapacitetsfel. |
+| Gemini-modellistan ändras eller innehåller olämpliga modeller | Filtrera efter `generateContent`, exkludera oönskade modelldelar, ha statisk fallback och verifiera standard-/fallbackmodell vid release. |
+| HTTP 429 kan betyda modellkapacitet eller projektkvot | Klassificera status tillsammans med providerfel; visa inte modellfallback när kvot/billing sannolikt är orsaken. |
+| Klientens modellcache eller lagring är trasig | Validera cacheformat/TTL och fall tillbaka till statiska modeller när cache eller `localStorage` inte går att använda. |
+| Svar kan vara ogiltigt trots JSON-schema | Validera och normalisera alltid svaret före preview eller Firestore-skrivning; behåll latest vid genereringsfel. |
+| BYOK-data finns kvar efter migrering | Sluta läsa/skriva Todo:s gamla BYOK-nycklar och rensa lagringen enligt beslutad migrationshantering. |
 
-## Öppna frågor
+## Beslut
 
-1. Ska BYOK-stöd helt tas bort? Rekommendationen är ja: Todo använder projektets skyddade API-nyckel, medan en användares personliga Gemini-nyckel inte lagras eller skickas från webbläsaren.
-2. Är Gemini Developer API med Secret Manager rätt provider, eller behöver ni Vertex AI/Agent Platform av policy-, regions- eller avtalskrav?
-3. Vilken initial användargräns för AI-generering är rimlig, exempelvis ett bestämt antal anrop per användare per tidsfönster?
-4. Ska Firebase AI Logic fortsätta vara aktiverat under och efter övergången, ifall andra funktioner använder det?
+1. Målprovider är Gemini Developer API från webbklienten via `@google/generative-ai`, enligt `src_foodhero/services/aiService.ts`.
+2. En gemensam `VITE_GEMINI_KEY`/`VITE_GEMINI_API_KEY` används; användarstyrda BYOK-nycklar tas bort.
+3. Modellval och modellistan följer Foodhero-mönstret: dynamisk upptäckt/cache, lokalt sparat val och en fast fallback endast vid kapacitetsfel.
+4. Den publika klientnyckeln och avsaknaden av serverbaserad användarkvot är accepterade avgränsningar som måste vägas mot användningsfall, API-restriktioner och kostnadsgränser före release.

@@ -238,6 +238,18 @@ test('generates, selects, reopens and replaces AI task breakdown suggestions', a
     ['Förbered material', 'Mät väggen'],
   ]
   let generationIndex = 0
+  await page.route(/\/v1beta\/models\?key=/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        models: [
+          { name: 'models/gemini-3.8-flash', displayName: 'Gemini 3.8 Flash', supportedGenerationMethods: ['generateContent'] },
+          { name: 'models/gemini-3.8-flash-audio', supportedGenerationMethods: ['generateContent'] },
+        ],
+      }),
+    })
+  })
   await page.route(/generateContent/, async (route) => {
     const steps = generatedSteps[generationIndex] ?? generatedSteps[1]
     generationIndex += 1
