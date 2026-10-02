@@ -1,10 +1,10 @@
 {
   "name": "todo",
-  "version": "0.29.2",
+  "version": "1.0.1",
   "private": true,
   "type": "module",
   "engines": {
-    "node": "^20.19.0 || >=22.12.0"
+    "node": ">=24.0.0"
   },
   "scripts": {
     "dev": "vite",
@@ -13,6 +13,7 @@
     "test:unit": "vitest",
     "test": "vitest run",
     "test:ci": "vitest run --coverage",
+    "test:functions": "npm --prefix functions test",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
@@ -21,7 +22,7 @@
     "build-only": "vite build",
     "type-check": "vue-tsc --build",
     "lint": "eslint . --fix --cache",
-    "validate": "run-s lint type-check test:ci test:e2e test:e2e:auth build-only",
+    "validate": "run-s lint type-check test:ci test:functions test:e2e test:e2e:auth build-only",
     "format": "prettier --write --experimental-cli src/",
     "generate-env": "node scripts/generate-env.js",
     "rename": "node scripts/rename-app.js"

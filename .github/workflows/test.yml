@@ -1,18 +1,32 @@
-name: Unit Tests
+name: Full Validation
 
 on:
   push:
-    branches: ['main', 'develop']
+    branches: ['develop']
     paths:
       - 'src/**'
-      - 'tests/**'
+      - 'e2e/**'
+      - 'functions/**'
+      - '.github/workflows/**'
+      - 'playwright*.config.ts'
+      - 'vitest.config.ts'
+      - 'tsconfig*.json'
       - 'package.json'
+      - 'package-lock.json'
+      - 'functions/package-lock.json'
   pull_request:
-    branches: ['main']
+    branches: ['develop']
     paths:
       - 'src/**'
-      - 'tests/**'
+      - 'e2e/**'
+      - 'functions/**'
+      - '.github/workflows/**'
+      - 'playwright*.config.ts'
+      - 'vitest.config.ts'
+      - 'tsconfig*.json'
       - 'package.json'
+      - 'package-lock.json'
+      - 'functions/package-lock.json'
   workflow_dispatch:
 
 permissions:
@@ -25,27 +39,33 @@ concurrency:
 
 jobs:
   test:
-    name: Run Unit Tests
+    name: Run Full Validation
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
           cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Run unit tests with coverage
-        run: npm run test:ci
+      - name: Install Functions dependencies
+        run: npm ci --prefix functions
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run full validation
+        run: npm run validate
 
       - name: Upload test coverage
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-coverage
           path: coverage/
@@ -53,7 +73,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-results
           path: |

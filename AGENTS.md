@@ -8,6 +8,7 @@
 - **State Management:** Pinia.
 - **Backend & Database:** Firebase v10+ (Authentication, Firestore NoSQL).
 - **Testing:** Vitest for unit tests and Playwright for browser-level E2E tests.
+- **Runtime:** Node.js 24 or newer for the app and CI; Firebase Functions deploy with the Node.js 24 runtime.
 
 ## 2. Architecture & Structure
 Maintain the established directory structure. Do not create new top-level directories without a valid reason.
@@ -21,7 +22,7 @@ Maintain the established directory structure. Do not create new top-level direct
 Before marking a task as complete or finalizing code changes, you **MUST** run the project's validation scripts (For this project: `npm run type-check && npm run lint`).
 - If the validation fails, analyze the errors, fix them, and re-run until it passes 100%.
 - Never assume a change is safe without completing this validation.
-- `npm run validate` is the complete PR validation: lint, type-check, coverage, Playwright E2E and production build. Use it before finalizing changes whenever the environment supports it.
+- `npm run validate` is the complete PR validation: lint, type-check, frontend coverage, Functions unit tests, Playwright E2E/auth-gating and production build. Use it before finalizing changes whenever the environment supports it.
 - Use the local `VITE_DEV_AUTH_BYPASS=true` mock-auth mode for the normal E2E suite so validation does not require Firebase credentials. Auth-gating tests without a user belong in a separate deterministic test mode.
 - Preserve the coverage gate: Statements 70%, Branches 55%, Functions 65% and Lines 75%. Do not lower thresholds or add exclusions to make a refactor pass without adding or adjusting behavior tests.
 - Every new user-facing feature or changed browser workflow must add or update an E2E test when its behavior can be verified through the UI. Unit tests alone are not sufficient for routing, responsive behavior, pointer interaction, or cross-component flows.
@@ -55,8 +56,12 @@ The version in `package.json` **MUST** be incremented automatically by the AI ag
 - **TypeScript:** Avoid `any` completely. Use explicit interfaces. Consistently use optional chaining (`?.`) and nullish coalescing (`??`).
 - **Offline-first:** The app must support Firestore's local cache and use optimistic UI updates. Database calls must not block the UI with loading spinners.
 - **Design Goal:** The layout should visually mimic Microsoft To Do (left sidebar, top bar with search field) and be fully responsive.
+- **Maintainability:** Keep views focused on page composition, stores focused on state and persistence, and composables focused on reusable workflows. When a file combines independent responsibilities or becomes difficult to navigate, extract a cohesive module and preserve its public behavior with tests; do not split files solely to meet an arbitrary line limit.
+- **Test Relevance:** Each test should protect a distinct user-visible behavior, boundary, or failure mode. Prefer assertions on accessible behavior and state over implementation details; remove or consolidate tests that only duplicate an already-covered contract.
+- **Large Test Files:** Group tests by the component or domain they exercise. Split a mixed suite when finding the relevant setup/assertions becomes difficult, keeping shared setup minimal and explicit.
 
 ## 7. AI Agent Operating Guidelines
 - **Context Awareness:** Read and analyze the existing project structure and nearby files before editing or creating new ones.
 - **Tool Discipline:** Use file reading tools to inspect the full file context before making inline modifications.
 - **Tone & Style:** Keep all responses direct, concise, technical, and actionable.
+- **Node ESLint Environment:** `env.node: true` in ESLint config enables Node globals; it does not select or pin a Node.js runtime. Runtime versions belong in `package.json`, Functions runtime configuration, and CI workflows.

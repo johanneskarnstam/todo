@@ -139,7 +139,7 @@ todo/
 ## 🚀 Snabbstart
 
 ### Förutsättningar
-- Node.js v20.19.0 eller högre
+- Node.js v24 eller högre
 - npm eller yarn
 - Firebase-projekt
 
