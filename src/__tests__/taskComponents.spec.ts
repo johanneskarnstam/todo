@@ -423,6 +423,8 @@ describe('TaskDetailsPanel', () => {
 
   it('emits updates for title, steps, My day, notes, and deletion', async () => {
     const wrapper = mount(TaskDetailsPanel, { props: { task, steps } })
+    await wrapper.get('button[aria-label="Kopiera uppgiftslänk"]').trigger('click')
+    expect(wrapper.emitted('copy-link')).toHaveLength(1)
 
     const titleInput = wrapper.find('input[aria-label="Uppgiftens titel"]')
     await titleInput.setValue('Paint the ceiling')
@@ -441,7 +443,7 @@ describe('TaskDetailsPanel', () => {
     await wrapper.find('button[aria-label="Ta bort delsteg: Buy paint"]').trigger('click')
     expect(wrapper.emitted('delete-step')).toEqual([['step-1']])
 
-    await wrapper.get('button').trigger('click')
+    await wrapper.get('button[aria-label="Stäng uppgiftsdetaljer"]').trigger('click')
     expect(wrapper.emitted('close')).toBeTruthy()
 
     const myDayButton = wrapper.findAll('button').find((button) => button.text().includes('Lägg till i Min dag'))

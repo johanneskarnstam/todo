@@ -1,5 +1,6 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
+import { safeRedirectPath } from '@/utils/authRedirect'
 
 const router = createRouter({
   history: createWebHashHistory(import.meta.env.BASE_URL),
@@ -13,6 +14,16 @@ const router = createRouter({
       path: '/all-lists',
       name: 'all-lists',
       component: () => import('../views/AllListsView.vue'),
+    },
+    {
+      path: '/lists/:listId',
+      name: 'list',
+      component: () => import('../views/HomeView.vue'),
+    },
+    {
+      path: '/tasks/:taskId',
+      name: 'task',
+      component: () => import('../views/HomeView.vue'),
     },
     {
       path: '/my-day',
@@ -72,7 +83,7 @@ const router = createRouter({
 })
 
 // Navigation Guard
-router.beforeEach(async (to, from, next) => {
+router.beforeEach(async (to) => {
   const authStore = useAuthStore()
 
   // Wait for auth to init if not already
@@ -83,13 +94,9 @@ router.beforeEach(async (to, from, next) => {
   const isPublic = to.name === 'login' || to.name === 'register'
   const isAuthenticated = authStore.isAuthenticated
 
-  if (!isPublic && !isAuthenticated) {
-    next('/login')
-  } else if (isPublic && isAuthenticated) {
-    next('/')
-  } else {
-    next()
-  }
+  if (!isPublic && !isAuthenticated) return { name: 'login', query: { redirect: to.fullPath } }
+  if (isPublic && isAuthenticated) return safeRedirectPath(to.query.redirect)
+  return true
 })
 
 export default router

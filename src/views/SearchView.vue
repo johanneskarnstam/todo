@@ -53,7 +53,11 @@ const closeSearch = () => {
 const openTaskList = (listId: string) => {
   listStore.selectList(listId)
   taskStore.setListView(listId)
-  void router.push({ name: 'home' })
+  void router.push({ name: 'list', params: { listId } })
+}
+
+const openTask = (taskId: string) => {
+  void router.push({ name: 'task', params: { taskId } })
 }
 
 const openTag = (tag: string) => {
@@ -98,7 +102,7 @@ onMounted(async () => {
         <section v-if="matchingTasks.length" class="mt-7" aria-labelledby="search-tasks-heading">
           <h2 id="search-tasks-heading" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Uppgifter</h2>
           <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
-            <button v-for="task in matchingTasks" :key="task.id" class="flex min-h-14 w-full items-center gap-3 border-b border-slate-200 px-4 py-2 text-left transition last:border-b-0 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800" type="button" @click="openTaskList(task.listId)">
+            <button v-for="task in matchingTasks" :key="task.id" class="flex min-h-14 w-full items-center gap-3 border-b border-slate-200 px-4 py-2 text-left transition last:border-b-0 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800" type="button" @click="openTask(task.id)">
               <span class="grid size-6 shrink-0 place-items-center rounded-full border" :class="isTaskCompleted(task) ? 'border-[#2564cf] bg-[#2564cf] text-white' : 'border-slate-400 text-transparent'"><Check v-if="isTaskCompleted(task)" :size="14" aria-hidden="true" /></span>
               <span class="min-w-0 flex-1">
                 <span class="block truncate text-sm" :class="{ 'text-slate-400 line-through dark:text-slate-500': isTaskCompleted(task) }">{{ task.title }}</span>

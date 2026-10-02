@@ -1,15 +1,18 @@
 <script setup lang="ts">
 import { Check } from '@lucide/vue'
 import { useAuthStore } from '@/stores/authStore'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ref } from 'vue'
+import { safeRedirectPath } from '@/utils/authRedirect'
 
 const authStore = useAuthStore()
+const route = useRoute()
 const router = useRouter()
 const isSigningIn = ref(false)
 const loginError = ref('')
 const email = ref('')
 const password = ref('')
+const redirectPath = () => safeRedirectPath(route.query.redirect)
 
 const handleLogin = async () => {
   if (isSigningIn.value) return
@@ -18,7 +21,7 @@ const handleLogin = async () => {
   loginError.value = ''
   try {
     await authStore.loginWithGoogle()
-    router.push('/')
+    await router.replace(redirectPath())
   } catch (error) {
     console.error('Login failed:', error)
     loginError.value = 'Inloggningen avbröts eller kunde inte slutföras. Försök igen.'
@@ -34,7 +37,7 @@ const handleEmailLogin = async () => {
   loginError.value = ''
   try {
     await authStore.loginWithEmail(email.value, password.value)
-    await router.push('/')
+    await router.replace(redirectPath())
   } catch {
     loginError.value = 'E-postadressen eller lösenordet är fel.'
   } finally {

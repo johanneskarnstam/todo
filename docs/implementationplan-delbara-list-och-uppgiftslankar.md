@@ -6,7 +6,7 @@ Varje lista och uppgift ska ha en stabil, unik URL. En inloggad användare ska k
 
 Planen är avbockningsbar och uppdelad i fristående etapper. Etapperna kan pausas eller avbrytas efter en kontrollpunkt; oavslutade steg ska inte kräva att senare etapper påbörjas.
 
-## Nuläge
+## Baslinje vid planstart
 
 - Routern använder `createWebHashHistory`, så URL:er har formen `/#/...`.
 - Listinställningar har redan routen `/lists/:listId/settings`.
@@ -18,7 +18,7 @@ Planen är avbockningsbar och uppdelad i fristående etapper. Etapperna kan paus
 
 ## URL-kontrakt
 
-Föreslagen form, kompatibel med befintlig hash-router:
+Fastställt kontrakt, kompatibelt med befintlig hash-router:
 
 - Lista: `/#/lists/:listId`
 - Uppgift: `/#/tasks/:taskId`
@@ -30,46 +30,48 @@ Uppgifts-URL:en använder bara uppgiftens id, inte list-id. Då förblir länken
 
 ### 1. Fastställ routing- och fallbackkontrakt
 
-- [ ] Bekräfta de kanoniska route-namnen `list` och `task` samt URL-formerna ovan.
-- [ ] Bestäm visning för okänt eller borttaget list-id respektive task-id: begripligt tomt/fel-läge och säker navigering, aldrig en tyst växling till vald standardlista.
-- [ ] Bestäm beteende när task-länken pekar på en uppgift vars lista tagits bort eller som arkiverats.
-- [ ] Behåll auth-guard: privata list- och task-länkar ska leda till login när användaren saknar session.
-- [ ] Bestäm återgång: webbläsarens Back ska återgå till föregående vy; stängning av detaljpanelen från en direktlänk ska gå till uppgiftens aktuella lista.
-- [ ] Bestäm migrering av befintliga notislänkar med `?task=...`: omdirigera till kanonisk task-route eller fortsätt stödja formatet med test.
+- [x] Fastställ namngivna routes `list` och `task` samt URL-formerna ovan.
+- [x] Okänt eller borttaget list-/task-id visar ett begripligt not-found-läge medan URL:en bevaras; växla aldrig tyst till standardlistan.
+- [x] Om task finns men dess lista saknas, visa tasken ändå och låt stängning gå till startsidan. Arkiverade tasks fortsätter öppnas via task-URL; stängning går till Arkiverade.
+- [x] Privata list- och task-routes behåller auth-guard. Login ska bevara avsedd intern route och återgå dit efter lyckad autentisering.
+- [x] Öppning av task använder vanlig router-push så Back återgår till föregående vy. Stängning går till taskens aktuella lista, eller enligt arkiverings-/saknad-list-regeln ovan.
+- [x] Befintlig `?task=...`-notislänk behålls som kompatibilitetsingång och ersätts med kanonisk task-route efter att auth och task-data laddats.
+
+**Beslut:** Hash-routing behålls. Kanoniska URL:er är `/#/lists/:listId` och `/#/tasks/:taskId`; task-id är globalt och oberoende av lista. Query-parametern för notiser är endast en bakåtkompatibel ingång, inte en kanonisk task-länk.
 
 **Kontrollpunkt:** URL-kontrakt, auth och fallbackbeteende är beslutade innan vyerna ändras. Pausa här om kontraktet behöver produktbeslut.
 
 ### 2. Gör routen till källa för aktiv lista
 
-- [ ] Lägg till namngiven route för `/lists/:listId` som återanvänder befintlig huvudvy.
-- [ ] Ändra listval från sidomeny, sökresultat, Alla listor och övriga listväljare till att navigera till route med `listId`.
-- [ ] Synka route-parametern till `listStore` och `taskStore` efter att autentisering och listladdning är klara.
-- [ ] Säkerställ att route-parametern har företräde framför gammalt `selectedListId` från lokal state.
-- [ ] Hantera route-byte mellan listor utan att komponenten behöver mountas om.
-- [ ] Behåll befintliga smarta vyer, taggroutes och listinställningar utan att ändra deras URL-kontrakt.
-- [ ] Säkerställ att reload på `/#/lists/:listId` återställer listan efter asynkron hämtning.
+- [x] Lägg till namngiven route för `/lists/:listId` som återanvänder befintlig huvudvy.
+- [x] Ändra listval från sidomeny, sökresultat, Alla listor och övriga listväljare till att navigera till route med `listId`.
+- [x] Synka route-parametern till `listStore` och `taskStore` efter att autentisering och listladdning är klara.
+- [x] Säkerställ att route-parametern har företräde framför gammalt `selectedListId` från lokal state.
+- [x] Hantera route-byte mellan listor utan att komponenten behöver mountas om.
+- [x] Behåll befintliga smarta vyer, taggroutes och listinställningar utan att ändra deras URL-kontrakt.
+- [x] Säkerställ att reload på `/#/lists/:listId` återställer listan efter asynkron hämtning.
 
 **Kontrollpunkt:** En direktlänk till en lista fungerar vid första öppning, navigation mellan listor och reload.
 
 ### 3. Gör routen till källa för aktiv uppgift
 
-- [ ] Lägg till namngiven route för `/tasks/:taskId` som visar uppgiftens detaljpanel.
-- [ ] Öppna task-route när en uppgift väljs från vanlig lista, smart vy, taggvy, sök eller Alla listor.
-- [ ] Ladda/återställ uppgiften efter auth och taskhämtning; härled sedan dess aktuella lista från task-data.
-- [ ] Visa rätt detaljpanel efter direktöppning och reload utan att kräva föregående navigation.
-- [ ] Synka stängning, Back/Forward och byte till en annan uppgift med route-state så att panel och URL aldrig divergerar.
-- [ ] Hantera task som flyttas efter att en länk kopierats; samma `/tasks/:taskId` ska fortsätta öppna uppgiften.
-- [ ] Bevara stöd för befintliga notisöppningar och verifiera att de leder till samma detaljvy.
+- [x] Lägg till namngiven route för `/tasks/:taskId` som visar uppgiftens detaljpanel.
+- [x] Öppna task-route när en uppgift väljs från vanlig lista, smart vy, taggvy, sök eller Alla listor.
+- [x] Ladda/återställ uppgiften efter auth och taskhämtning; härled sedan dess aktuella lista från task-data.
+- [x] Visa rätt detaljpanel efter direktöppning och reload utan att kräva föregående navigation.
+- [x] Synka stängning, Back/Forward och byte till en annan uppgift med route-state så att panel och URL aldrig divergerar.
+- [x] Hantera task som flyttas efter att en länk kopierats; samma `/tasks/:taskId` ska fortsätta öppna uppgiften.
+- [x] Bevara stöd för befintliga notisöppningar och verifiera att de leder till samma detaljvy.
 
 **Kontrollpunkt:** En task-länk fungerar direkt och efter reload; stängning och webbläsarnavigation återställer en giltig vy.
 
 ### 4. Lägg till delningsbara länkkontroller
 
-- [ ] Lägg till en tillgänglig åtgärd för att kopiera listans kanoniska URL från listmenyn.
-- [ ] Lägg till en tillgänglig åtgärd för att kopiera uppgiftens kanoniska URL från uppgiftens åtgärdsmeny eller detaljpanel.
-- [ ] Bygg kopierad URL från routerns resolved route och aktuell origin/base, aldrig genom manuell strängkonkatenering.
-- [ ] Visa ett tydligt statusmeddelande vid lyckad kopiering och begripligt fel vid nekad clipboard-behörighet.
-- [ ] Använd Clipboard API i säker kontext; besluta om fallback behövs för webbläsare utan API-stöd.
+- [x] Lägg till en tillgänglig åtgärd för att kopiera listans kanoniska URL från listmenyn och Alla listor-kolumner.
+- [x] Lägg till en tillgänglig åtgärd för att kopiera uppgiftens kanoniska URL från detaljpanelen.
+- [x] Bygg kopierad URL från routerns resolved route och aktuell origin/base, aldrig genom manuell strängkonkatenering.
+- [x] Visa tydligt meddelande vid lyckad kopiering och begripligt fel när clipboard saknas eller nekar åtkomst.
+- [x] Använd Clipboard API i säker kontext. Ingen alternativ kopieringsfallback införs; adressfältet finns kvar om API:t nekas.
 
 **Kontrollpunkt:** Kopierade länkar är absoluta, pekar på rätt id och kan öppnas i en ny flik.
 
@@ -77,40 +79,41 @@ Uppgifts-URL:en använder bara uppgiftens id, inte list-id. Då förblir länken
 
 #### Playwright E2E
 
-- [ ] `e2e/lists.spec.ts`: uppdatera testet för listskapande/listval så URL innehåller listans id.
-- [ ] `e2e/lists.spec.ts`: lägg till direktöppning av en list-URL med deterministisk mockdata och verifiera rubrik och uppgifter.
-- [ ] `e2e/lists.spec.ts`: ladda om direkt på list-URL och verifiera att samma lista och innehåll visas.
-- [ ] `e2e/lists.spec.ts`: verifiera att byte mellan två listor byter URL och inte visar föregående lists uppgifter.
-- [ ] `e2e/tasks.spec.ts`: uppdatera testet som öppnar uppgiftsdetaljer så URL innehåller task-id.
-- [ ] `e2e/tasks.spec.ts`: öppna `/#/tasks/:taskId` direkt och verifiera rätt titel, lista och detaljpanel.
-- [ ] `e2e/tasks.spec.ts`: ladda om task-URL och verifiera att samma uppgift fortfarande visas.
-- [ ] `e2e/tasks.spec.ts`: flytta uppgift till annan lista och verifiera att task-URL:en fortfarande fungerar.
-- [ ] `e2e/tasks.spec.ts`: verifiera öppna/stänga, Back och Forward samt att URL och synlig panel hålls synkroniserade.
-- [ ] `e2e/tasks.spec.ts`: testa kopiera länk med mockad Clipboard API och verifiera exakt route-id.
-- [ ] `e2e/auth-gating.spec.ts`: lägg till privata list- och task-URL:er; verifiera redirect till login och återgång till avsedd URL efter inloggning om det är nuvarande auth-kontrakt.
-- [ ] Lägg till deterministiska fall för okända/borttagna id:n och för saknad eller borttagen föräldralista.
+- [x] `e2e/lists.spec.ts`: uppdatera testet för listskapande/listval så URL innehåller listans id.
+- [x] `e2e/lists.spec.ts`: lägg till direktöppning av en list-URL med deterministisk mockdata och verifiera rubrik och uppgifter.
+- [x] `e2e/lists.spec.ts`: ladda om direkt på list-URL och verifiera att samma lista och innehåll visas.
+- [x] `e2e/lists.spec.ts`: verifiera att byte mellan två listor byter URL och inte visar föregående lists uppgifter.
+- [x] `e2e/tasks.spec.ts`: uppdatera testet som öppnar uppgiftsdetaljer så URL innehåller task-id.
+- [x] `e2e/tasks.spec.ts`: öppna `/#/tasks/:taskId` direkt och verifiera rätt titel, lista och detaljpanel.
+- [x] `e2e/tasks.spec.ts`: ladda om task-URL och verifiera att samma uppgift fortfarande visas.
+- [x] `e2e/tasks.spec.ts`: flytta uppgift till annan lista och verifiera att task-URL:en fortfarande fungerar.
+- [x] `e2e/tasks.spec.ts` och `e2e/lists.spec.ts`: verifiera öppna/stänga, Back och Forward samt att URL och synlig panel hålls synkroniserade.
+- [x] `e2e/lists.spec.ts` och `e2e/tasks.spec.ts`: verifiera exakt kopierad route-URL med tillåten respektive nekad clipboard.
+- [x] `e2e/auth-gating.spec.ts`: lägg till privata list- och task-URL:er; verifiera redirect till login med bevarad avsedd URL.
+- [x] Lägg till deterministiska fall för okända list- och task-id:n.
+- [x] Lägg till test för en befintlig task vars föräldralista har tagits bort.
 
 #### Vitest
 
-- [ ] Lägg till `src/__tests__/router.spec.ts` endast om route-/URL-hjälpare kan testas isolerat utan att duplicera E2E-kontrakt.
-- [ ] Om route-parametrar parsas eller valideras i en ny composable/helper: testa giltigt id, saknat id och fallback där.
+- [x] Testa auth-redirectens interna destinationsval isolerat i `src/__tests__/authRedirect.spec.ts`.
+- [ ] Lägg till unit-tester om route-parametrar senare flyttas till en särskild parser/helper.
 - [ ] Utöka vid behov `src/__tests__/listStore.spec.ts` och `src/__tests__/taskStore.spec.ts` för laddnings- och lookup-fall som routen använder; testa inte Vue Router genom store-mockar.
 - [ ] Behåll befintliga komponenttester för detaljpanelens props/events; lägg bara till route-relaterade assertions där ett faktiskt komponentkontrakt ändras.
 
 #### Testkvalitet
 
-- [ ] Använd `getByRole`, `getByLabel` och synlig text; inga Tailwind-klasser eller DOM-positioner som beteendeselektorer.
-- [ ] Använd fasta mock-id:n och isolerade browser contexts; inga personliga Firebase-data.
-- [ ] Vänta på URL, rubrik eller panelens synlighet i stället för fasta sleeps.
-- [ ] Behåll auth-gating i dess deterministiska testläge och mock-auth för normal E2E.
+- [x] Använd `getByRole`, `getByLabel` och synlig text; inga Tailwind-klasser eller DOM-positioner som beteendeselektorer.
+- [x] Använd fasta mock-id:n och isolerade browser contexts; inga personliga Firebase-data.
+- [x] Vänta på URL, rubrik eller panelens synlighet i stället för fasta sleeps.
+- [x] Behåll auth-gating i dess deterministiska testläge och mock-auth för normal E2E.
 
 ### 6. Validera och manuellt kontrollera
 
-- [ ] Kör berörda Vitest-filer och nya router-/helpertester.
-- [ ] Kör berörda Playwright-filer: listor, uppgifter och auth-gating.
-- [ ] Kör `npm run type-check` och `npm run lint`.
-- [ ] Kontrollera coverage-gates utan att sänka trösklar eller lägga till undantag.
-- [ ] Kör `npm run validate` före merge/release.
+- [x] Kör berörda Vitest-filer och nya router-/helpertester.
+- [x] Kör berörda Playwright-filer: listor, uppgifter och auth-gating.
+- [x] Kör `npm run type-check` och `npm run lint`.
+- [x] Kontrollera coverage-gates utan att sänka trösklar eller lägga till undantag.
+- [x] Kör `npm run validate` före merge/release.
 - [ ] Kontrollera manuellt direktöppning/reload för lista och task i desktop, mobil, PWA och publicerad Hosting-bas-URL.
 - [ ] Kontrollera att delade länkar inte exponerar data för annan användare; auth och Firestore-regler är fortsatt auktoritativa.
 
@@ -127,10 +130,10 @@ Uppgifts-URL:en använder bara uppgiftens id, inte list-id. Då förblir länken
 
 ## Klart när
 
-- [ ] Varje lista har en unik och stabil URL.
-- [ ] Varje uppgift har en unik och stabil URL som överlever listflytt.
-- [ ] Direktöppning och reload visar rätt objekt efter auth och dataladdning.
-- [ ] URL, aktiv vy och synlig detaljpanel hålls synkroniserade vid klick, stängning och Back/Forward.
-- [ ] Användaren kan kopiera och dela list- och uppgiftslänkar.
-- [ ] Okända id:n, borttagna objekt, auth-redirects och äldre notislänkar har definierat beteende och tester.
-- [ ] Samtliga relevanta Vitest-, E2E-, lint-, type-check- och build-gates passerar.
+- [x] Varje lista har en unik och stabil URL.
+- [x] Varje uppgift har en unik och stabil URL som överlever listflytt.
+- [x] Direktöppning och reload visar rätt objekt efter auth och dataladdning.
+- [x] URL, aktiv vy och synlig detaljpanel hålls synkroniserade vid klick, stängning och Back/Forward.
+- [x] Användaren kan kopiera och dela list- och uppgiftslänkar.
+- [x] Okända id:n, borttagna objekt, auth-redirects och äldre notislänkar har definierat beteende och tester.
+- [x] Samtliga relevanta Vitest-, E2E-, lint-, type-check- och build-gates passerar.

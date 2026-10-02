@@ -14,7 +14,75 @@ test('creates a list and selects it', async ({ page }) => {
   await page.getByPlaceholder('Listnamn').press('Enter')
 
   await expect(page.getByRole('heading', { name: 'Helgprojekt' })).toBeVisible()
+  await expect(page).toHaveURL(/\/#\/lists\/[^/]+$/)
   await expect(page.getByRole('button', { name: 'Flytta Helgprojekt' })).toBeVisible()
+
+  await page.reload()
+  await expect(page.getByRole('heading', { name: 'Helgprojekt' })).toBeVisible()
+  await page.getByRole('button', { name: /^Att göra/ }).click()
+  await expect(page).toHaveURL(/\/#\/lists\/__default__$/)
+  await expect(page.getByRole('heading', { name: 'Att göra', exact: true })).toBeVisible()
+})
+
+test('opens a list directly from its URL and restores it after reload', async ({ page }) => {
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
+  await page.goto('/#/lists/local-projects')
+  await dismissReleaseNotes(page)
+
+  await expect(page.getByRole('heading', { name: 'Byt namn på listan Projekt' })).toBeVisible()
+  await expect(page.getByRole('group', { name: 'Uppgift: Förbered nästa release' })).toBeVisible()
+  await page.getByRole('button', { name: 'Fler listalternativ' }).click()
+  await page.getByRole('button', { name: 'Kopiera listlänk' }).click()
+  await expect(page.getByRole('alert').filter({ hasText: 'Listlänk kopierad.' })).toBeVisible()
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(new URL(page.url()).href)
+
+  await page.reload()
+  await expect(page.getByRole('heading', { name: 'Projekt' })).toBeVisible()
+  await expect(page.getByRole('group', { name: 'Uppgift: Förbered nästa release' })).toBeVisible()
+})
+
+test('reports when the browser refuses to copy a list link', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: async () => { throw new Error('clipboard denied') } },
+    })
+  })
+  await page.goto('/#/lists/local-projects')
+  await dismissReleaseNotes(page)
+
+  await page.getByRole('button', { name: 'Fler listalternativ' }).click()
+  await page.getByRole('button', { name: 'Kopiera listlänk' }).click()
+  await expect(page.getByRole('alert').filter({ hasText: 'Länken kunde inte kopieras.' })).toBeVisible()
+})
+
+test('copies a list link from the All Lists columns', async ({ page }) => {
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
+  await page.goto('/#/all-lists')
+  await dismissReleaseNotes(page)
+
+  await page.getByRole('button', { name: 'Kopiera länk till listan Projekt' }).click()
+  await expect(page.getByRole('alert').filter({ hasText: 'Listlänk kopierad.' })).toBeVisible()
+  const copiedUrl = await page.evaluate(() => navigator.clipboard.readText())
+
+  await page.goto(copiedUrl)
+  await expect(page).toHaveURL(/\/#\/lists\/local-projects$/)
+  await expect(page.getByRole('heading', { name: 'Byt namn på listan Projekt' })).toBeVisible()
+})
+
+test('returns to a shared list after an authenticated login route', async ({ page }) => {
+  await page.goto('/#/login?redirect=%2Flists%2Flocal-projects')
+
+  await expect(page).toHaveURL(/\/#\/lists\/local-projects$/)
+  await expect(page.getByRole('heading', { name: 'Projekt' })).toBeVisible()
+})
+
+test('shows a not-found state for an unknown list URL', async ({ page }) => {
+  await page.goto('/#/lists/missing-list-id')
+  await dismissReleaseNotes(page)
+
+  await expect(page.getByRole('alert')).toContainText('Listan hittades inte')
+  await expect(page).toHaveURL(/\/#\/lists\/missing-list-id$/)
 })
 
 test('creates a folder and moves a list into it', async ({ page }) => {
@@ -332,7 +400,15 @@ test('shows responsive list columns with horizontal scrolling on large screens',
   await titleInput.fill('Förbered kommande release')
   await titleInput.press('Enter')
   await expect(page.getByRole('group', { name: 'Uppgift: Förbered kommande release' })).toBeVisible()
-  await details.getByRole('button', { name: 'Stäng uppgiftsdetaljer' }).click()
+  await expect(page).toHaveURL(/\/#\/tasks\/local-task-3$/)
+  await page.goBack()
+  await expect(page).toHaveURL(/\/todo\/#\/all-lists$/)
+  await expect(board).toBeVisible()
+  await page.goForward()
+  await expect(page).toHaveURL(/\/#\/tasks\/local-task-3$/)
+  await expect(page.getByRole('dialog', { name: 'Uppgiftsdetaljer' })).toBeVisible()
+  await page.goBack()
+  await expect(board).toBeVisible()
   await expect.poll(() => board.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true)
 
   await page.reload()

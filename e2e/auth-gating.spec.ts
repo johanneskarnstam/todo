@@ -1,10 +1,10 @@
 import { expect, test } from '@playwright/test'
 
 test('redirects unauthenticated users from private routes to login', async ({ page }) => {
-  for (const route of ['/', '/my-day', '/important', '/planned']) {
+  for (const route of ['/', '/my-day', '/important', '/planned', '/lists/list-1', '/tasks/task-1']) {
     await page.goto(`#${route}`)
 
-    await expect(page).toHaveURL(/\/todo\/#\/login$/)
+    await expect.poll(() => decodeURIComponent(new URL(page.url()).hash)).toBe(`#/login?redirect=${route}`)
     await expect(page.getByRole('heading', { name: 'Logga in på To Do' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Att göra' })).toHaveCount(0)
   }

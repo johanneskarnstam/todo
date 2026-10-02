@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { ArrowLeft, Bell, CalendarDays, ChevronDown, Clock, Sun } from '@lucide/vue'
+import { ArrowLeft, Bell, CalendarDays, ChevronDown, Clock, Copy, Sun } from '@lucide/vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import ToggleSwitch from '@/components/ToggleSwitch.vue'
 import type { Step, Task, TaskReminder } from '@/types'
@@ -14,6 +14,7 @@ interface Props {
 
 interface Emits {
   (event: 'close'): void
+  (event: 'copy-link'): void
   (event: 'save-title', title: string): void
   (event: 'add-step', title: string): void
   (event: 'save-step-title', stepId: string, title: string): void
@@ -198,9 +199,14 @@ const saveStepTitle = () => {
   <aside class="fixed inset-x-0 bottom-0 top-14 z-50 flex flex-col bg-white shadow-2xl dark:bg-slate-900 lg:static lg:z-auto lg:w-80 lg:shrink-0 lg:rounded-l-xl lg:border-l lg:border-slate-200 lg:shadow-none dark:lg:border-slate-700" role="dialog" aria-modal="true" aria-labelledby="task-details-heading" @click="reminderMenuOpen = false">
     <div class="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 px-4 dark:border-slate-700">
       <span id="task-details-heading" class="text-sm font-semibold text-slate-700 dark:text-slate-200">Uppgiftsdetaljer</span>
-      <button class="grid size-8 place-items-center rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700" type="button" aria-label="Stäng uppgiftsdetaljer" @click="emit('close')">
-        <ArrowLeft :size="19" :stroke-width="1.8" aria-hidden="true" />
-      </button>
+      <div class="flex items-center gap-1">
+        <button class="grid size-8 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800" type="button" aria-label="Kopiera uppgiftslänk" @click="emit('copy-link')">
+          <Copy :size="17" aria-hidden="true" />
+        </button>
+        <button class="grid size-8 place-items-center rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700" type="button" aria-label="Stäng uppgiftsdetaljer" @click="emit('close')">
+          <ArrowLeft :size="19" :stroke-width="1.8" aria-hidden="true" />
+        </button>
+      </div>
     </div>
 
     <div class="min-h-0 flex flex-1 flex-col gap-3 overflow-y-auto bg-slate-100 p-3 dark:bg-slate-950">

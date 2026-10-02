@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { ArrowDownUp, ChevronDown, Ellipsis, Plus } from '@lucide/vue'
+import { ArrowDownUp, ChevronDown, Copy, Ellipsis, Plus } from '@lucide/vue'
 import { useRoute, useRouter } from 'vue-router'
 import TodoHeader from '@/components/TodoHeader.vue'
 import TodoSidebar from '@/components/TodoSidebar.vue'
@@ -16,6 +16,7 @@ import { useReminderNotifications } from '@/composables/useReminderNotifications
 import { useDragReorder } from '@/composables/useDragReorder'
 import { usePreferences } from '@/composables/usePreferences'
 import { sortTasksForMode } from '@/utils/taskSorting'
+import { copyRouteLink } from '@/utils/shareLink'
 import { isTaskCompleted } from '@/utils/taskStatus'
 import type { ListSortMode, SmartView, TaskReminder } from '@/types'
 
@@ -44,10 +45,27 @@ interface PlannedGroup {
 
 const routeSmartView = computed(() => route.meta.smartView as SmartView | undefined)
 const routeTag = computed(() => typeof route.params.tag === 'string' ? route.params.tag : undefined)
+const routeListId = computed(() => typeof route.params.listId === 'string' ? route.params.listId : null)
+const routeTaskId = computed(() => typeof route.params.taskId === 'string' ? route.params.taskId : null)
 const notificationTaskId = computed(() => typeof route.query.task === 'string' ? route.query.task : null)
 const isPlannedView = computed(() => routeSmartView.value === 'planned')
 
+const activeList = computed(() => {
+  const view = taskStore.activeView
+  return view?.type === 'list' ? listStore.lists.find((list) => list.id === view.listId) ?? null : null
+})
+const canAddTask = computed(() => Boolean(activeList.value && taskStore.activeView?.type === 'list'))
+const isListRouteLoading = computed(() => Boolean(routeListId.value && !listStore.isLoaded))
+const isListRouteNotFound = computed(() => Boolean(
+  routeListId.value && listStore.isLoaded && !listStore.lists.some((list) => list.id === routeListId.value),
+))
+const isTaskRouteLoading = computed(() => Boolean(routeTaskId.value && !taskStore.isLoaded))
+const isTaskRouteNotFound = computed(() => Boolean(
+  routeTaskId.value && taskStore.isLoaded && !taskStore.tasks.some((task) => task.id === routeTaskId.value),
+))
+
 const currentTitle = computed(() => {
+  if (routeListId.value) return activeList.value?.name ?? (listStore.isLoaded ? 'Listan hittades inte' : 'Läser in lista...')
   if (routeTag.value) return `#${routeTag.value}`
 
   const view = taskStore.activeView
@@ -61,8 +79,6 @@ const currentTitle = computed(() => {
   return listStore.selectedList?.name ?? (view?.type === 'list' ? 'Att göra' : 'Min dag')
 })
 
-const canAddTask = computed(() => taskStore.activeView?.type === 'list')
-const activeList = computed(() => taskStore.activeView?.type === 'list' ? listStore.selectedList : null)
 const canRenameActiveList = computed(() => Boolean(activeList.value && activeList.value.id !== DEFAULT_LIST_ID))
 const activeListColor = computed(() => activeList.value?.themeColor ?? '#2564cf')
 const activeListSortMode = computed<ListSortMode>(() => activeList.value?.sortMode ?? 'manual')
@@ -235,11 +251,47 @@ const plannedGroups = computed<PlannedGroup[]>(() => {
 const handleSelectList = (listId: string) => {
   listStore.selectList(listId)
   taskStore.setListView(listId)
-  void router.push('/')
+  void router.push({ name: 'list', params: { listId } })
   isSidebarOpen.value = false
 }
 
+const openTask = (taskId: string) => {
+  void router.push({ name: 'task', params: { taskId } })
+}
+
+const copyListLink = async () => {
+  if (!activeList.value) return
+  const href = router.resolve({ name: 'list', params: { listId: activeList.value.id } }).href
+  const copied = await copyRouteLink(href)
+  toastStore.show(copied ? 'Listlänk kopierad.' : 'Länken kunde inte kopieras.')
+}
+
+const copyActiveTaskLink = async () => {
+  const taskId = taskStore.activeTaskId
+  if (!taskId) return
+  const href = router.resolve({ name: 'task', params: { taskId } }).href
+  const copied = await copyRouteLink(href)
+  toastStore.show(copied ? 'Uppgiftslänk kopierad.' : 'Länken kunde inte kopieras.')
+}
+
+const closeActiveTask = async () => {
+  const task = taskStore.activeTask
+  if (!routeTaskId.value) {
+    taskStore.setActiveTask(null)
+    return
+  }
+
+  if (task?.archived) {
+    await router.replace({ name: 'archived' })
+  } else if (task && listStore.lists.some((list) => list.id === task.listId)) {
+    await router.replace({ name: 'list', params: { listId: task.listId } })
+  } else {
+    await router.replace({ name: 'home' })
+  }
+}
+
 const handleGoHome = () => {
+  listStore.selectList(DEFAULT_LIST_ID)
   taskStore.setActiveTask(null)
   taskStore.setListView(DEFAULT_LIST_ID)
   void router.push({ name: 'home' })
@@ -314,7 +366,9 @@ const confirmDeleteList = async () => {
 
 const handleCreateList = (name: string, folderId?: string | null) => {
   void listStore.createList({ name, folderId: folderId ?? undefined }).then((createdList) => {
-    if (createdList) taskStore.setListView(createdList.id)
+    if (!createdList) return
+    taskStore.setListView(createdList.id)
+    void router.push({ name: 'list', params: { listId: createdList.id } })
   })
 }
 
@@ -368,6 +422,34 @@ const handleAddTask = () => {
   taskTitle.value = ''
 }
 
+const syncRouteView = () => {
+  if (routeTaskId.value) {
+    const task = taskStore.tasks.find((candidate) => candidate.id === routeTaskId.value)
+    if (!task) {
+      taskStore.setActiveTask(null)
+      return
+    }
+
+    taskStore.setListView(task.listId)
+    listStore.selectList(task.listId)
+    taskStore.setActiveTask(task.id)
+    return
+  }
+
+  taskStore.setActiveTask(null)
+
+  if (routeTag.value) {
+    taskStore.setTagView(routeTag.value)
+  } else if (routeSmartView.value) {
+    taskStore.setSmartView(routeSmartView.value)
+  } else if (routeListId.value) {
+    taskStore.setListView(routeListId.value)
+    listStore.selectList(routeListId.value)
+  } else {
+    taskStore.setListView(listStore.selectedListId ?? DEFAULT_LIST_ID)
+  }
+}
+
 const handleDeleteActiveTask = () => {
   const taskId = taskStore.activeTaskId
   if (!taskId) return
@@ -385,11 +467,11 @@ const cancelDeleteTask = () => {
   pendingDeleteTaskId.value = null
 }
 
-const deleteTaskImmediately = (taskId: string) => {
+const deleteTaskImmediately = async (taskId: string) => {
   if (!taskId) return
 
-  if (taskStore.activeTaskId === taskId) taskStore.setActiveTask(null)
-  void taskStore.deleteTask(taskId)
+  if (taskStore.activeTaskId === taskId) await closeActiveTask()
+  await taskStore.deleteTask(taskId)
 }
 
 const confirmDeleteTask = () => {
@@ -433,34 +515,21 @@ const handleGlobalKeydown = (event: KeyboardEvent) => {
   if (!taskStore.activeTaskId) return
 
   const taskId = taskStore.activeTaskId
-  taskStore.setActiveTask(null)
+  closeActiveTask()
   void nextTick(() => document.querySelector<HTMLElement>(`[data-task-id="${taskId}"]`)?.focus())
 }
 
 onMounted(async () => {
   window.addEventListener('keydown', handleGlobalKeydown)
-  if (!notificationTaskId.value) {
-    if (routeTag.value) {
-      taskStore.setTagView(routeTag.value)
-    } else if (routeSmartView.value) {
-      taskStore.setSmartView(routeSmartView.value)
-    } else {
-      taskStore.setListView(listStore.selectedListId ?? DEFAULT_LIST_ID)
-    }
-  }
+  if (!notificationTaskId.value) syncRouteView()
   await listStore.fetchLists()
-  if (notificationTaskId.value) {
-    await taskStore.fetchTasks()
+  const taskId = routeTaskId.value ?? notificationTaskId.value
+  if (taskId && !taskStore.isLoaded) await taskStore.fetchTasks()
+  if (notificationTaskId.value && !routeTaskId.value) {
     const task = taskStore.tasks.find((candidate) => candidate.id === notificationTaskId.value)
-    taskStore.setListView(task?.listId ?? listStore.selectedListId ?? DEFAULT_LIST_ID)
-    if (task) taskStore.setActiveTask(task.id)
-  } else if (routeTag.value) {
-    taskStore.setTagView(routeTag.value)
-  } else if (routeSmartView.value) {
-    taskStore.setSmartView(routeSmartView.value)
-  } else {
-    taskStore.setListView(listStore.selectedListId ?? DEFAULT_LIST_ID)
+    if (task) await router.replace({ name: 'task', params: { taskId: task.id } })
   }
+  syncRouteView()
 })
 
 onUnmounted(() => {
@@ -468,16 +537,18 @@ onUnmounted(() => {
   if (confettiTimer !== undefined) window.clearTimeout(confettiTimer)
 })
 
-watch([routeSmartView, routeTag], ([view, tag]) => {
-  taskStore.setActiveTask(null)
-  if (tag) {
-    taskStore.setTagView(tag)
-  } else if (view) {
-    taskStore.setSmartView(view)
-  } else {
-    taskStore.setListView(listStore.selectedListId ?? DEFAULT_LIST_ID)
-  }
-})
+watch([routeSmartView, routeTag, routeListId, routeTaskId], syncRouteView)
+
+watch(
+  () => routeTaskId.value
+    ? taskStore.tasks.find((task) => task.id === routeTaskId.value)?.listId
+    : undefined,
+  (listId) => {
+    if (!routeTaskId.value || !listId) return
+    taskStore.setListView(listId)
+    listStore.selectList(listId)
+  },
+)
 
 watch(
   () => taskStore.tasks,
@@ -523,7 +594,7 @@ watch(
     <div class="flex min-h-0 flex-1">
       <TodoSidebar
         :open="isSidebarOpen"
-        :active-list-id="listStore.selectedListId"
+        :active-list-id="routeListId ?? listStore.selectedListId"
         :active-smart-view="taskStore.activeView?.type === 'smart' ? taskStore.activeView.smartView : null"
         :available-tags="availableTags"
         :selected-tag="routeTag ?? ''"
@@ -544,7 +615,18 @@ watch(
       />
 
       <main class="min-w-0 flex-1 overflow-y-auto rounded-t-2xl bg-[#faf9f8] dark:bg-slate-950 sm:rounded-t-none">
-        <div class="mx-auto w-full max-w-5xl px-4 pb-12 pt-7 sm:px-8 lg:px-12">
+        <div v-if="isListRouteLoading || isTaskRouteLoading" class="mx-auto mt-16 max-w-5xl px-4 text-center text-sm text-slate-500" role="status">Läser in...</div>
+        <div v-else-if="isListRouteNotFound" class="mx-auto mt-16 max-w-lg px-4 text-center" role="alert">
+          <h1 class="text-xl font-semibold">Listan hittades inte</h1>
+          <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">Listan kan ha tagits bort eller så saknar du åtkomst.</p>
+          <button class="mt-5 min-h-10 rounded-lg bg-[#2564cf] px-4 text-sm font-medium text-white" type="button" @click="handleGoHome">Gå till startsidan</button>
+        </div>
+        <div v-else-if="isTaskRouteNotFound" class="mx-auto mt-16 max-w-lg px-4 text-center" role="alert">
+          <h1 class="text-xl font-semibold">Uppgiften hittades inte</h1>
+          <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">Uppgiften kan ha tagits bort eller så saknar du åtkomst.</p>
+          <button class="mt-5 min-h-10 rounded-lg bg-[#2564cf] px-4 text-sm font-medium text-white" type="button" @click="handleGoHome">Gå till startsidan</button>
+        </div>
+        <div v-else class="mx-auto w-full max-w-5xl px-4 pb-12 pt-7 sm:px-8 lg:px-12">
           <div class="flex items-center gap-4">
             <div class="min-w-0 flex-1">
               <form v-if="isRenamingList && canRenameActiveList" class="flex min-w-0 items-center gap-2" @submit.prevent="saveListRename">
@@ -566,6 +648,7 @@ watch(
               <button class="grid size-9 place-items-center rounded-lg text-slate-500 transition hover:bg-slate-200 dark:hover:bg-slate-800" type="button" aria-label="Fler listalternativ" :aria-expanded="isListOptionsOpen" @click="isListOptionsOpen = !isListOptionsOpen"><Ellipsis :size="20" aria-hidden="true" /></button>
               <div v-if="isListOptionsOpen" class="absolute right-0 top-10 z-20 w-64 rounded-xl border border-slate-200 bg-white p-3 shadow-xl dark:border-slate-700 dark:bg-slate-800">
                 <button class="flex min-h-9 w-full items-center rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="openListSettings">Listinställningar</button>
+                <button class="flex min-h-9 w-full items-center gap-2 rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="copyListLink"><Copy :size="16" aria-hidden="true" />Kopiera listlänk</button>
                 <button v-if="activeList.id !== DEFAULT_LIST_ID" class="mt-1 flex min-h-9 w-full items-center rounded-lg px-3 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950" type="button" @click="requestDeleteList()">Ta bort lista</button>
               </div>
             </div>
@@ -602,7 +685,7 @@ watch(
                   :show-due-date="true"
                   task-status-mode="binary"
                   :available-lists="listStore.lists"
-                  @select="taskStore.setActiveTask(task.id)"
+                  @select="openTask(task.id)"
                   @toggle-completed="handleToggleCompleted(task.id)"
                   @toggle-important="taskStore.toggleImportant(task.id)"
                   @toggle-my-day="taskStore.toggleMyDay(task.id)"
@@ -627,7 +710,7 @@ watch(
                 :draggable="canDrag"
                 :task-status-mode="activeListTaskStatusMode"
                 :available-lists="listStore.lists"
-                @select="taskStore.setActiveTask(task.id)"
+                @select="openTask(task.id)"
                 @toggle-completed="handleToggleCompleted(task.id)"
                 @set-status="handleSetTaskStatus(task.id, $event, activeListTaskStatusMode)"
                 @toggle-important="taskStore.toggleImportant(task.id)"
@@ -665,7 +748,7 @@ watch(
                 :list-name="routeTag ? taskListName(task.listId) : (taskStore.activeView?.type === 'smart' && taskStore.activeView.smartView === 'important' ? taskListName(task.listId) : null)"
                 :task-status-mode="activeListTaskStatusMode"
                 :available-lists="listStore.lists"
-                @select="taskStore.setActiveTask(task.id)"
+                @select="openTask(task.id)"
                 @toggle-completed="handleToggleCompleted(task.id)"
                 @set-status="handleSetTaskStatus(task.id, $event, activeListTaskStatusMode)"
                 @toggle-important="taskStore.toggleImportant(task.id)"
@@ -682,12 +765,13 @@ watch(
       </main>
 
       <TaskDetailsPanel
-        v-if="taskStore.activeTask"
+        v-if="taskStore.activeTask && !isTaskRouteNotFound"
         :task="taskStore.activeTask"
         :steps="taskStore.activeSteps"
         :available-tags="availableTags"
         :available-lists="listStore.lists"
-        @close="taskStore.setActiveTask(null)"
+        @close="closeActiveTask"
+        @copy-link="copyActiveTaskLink"
         @save-title="taskStore.updateTask(taskStore.activeTaskId!, { title: $event })"
         @add-step="taskStore.createStep({ taskId: taskStore.activeTaskId!, title: $event })"
         @reorder-steps="taskStore.reorderSteps(taskStore.activeTaskId!, $event)"

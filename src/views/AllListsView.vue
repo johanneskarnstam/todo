@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { ArrowLeft, ChevronRight, FolderOpen, Plus } from '@lucide/vue'
+import { ArrowLeft, ChevronRight, Copy, FolderOpen, Plus } from '@lucide/vue'
 import { useRouter } from 'vue-router'
 import TaskDetailsPanel from '@/components/TaskDetailsPanel.vue'
 import TaskRow from '@/components/TaskRow.vue'
@@ -15,6 +15,7 @@ import { useTheme } from '@/composables/useTheme'
 import type { List, Task, TaskReminder } from '@/types'
 import { isTaskCompleted } from '@/utils/taskStatus'
 import { sortTasksForMode } from '@/utils/taskSorting'
+import { copyRouteLink } from '@/utils/shareLink'
 
 const router = useRouter()
 const listStore = useListStore()
@@ -119,7 +120,25 @@ const syncDesktopView = () => {
 const openList = (listId: string) => {
   listStore.selectList(listId)
   taskStore.setListView(listId)
-  void router.push({ name: 'home' })
+  void router.push({ name: 'list', params: { listId } })
+}
+
+const openTask = (taskId: string) => {
+  void router.push({ name: 'task', params: { taskId } })
+}
+
+const copyListLink = async (listId: string) => {
+  const href = router.resolve({ name: 'list', params: { listId } }).href
+  const copied = await copyRouteLink(href)
+  toastStore.show(copied ? 'Listlänk kopierad.' : 'Länken kunde inte kopieras.')
+}
+
+const copyActiveTaskLink = async () => {
+  const taskId = taskStore.activeTaskId
+  if (!taskId) return
+  const href = router.resolve({ name: 'task', params: { taskId } }).href
+  const copied = await copyRouteLink(href)
+  toastStore.show(copied ? 'Uppgiftslänk kopierad.' : 'Länken kunde inte kopieras.')
 }
 
 const goHome = () => {
@@ -247,8 +266,11 @@ onUnmounted(() => desktopMediaQuery?.removeEventListener('change', syncDesktopVi
             <FolderOpen :size="16" aria-hidden="true" />{{ group.name }}
           </h2>
           <div v-if="group.lists.length" class="flex min-h-0 flex-1 items-stretch gap-4">
-            <section v-for="list in group.lists" :key="list.id" class="flex h-full w-72 shrink-0 flex-col overflow-hidden border-r border-slate-200 pr-4 last:border-r-0 dark:border-slate-800" :aria-labelledby="`overview-list-${list.id}`">
-              <h3 :id="`overview-list-${list.id}`" class="mb-3 truncate text-base font-semibold">{{ list.name }}</h3>
+            <section v-for="list in group.lists" :key="list.id" class="relative flex h-full w-72 shrink-0 flex-col overflow-hidden border-r border-slate-200 pr-4 last:border-r-0 dark:border-slate-800" :aria-labelledby="`overview-list-${list.id}`">
+              <h3 :id="`overview-list-${list.id}`" class="mb-3 truncate pr-10 text-base font-semibold">{{ list.name }}</h3>
+              <button class="absolute right-4 top-0 grid size-8 place-items-center rounded-md text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800" type="button" :aria-label="`Kopiera länk till listan ${list.name}`" @click="copyListLink(list.id)">
+                <Copy :size="16" aria-hidden="true" />
+              </button>
               <form class="mb-2 flex h-10 shrink-0 items-center gap-2 border-b border-slate-200 pb-2 dark:border-slate-700" @submit.prevent="addTaskToList(list.id)">
                 <label class="sr-only" :for="`new-task-${list.id}`">Lägg till uppgift i {{ list.name }}</label>
                 <input :id="`new-task-${list.id}`" v-model="taskTitlesByListId[list.id]" class="min-w-0 flex-1 bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-[#2564cf] dark:text-slate-100 dark:placeholder:text-slate-400" type="text" placeholder="Lägg till uppgift" />
@@ -265,7 +287,7 @@ onUnmounted(() => desktopMediaQuery?.removeEventListener('change', syncDesktopVi
                       :step-count="taskStore.taskStepCounts.get(task.id) ?? null"
                       :task-status-mode="list.taskStatusMode ?? 'binary'"
                       :available-lists="listStore.lists"
-                      @select="taskStore.setActiveTask(task.id)"
+                      @select="openTask(task.id)"
                       @toggle-completed="taskStore.toggleCompleted(task.id)"
                       @set-status="taskStore.setTaskStatus(task.id, $event, list.taskStatusMode ?? 'binary')"
                       @toggle-important="taskStore.toggleImportant(task.id)"
@@ -294,7 +316,7 @@ onUnmounted(() => desktopMediaQuery?.removeEventListener('change', syncDesktopVi
                           :step-count="taskStore.taskStepCounts.get(task.id) ?? null"
                           :task-status-mode="list.taskStatusMode ?? 'binary'"
                           :available-lists="listStore.lists"
-                          @select="taskStore.setActiveTask(task.id)"
+                          @select="openTask(task.id)"
                           @toggle-completed="taskStore.toggleCompleted(task.id)"
                           @set-status="taskStore.setTaskStatus(task.id, $event, list.taskStatusMode ?? 'binary')"
                           @toggle-important="taskStore.toggleImportant(task.id)"
@@ -325,6 +347,7 @@ onUnmounted(() => desktopMediaQuery?.removeEventListener('change', syncDesktopVi
       :available-tags="availableTags"
       :available-lists="listStore.lists"
       @close="taskStore.setActiveTask(null)"
+      @copy-link="copyActiveTaskLink"
       @save-title="taskStore.updateTask(taskStore.activeTaskId!, { title: $event })"
       @add-step="taskStore.createStep({ taskId: taskStore.activeTaskId!, title: $event })"
       @reorder-steps="taskStore.reorderSteps(taskStore.activeTaskId!, $event)"

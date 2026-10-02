@@ -1,4 +1,9 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
+
+const dismissReleaseNotes = async (page: Page) => {
+  const closeButton = page.getByRole('button', { name: 'Jag har sett detta' })
+  if (await closeButton.count()) await closeButton.click()
+}
 
 test('creates a task in the active list', async ({ page }) => {
   await page.goto('/')
@@ -46,6 +51,7 @@ test('opens task details from a task row', async ({ page }) => {
 
   const details = page.getByRole('dialog', { name: 'Uppgiftsdetaljer' })
   await expect(details).toBeVisible()
+  await expect(page).toHaveURL(/\/#\/tasks\/local-task-2$/)
   await expect(details.getByLabel('Uppgiftens titel')).not.toBeFocused()
   await expect(details.getByRole('heading', { name: 'Taggar' })).toBeVisible()
   await expect(details.getByRole('heading', { name: 'Delsteg' })).toBeVisible()
@@ -76,7 +82,100 @@ test('opens task details from a task row', async ({ page }) => {
   await details.getByRole('textbox', { name: 'Anteckningar' }).fill('Kom ihåg måtten.')
   await details.getByRole('button', { name: 'Stäng uppgiftsdetaljer' }).click()
 
+  await expect(page).toHaveURL(/\/#\/lists\/__default__$/)
   await expect(page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' }).getByRole('img', { name: 'Anteckning finns' })).toBeVisible()
+})
+
+test('opens a task directly from its URL and restores its details after reload', async ({ page }) => {
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
+  await page.goto('/#/tasks/local-task-3')
+  await dismissReleaseNotes(page)
+
+  const details = page.getByRole('dialog', { name: 'Uppgiftsdetaljer' })
+  await expect(page).toHaveURL(/\/#\/tasks\/local-task-3$/)
+  await expect(details.getByRole('textbox', { name: 'Uppgiftens titel' })).toHaveValue('Förbered nästa release')
+  await expect(page.getByRole('heading', { name: 'Projekt' })).toBeVisible()
+  await details.getByRole('button', { name: 'Kopiera uppgiftslänk' }).click()
+  await expect(page.getByRole('alert').filter({ hasText: 'Uppgiftslänk kopierad.' })).toBeVisible()
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(new URL(page.url()).href)
+
+  await page.reload()
+  await expect(page.getByRole('dialog', { name: 'Uppgiftsdetaljer' }).getByRole('textbox', { name: 'Uppgiftens titel' })).toHaveValue('Förbered nästa release')
+})
+
+test('switches to a different task route when another row is selected', async ({ page }) => {
+  await page.goto('/#/lists/__default__')
+  await dismissReleaseNotes(page)
+  await page.getByPlaceholder('Lägg till en uppgift').fill('En annan routbar uppgift')
+  await page.getByPlaceholder('Lägg till en uppgift').press('Enter')
+
+  await page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' }).click()
+  await expect(page).toHaveURL(/\/#\/tasks\/local-task-2$/)
+  await page.getByRole('group', { name: 'Uppgift: En annan routbar uppgift' }).click()
+
+  await expect(page).toHaveURL(/\/#\/tasks\/[^/]+$/)
+  await expect(page.getByRole('dialog', { name: 'Uppgiftsdetaljer' }).getByRole('textbox', { name: 'Uppgiftens titel' })).toHaveValue('En annan routbar uppgift')
+})
+
+test('redirects a legacy notification link to the canonical task URL', async ({ page }) => {
+  await page.goto('/#/?task=local-task-3')
+  await dismissReleaseNotes(page)
+
+  await expect(page).toHaveURL(/\/#\/tasks\/local-task-3$/)
+  await expect(page.getByRole('dialog', { name: 'Uppgiftsdetaljer' }).getByRole('textbox', { name: 'Uppgiftens titel' })).toHaveValue('Förbered nästa release')
+})
+
+test('keeps the task URL when moving a task to another list', async ({ page }) => {
+  await page.goto('/')
+  await dismissReleaseNotes(page)
+  await page.getByRole('button', { name: 'Ny lista' }).click()
+  await page.getByPlaceholder('Listnamn').fill('Uppgiftsflyttmål')
+  await page.getByPlaceholder('Listnamn').press('Enter')
+
+  await page.goto('/#/tasks/local-task-3')
+  await dismissReleaseNotes(page)
+  const task = page.getByRole('group', { name: 'Uppgift: Förbered nästa release' })
+  await task.getByRole('button', { name: 'Uppgiftsåtgärder' }).click()
+  await page.getByRole('button', { name: 'Flytta till lista' }).click()
+  await page.getByRole('menuitem', { name: 'Uppgiftsflyttmål' }).click()
+
+  await expect(page).toHaveURL(/\/#\/tasks\/local-task-3$/)
+  await expect(page.getByRole('heading', { name: 'Uppgiftsflyttmål' })).toBeVisible()
+  await expect(page.getByRole('dialog', { name: 'Uppgiftsdetaljer' }).getByRole('textbox', { name: 'Uppgiftens titel' })).toHaveValue('Förbered nästa release')
+})
+
+test('keeps a task link usable after its parent list is deleted', async ({ page }) => {
+  await page.goto('/')
+  await dismissReleaseNotes(page)
+  await page.getByRole('button', { name: 'Ny lista' }).click()
+  await page.getByPlaceholder('Listnamn').fill('Föräldralista')
+  await page.getByPlaceholder('Listnamn').press('Enter')
+  await page.getByPlaceholder('Lägg till en uppgift').fill('Fristående task')
+  await page.getByPlaceholder('Lägg till en uppgift').press('Enter')
+
+  await page.getByRole('group', { name: 'Uppgift: Fristående task' }).click()
+  await expect(page).toHaveURL(/\/#\/tasks\/[^/]+$/)
+  const taskUrl = page.url()
+  await page.getByRole('dialog', { name: 'Uppgiftsdetaljer' }).getByRole('button', { name: 'Stäng uppgiftsdetaljer' }).click()
+  await page.getByRole('button', { name: 'Fler listalternativ' }).click()
+  await page.getByRole('button', { name: 'Ta bort lista' }).click()
+  const confirmation = page.getByRole('dialog', { name: 'Ta bort lista?' })
+  await expect(confirmation.getByLabel('Ta bort uppgifter i listan')).not.toBeChecked()
+  await confirmation.getByRole('button', { name: 'Ta bort lista' }).click()
+
+  await page.goto(taskUrl)
+  const details = page.getByRole('dialog', { name: 'Uppgiftsdetaljer' })
+  await expect(details.getByRole('textbox', { name: 'Uppgiftens titel' })).toHaveValue('Fristående task')
+  await details.getByRole('button', { name: 'Stäng uppgiftsdetaljer' }).click()
+  await expect(page).toHaveURL(/\/#\/$/)
+})
+
+test('shows a not-found state for an unknown task URL', async ({ page }) => {
+  await page.goto('/#/tasks/missing-task-id')
+  await dismissReleaseNotes(page)
+
+  await expect(page.getByRole('alert')).toContainText('Uppgiften hittades inte')
+  await expect(page).toHaveURL(/\/#\/tasks\/missing-task-id$/)
 })
 
 test('asks to complete the parent task when all subtasks are checked', async ({ page }) => {
