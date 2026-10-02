@@ -71,7 +71,7 @@ test('opens task details from a task row', async ({ page }) => {
     details.getByLabel('Uppgiftens förfallodatum'),
     details.getByLabel('Uppgiftens förfallotid'),
   ].map((input) => input.evaluate((element) => getComputedStyle(element).appearance)))
-  expect(pickerAppearances).toEqual(['none', 'none'])
+  expect(pickerAppearances).toEqual(['auto', 'auto'])
 
   await details.getByRole('textbox', { name: 'Anteckningar' }).fill('Kom ihåg måtten.')
   await details.getByRole('button', { name: 'Stäng uppgiftsdetaljer' }).click()
@@ -192,7 +192,8 @@ test('adds a tag and uses a quick due-date preset', async ({ page }) => {
 
   await details.getByRole('button', { name: 'Imorgon' }).click()
   await expect(details.getByLabel('Uppgiftens förfallodatum')).not.toHaveValue('')
-  await details.getByLabel('Uppgiftens förfallotid').fill('14:30')
+  const dueTimeInput = details.getByLabel('Uppgiftens förfallotid')
+  await dueTimeInput.fill('14:30')
   await details.getByLabel('Påminnelse').click()
   await details.getByRole('option', { name: '1 timme före' }).click()
   await expect(details.getByText('Påminnelse aktiv')).toBeVisible()
