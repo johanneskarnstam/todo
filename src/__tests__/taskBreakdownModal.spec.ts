@@ -48,7 +48,7 @@ const sampleBreakdown: TaskAiBreakdown = {
 const mountModal = (props: { isOpen: boolean; task: Task }) =>
   mount(TaskBreakdownModal, {
     props,
-    global: { stubs: { Teleport: true } },
+    global: { stubs: { Teleport: true, RouterLink: true } },
   })
 
 describe('TaskBreakdownModal', () => {
@@ -133,7 +133,7 @@ describe('TaskBreakdownModal', () => {
     expect(wrapper.text()).toContain('Förslagen skapades från en äldre titel eller anteckning.')
   })
 
-  it('shows error banner without model fallback on network or quota error', async () => {
+  it('shows error banner with link to open inline key settings on quota error', async () => {
     const breakdownStore = useTaskBreakdownStore()
     vi.spyOn(breakdownStore, 'loadLatest').mockImplementation(async () => {
       const err = new TaskBreakdownError('quota', 'AI-tjänstens kvot har överskridits.')
@@ -148,10 +148,10 @@ describe('TaskBreakdownModal', () => {
     await vi.waitFor(() => expect(wrapper.text()).toContain('AI-kvoten är nådd'))
 
     expect(wrapper.text()).toContain('AI-tjänstens kvot har överskridits.')
-    expect(wrapper.find('select[aria-label="Välj alternativ AI-modell"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Hantera API-nycklar och modell')
   })
 
-  it('shows model fallback dropdown and allows retry on overload error', async () => {
+  it('always shows model selector and allows retry with different model on overload', async () => {
     const breakdownStore = useTaskBreakdownStore()
     vi.spyOn(breakdownStore, 'loadLatest').mockImplementation(async () => {
       const err = new TaskBreakdownError('overloaded', 'Modellen är för närvarande överbelastad.')
@@ -166,20 +166,19 @@ describe('TaskBreakdownModal', () => {
     })
     await vi.waitFor(() => expect(wrapper.text()).toContain('Modellen är tillfälligt överbelastad'))
 
-    const select = wrapper.find('select[aria-label="Välj alternativ AI-modell"]')
+    // The model selector is always visible (not just on error)
+    const select = wrapper.find('#modal-model-select')
     expect(select.exists()).toBe(true)
 
-    // Select should contain the three verified fallback models
+    // Should list the default plus fallback models
     const options = select.findAll('option')
-    expect(options).toHaveLength(3)
-    expect(options[0].text()).toContain('Gemini 3.7 Flash')
-    expect(options[1].text()).toContain('Gemini 3.6 Flash')
-    expect(options[2].text()).toContain('Gemini 3.5 Flash-Lite')
+    expect(options.length).toBeGreaterThanOrEqual(4)
+    expect(options[0].text()).toContain('standard')
 
     // Change model to 3.6 Flash
     await select.setValue('gemini-3.6-flash')
 
-    // Click "Försök igen"
+    // Click "Försök igen" retry button
     const retryButton = wrapper.findAll('button').find((btn) => btn.text().includes('Försök igen'))
     expect(retryButton).toBeTruthy()
     await retryButton?.trigger('click')
@@ -295,7 +294,7 @@ describe('TaskBreakdownModal', () => {
     })
   })
 
-  it('shows network error without model fallback dropdown', async () => {
+  it('shows network error with retry button', async () => {
     const breakdownStore = useTaskBreakdownStore()
     vi.spyOn(breakdownStore, 'loadLatest').mockImplementation(async () => {
       const err = new TaskBreakdownError('network', 'Ingen internetanslutning.')
@@ -310,10 +309,11 @@ describe('TaskBreakdownModal', () => {
     await vi.waitFor(() => expect(wrapper.text()).toContain('Nätverksproblem'))
 
     expect(wrapper.text()).toContain('Ingen internetanslutning.')
-    expect(wrapper.find('select[aria-label="Välj alternativ AI-modell"]').exists()).toBe(false)
+    const retryButton = wrapper.findAll('button').find((btn) => btn.text().includes('Försök igen'))
+    expect(retryButton).toBeTruthy()
   })
 
-  it('shows configuration error without model fallback dropdown', async () => {
+  it('shows configuration error without retry button', async () => {
     const breakdownStore = useTaskBreakdownStore()
     vi.spyOn(breakdownStore, 'loadLatest').mockImplementation(async () => {
       const err = new TaskBreakdownError('configuration', 'AI-tjänsten är inte korrekt konfigurerad.')
@@ -327,7 +327,30 @@ describe('TaskBreakdownModal', () => {
     })
     await vi.waitFor(() => expect(wrapper.text()).toContain('AI-tjänsten är inte tillgänglig'))
 
-    expect(wrapper.find('select[aria-label="Välj alternativ AI-modell"]').exists()).toBe(false)
+    // Model selector is always visible, but retry is not shown for config errors
+    const retryButton = wrapper.findAll('button').find((btn) => btn.text().includes('Försök igen'))
+    expect(retryButton).toBeUndefined()
+  })
+
+  it('renders inline API key management section', async () => {
+    const breakdownStore = useTaskBreakdownStore()
+    vi.spyOn(breakdownStore, 'loadLatest').mockResolvedValue(null)
+
+    const wrapper = mountModal({
+      isOpen: true,
+      task: sampleTask(),
+    })
+
+    // The key settings toggle should be visible
+    const keyToggle = wrapper.findAll('button').find((btn) => btn.text().includes('API-nycklar'))
+    expect(keyToggle).toBeTruthy()
+
+    // Open the key panel
+    await keyToggle!.trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Egna Gemini API-nycklar'))
+
+    // Input field for adding a key should be present
+    expect(wrapper.find('#modal-new-ai-key').exists()).toBe(true)
   })
 })
 

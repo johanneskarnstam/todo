@@ -1,5 +1,6 @@
 import { getAI, getGenerativeModel, GoogleAIBackend, Schema } from 'firebase/ai'
 import { app } from '@/firebase'
+import { readAiKeys } from '@/composables/useAiKeys'
 
 export const TASK_BREAKDOWN_MODEL_OPTIONS = [
   { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash' },
@@ -192,8 +193,117 @@ export const classifyTaskBreakdownError = (error: unknown): TaskBreakdownError =
   return new TaskBreakdownError('unknown', 'Det gick inte att generera delsteg just nu. Försök igen senare.')
 }
 
+export const generateWithApiKey = async (
+  apiKey: string,
+  input: ReturnType<typeof normalizeInput>,
+): Promise<TaskBreakdownResult> => {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${input.modelId}:generateContent?key=${encodeURIComponent(apiKey)}`
+  const body = {
+    systemInstruction: {
+      parts: [{ text: systemInstruction }],
+    },
+    contents: [
+      {
+        role: 'user',
+        parts: [{ text: buildPrompt(input) }],
+      },
+    ],
+    generationConfig: {
+      temperature: 0.35,
+      maxOutputTokens: 1200,
+      responseMimeType: 'application/json',
+      responseSchema: {
+        type: 'OBJECT',
+        properties: {
+          steps: {
+            type: 'ARRAY',
+            items: { type: 'STRING' },
+          },
+        },
+        required: ['steps'],
+      },
+    },
+  }
+
+  let response: Response
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    })
+  } catch (fetchErr) {
+    throw classifyTaskBreakdownError(fetchErr)
+  }
+
+  if (!response.ok) {
+    let errorJson: unknown
+    try {
+      errorJson = await response.json()
+    } catch {
+      // ignore JSON parse error on non-ok response
+    }
+    const errObj = (errorJson as { error?: { message?: string; status?: string; code?: number } })?.error
+    const status = errObj?.code ?? response.status
+    const message = errObj?.message ?? `HTTP ${response.status} ${response.statusText}`
+    throw classifyTaskBreakdownError({
+      message,
+      customErrorData: { status },
+    })
+  }
+
+  let data: Record<string, unknown>
+  try {
+    data = await response.json() as Record<string, unknown>
+  } catch {
+    throw new TaskBreakdownError('invalid-response', 'AI:n returnerade ett svar som inte gick att läsa. Försök generera nya förslag.')
+  }
+
+  const candidates = data.candidates as Array<{ content?: { parts?: Array<{ text?: string }> } }> | undefined
+  const text = candidates?.[0]?.content?.parts?.[0]?.text
+  if (typeof text !== 'string') {
+    throw new TaskBreakdownError('invalid-response', 'AI:n returnerade ett svar utan delsteg. Försök generera nya förslag.')
+  }
+
+  return {
+    modelId: input.modelId,
+    steps: parseSteps(text),
+  }
+}
+
 export const generateTaskBreakdown = async (input: TaskBreakdownInput): Promise<TaskBreakdownResult> => {
   const normalizedInput = normalizeInput(input)
+  const keys = readAiKeys()
+
+  if (keys.length > 0) {
+    let lastError: TaskBreakdownError | null = null
+
+    for (const apiKey of keys) {
+      try {
+        return await generateWithApiKey(apiKey, normalizedInput)
+      } catch (error) {
+        const classified = classifyTaskBreakdownError(error)
+        if (classified.kind === 'quota' || classified.kind === 'overloaded' || classified.kind === 'configuration') {
+          lastError = classified
+          continue
+        }
+        throw classified
+      }
+    }
+
+    if (lastError) {
+      if (lastError.kind === 'quota') {
+        throw new TaskBreakdownError(
+          'quota',
+          `AI-kvoten är nådd för alla (${keys.length}) sparade API-nycklar. Kontrollera dina nycklar eller lägg till fler i inställningarna.`,
+        )
+      }
+      throw lastError
+    }
+  }
+
   const model = getGenerativeModel(getAiInstance(), {
     model: normalizedInput.modelId,
     systemInstruction,

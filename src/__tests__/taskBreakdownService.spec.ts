@@ -30,6 +30,7 @@ const response = (steps: unknown) => ({
 
 describe('generateTaskBreakdown', () => {
   beforeEach(() => {
+    localStorage.clear()
     vi.clearAllMocks()
     aiMocks.getGenerativeModel.mockReturnValue({ generateContent: aiMocks.generateContent })
     aiMocks.generateContent.mockResolvedValue(response(['  Köp färg  ', 'Köp färg', 'Mät väggen']))
@@ -91,6 +92,60 @@ describe('generateTaskBreakdown', () => {
     aiMocks.generateContent.mockResolvedValueOnce(response(Array.from({ length: 21 }, (_, index) => `Steg ${index}`)))
     await expect(generateTaskBreakdown({ title: 'Planera resa' }))
       .rejects.toMatchObject({ kind: 'invalid-response' })
+  })
+
+  it('uses custom API key when configured and falls over to next key on quota error', async () => {
+    localStorage.setItem('todo-gemini-api-keys', JSON.stringify(['key-1', 'key-2']))
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+    // Key 1 fails with quota 429
+    fetchSpy.mockResolvedValueOnce({
+      ok: false,
+      status: 429,
+      statusText: 'Too Many Requests',
+      json: async () => ({ error: { code: 429, message: 'Quota exceeded for project' } }),
+    } as Response)
+    // Key 2 succeeds
+    fetchSpy.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        candidates: [{
+          content: { parts: [{ text: JSON.stringify({ steps: ['Steg från nyckel 2'] }) }] },
+        }],
+      }),
+    } as Response)
+
+    const result = await generateTaskBreakdown({ title: 'Testa failover' })
+
+    expect(result.steps).toEqual(['Steg från nyckel 2'])
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
+    expect(fetchSpy.mock.calls[0][0]).toContain('key=key-1')
+    expect(fetchSpy.mock.calls[1][0]).toContain('key=key-2')
+    expect(aiMocks.generateContent).not.toHaveBeenCalled()
+
+    fetchSpy.mockRestore()
+  })
+
+  it('throws quota error indicating all keys failed when all custom keys hit quota', async () => {
+    localStorage.setItem('todo-gemini-api-keys', JSON.stringify(['key-1', 'key-2']))
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+    fetchSpy.mockResolvedValue({
+      ok: false,
+      status: 429,
+      statusText: 'Too Many Requests',
+      json: async () => ({ error: { code: 429, message: 'Quota exceeded' } }),
+    } as Response)
+
+    await expect(generateTaskBreakdown({ title: 'Testa failover' }))
+      .rejects.toMatchObject({
+        kind: 'quota',
+        message: expect.stringContaining('alla (2) sparade API-nycklar'),
+      })
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
+    fetchSpy.mockRestore()
   })
 })
 
