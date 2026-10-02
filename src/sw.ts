@@ -29,7 +29,7 @@ const messaging = getMessaging(firebaseApp)
 
 onBackgroundMessage(messaging, (payload) => {
   const title = payload.data?.title ?? payload.notification?.title ?? 'Todo'
-  const body = payload.data?.body ?? payload.notification?.body ?? 'Det är dags att se över uppgiften.'
+  const body = payload.data?.body ?? payload.notification?.body ?? payload.notification?.title
   const taskId = payload.data?.taskId
 
   void self.registration.showNotification(title, {
