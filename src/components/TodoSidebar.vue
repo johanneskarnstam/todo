@@ -351,7 +351,7 @@ onUnmounted(() => window.removeEventListener('click', closeMoveMenuOnOutsideClic
           <Transition name="sidebar-expand">
             <div v-if="!collapsedFolders[DEFAULT_LIST_ID]" class="ml-3 border-l-2 border-slate-300 dark:border-slate-600">
             <button
-              class="group flex h-9 w-full items-center gap-3 border-l-2 border-transparent px-5 text-left text-xs text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+              class="group flex h-9 w-full items-center gap-3 border-l-2 border-transparent px-5 text-left text-base text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
               :class="{ 'border-[#2564cf] bg-[#eef5fc] font-semibold text-slate-900 dark:border-blue-400 dark:bg-slate-800 dark:text-white': activeListId === defaultList.id }"
               type="button"
               @click="emit('select-list', defaultList.id)"
@@ -412,7 +412,7 @@ onUnmounted(() => window.removeEventListener('click', closeMoveMenuOnOutsideClic
               class="group/list relative"
             >
               <button
-                class="group flex h-9 w-full items-center gap-3 border-l-2 border-transparent px-5 pr-12 text-left text-xs text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                class="group flex h-9 w-full items-center gap-3 border-l-2 border-transparent px-5 pr-12 text-left text-base text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
                 :class="{
                   'border-[#2564cf] bg-[#eef5fc] font-semibold text-slate-900 dark:border-blue-400 dark:bg-slate-800 dark:text-white': activeListId === list.id,
                 }"
@@ -538,7 +538,7 @@ onUnmounted(() => window.removeEventListener('click', closeMoveMenuOnOutsideClic
               class="group/list relative"
             >
               <button
-                class="group flex h-9 w-full items-center gap-3 border-l-2 border-transparent px-5 pr-12 text-left text-xs text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                class="group flex h-9 w-full items-center gap-3 border-l-2 border-transparent px-5 pr-12 text-left text-base text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
                 :class="{ 'border-[#2564cf] bg-[#eef5fc] font-semibold text-slate-900 dark:border-blue-400 dark:bg-slate-800 dark:text-white': activeListId === list.id }"
                 type="button"
                 @click="emit('select-list', list.id)"

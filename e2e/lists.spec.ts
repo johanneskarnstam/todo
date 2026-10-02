@@ -14,14 +14,17 @@ test('creates a list and selects it', async ({ page }) => {
   await page.getByPlaceholder('Listnamn').press('Enter')
 
   await expect(page.getByRole('heading', { name: 'Helgprojekt' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Helgprojekt', exact: true })).toHaveCSS('font-size', '16px')
   await expect(page).toHaveURL(/\/#\/lists\/[^/]+$/)
   await expect(page.getByRole('button', { name: 'Flytta Helgprojekt' })).toBeVisible()
 
   await page.reload()
   await expect(page.getByRole('heading', { name: 'Helgprojekt' })).toBeVisible()
-  await page.getByRole('button', { name: /^Att göra/ }).click()
+  const defaultListButton = page.getByRole('button', { name: /^Att göra/ })
+  await defaultListButton.click()
   await expect(page).toHaveURL(/\/#\/lists\/__default__$/)
   await expect(page.getByRole('heading', { name: 'Att göra', exact: true })).toBeVisible()
+  await expect(defaultListButton).toHaveCSS('font-size', '16px')
 })
 
 test('opens a list directly from its URL and restores it after reload', async ({ page }) => {
