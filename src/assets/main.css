@@ -21,6 +21,11 @@ input {
   font-family: inherit;
 }
 
+.planning-picker::-webkit-calendar-picker-indicator {
+  display: none;
+  -webkit-appearance: none;
+}
+
 .sidebar-tag-chip {
   font-size: 11px;
 }

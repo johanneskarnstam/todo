@@ -152,6 +152,26 @@ const saveDueTime = (time: string) => {
   if (dueDate.value && time) emit('set-due-date', `${dueDate.value}T${time}`)
 }
 
+const dateInputRef = ref<HTMLInputElement | null>(null)
+const timeInputRef = ref<HTMLInputElement | null>(null)
+
+const openDatePicker = () => {
+  try {
+    dateInputRef.value?.showPicker?.()
+  } catch {
+    // Ignore if showPicker is unsupported or unavailable
+  }
+}
+
+const openTimePicker = () => {
+  if (!dueDate.value) return
+  try {
+    timeInputRef.value?.showPicker?.()
+  } catch {
+    // Ignore if showPicker is unsupported or unavailable
+  }
+}
+
 const saveReminder = () => {
   if (!reminderOffset.value || !props.task.dueDate) {
     emit('save-reminder', null)
@@ -305,15 +325,36 @@ const saveStepTitle = () => {
           <span v-if="task.myDay" class="text-xs text-[#2564cf] dark:text-blue-400">Added</span>
         </button>
 
-        <label class="flex min-h-11 items-center gap-3 rounded-lg px-2 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800">
+        <label class="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-2 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800">
           <CalendarDays :size="18" class="text-slate-500" aria-hidden="true" />
           <span class="flex-1 text-sm">Förfallodatum</span>
-          <input class="planning-picker w-32 bg-transparent text-right text-sm text-slate-600 outline-none dark:text-slate-300" type="date" :value="dueDate" aria-label="Uppgiftens förfallodatum" @change="emit('set-due-date', ($event.target as HTMLInputElement).value)" />
+          <input
+            ref="dateInputRef"
+            class="planning-picker w-32 cursor-pointer bg-transparent text-right text-sm text-slate-600 outline-none dark:text-slate-300"
+            type="date"
+            :value="dueDate"
+            aria-label="Uppgiftens förfallodatum"
+            @click="openDatePicker"
+            @change="emit('set-due-date', ($event.target as HTMLInputElement).value)"
+          />
         </label>
-        <label class="flex min-h-11 items-center gap-3 rounded-lg px-2 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800">
+        <label
+          class="flex min-h-11 items-center gap-3 rounded-lg px-2 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+          :class="!dueDate ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'"
+        >
           <Clock :size="18" class="text-slate-500" aria-hidden="true" />
           <span class="flex-1 text-sm">Förfallotid</span>
-          <input class="planning-picker w-24 bg-transparent text-right text-sm text-slate-600 outline-none disabled:opacity-50 dark:text-slate-300" type="time" :value="dueTime" :disabled="!dueDate" aria-label="Uppgiftens förfallotid" @change="saveDueTime(($event.target as HTMLInputElement).value)" />
+          <input
+            ref="timeInputRef"
+            class="planning-picker w-24 bg-transparent text-right text-sm text-slate-600 outline-none disabled:opacity-50 dark:text-slate-300"
+            :class="!dueDate ? 'cursor-not-allowed' : 'cursor-pointer'"
+            type="time"
+            :value="dueTime"
+            :disabled="!dueDate"
+            aria-label="Uppgiftens förfallotid"
+            @click="openTimePicker"
+            @change="saveDueTime(($event.target as HTMLInputElement).value)"
+          />
         </label>
         <div class="flex flex-wrap gap-2 px-2" aria-label="Snabbval för förfallodatum">
           <button class="rounded-full border border-slate-200 px-3 py-1 text-sm text-slate-600 hover:border-[#2564cf] hover:text-[#2564cf] dark:border-slate-700 dark:text-slate-300" type="button" @click="selectQuickDate(0)">Idag</button>
@@ -385,3 +426,4 @@ const saveStepTitle = () => {
     />
   </aside>
 </template>
+

@@ -79,6 +79,30 @@ test('opens task details from a task row', async ({ page }) => {
   ].map((input) => input.evaluate((element) => getComputedStyle(element).appearance)))
   expect(pickerAppearances).toEqual(['auto', 'auto'])
 
+  const hasHiddenIndicatorRule = await page.evaluate(() => {
+    return Array.from(document.styleSheets).some((sheet) => {
+      try {
+        return Array.from(sheet.cssRules).some((rule) =>
+          rule.cssText.includes('planning-picker::-webkit-calendar-picker-indicator') &&
+          rule.cssText.includes('display: none'),
+        )
+      } catch {
+        return false
+      }
+    })
+  })
+  expect(hasHiddenIndicatorRule).toBe(true)
+
+  const datePickerTriggered = await details.getByLabel('Uppgiftens förfallodatum').evaluate((element) => {
+    let triggered = false
+    const orig = (element as HTMLInputElement).showPicker
+    ;(element as HTMLInputElement).showPicker = () => { triggered = true }
+    element.click()
+    ;(element as HTMLInputElement).showPicker = orig
+    return triggered
+  })
+  expect(datePickerTriggered).toBe(true)
+
   await details.getByRole('textbox', { name: 'Anteckningar' }).fill('Kom ihåg måtten.')
   await details.getByRole('button', { name: 'Stäng uppgiftsdetaljer' }).click()
 
@@ -292,6 +316,15 @@ test('adds a tag and uses a quick due-date preset', async ({ page }) => {
   await details.getByRole('button', { name: 'Imorgon' }).click()
   await expect(details.getByLabel('Uppgiftens förfallodatum')).not.toHaveValue('')
   const dueTimeInput = details.getByLabel('Uppgiftens förfallotid')
+  const timePickerTriggered = await dueTimeInput.evaluate((element) => {
+    let triggered = false
+    const orig = (element as HTMLInputElement).showPicker
+    ;(element as HTMLInputElement).showPicker = () => { triggered = true }
+    element.click()
+    ;(element as HTMLInputElement).showPicker = orig
+    return triggered
+  })
+  expect(timePickerTriggered).toBe(true)
   await dueTimeInput.fill('14:30')
   await details.getByLabel('Påminnelse').click()
   await details.getByRole('option', { name: '1 timme före' }).click()

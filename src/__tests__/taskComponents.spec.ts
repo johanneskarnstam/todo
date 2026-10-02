@@ -579,4 +579,38 @@ describe('TaskDetailsPanel', () => {
     expect(wrapper.emitted('set-due-date')).toEqual([['2026-10-01T14:30']])
   })
 
+  it('triggers showPicker on native date input when clicked', async () => {
+    const wrapper = mount(TaskDetailsPanel, { props: { task, steps } })
+    const dateInput = wrapper.get('input[aria-label="Uppgiftens förfallodatum"]')
+    const showPickerSpy = vi.fn()
+    ;(dateInput.element as HTMLInputElement).showPicker = showPickerSpy
+
+    await dateInput.trigger('click')
+    expect(showPickerSpy).toHaveBeenCalledOnce()
+  })
+
+  it('triggers showPicker on native time input when clicked if due date exists', async () => {
+    const wrapper = mount(TaskDetailsPanel, {
+      props: { task: { ...task, dueDate: '2026-10-01' }, steps },
+    })
+    const timeInput = wrapper.get('input[aria-label="Uppgiftens förfallotid"]')
+    const showPickerSpy = vi.fn()
+    ;(timeInput.element as HTMLInputElement).showPicker = showPickerSpy
+
+    await timeInput.trigger('click')
+    expect(showPickerSpy).toHaveBeenCalledOnce()
+  })
+
+  it('does not trigger showPicker on time input when clicked if due date is missing', async () => {
+    const wrapper = mount(TaskDetailsPanel, {
+      props: { task: { ...task, dueDate: '' }, steps },
+    })
+    const timeInput = wrapper.get('input[aria-label="Uppgiftens förfallotid"]')
+    const showPickerSpy = vi.fn()
+    ;(timeInput.element as HTMLInputElement).showPicker = showPickerSpy
+
+    await timeInput.trigger('click')
+    expect(showPickerSpy).not.toHaveBeenCalled()
+  })
 })
+
