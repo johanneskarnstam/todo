@@ -14,6 +14,9 @@ test("claims and marks a due job sent through the mock adapter", async () => {
   const taskReference = firestore.doc("users/user-1/tasks/task-delivery");
   const jobReference = firestore.doc("users/user-1/reminderJobs/task-delivery");
   const deviceReference = firestore.doc("users/user-1/devices/device-delivery");
+  const duplicateDeviceReference = firestore.doc(
+    "users/user-1/devices/device-delivery-duplicate",
+  );
   const reminderAt = new Date(Date.now() - 60_000);
 
   await taskReference.set({
@@ -25,6 +28,7 @@ test("claims and marks a due job sent through the mock adapter", async () => {
   });
   const taskSnapshot = await taskReference.get();
   await deviceReference.set({enabled: true, token: "mock-token"});
+  await duplicateDeviceReference.set({enabled: true, token: "mock-token"});
   await jobReference.set({
     id: jobReference.id,
     userId: "user-1",
@@ -53,7 +57,7 @@ test("claims and marks a due job sent through the mock adapter", async () => {
     "sent",
     JSON.stringify(deliveredJob.data()),
   );
-  assert.equal(deliveredMessage.tokens[0], "mock-token");
+  assert.deepEqual(deliveredMessage.tokens, ["mock-token"]);
   assert.equal(deliveredMessage.data.taskId, "task-delivery");
   assert.equal(deliveredMessage.notification, undefined);
   assert.equal(deliveredMessage.data.title, "Påminnelse: Mock delivery task");
@@ -66,6 +70,7 @@ test("claims and marks a due job sent through the mock adapter", async () => {
     taskReference.delete(),
     jobReference.delete(),
     deviceReference.delete(),
+    duplicateDeviceReference.delete(),
   ]);
 });
 

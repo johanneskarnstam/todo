@@ -94,10 +94,18 @@ async function processReminderJob(
     const devices = await db.collection(
       `users/${initialJob.userId}/devices`,
     ).where("enabled", "==", true).get();
-    const tokens = devices.docs
-      .map((device) => device.get("token"))
-      .filter((token): token is string =>
-        typeof token === "string" && token.length > 0);
+    const devicesByToken = new Map<
+      string,
+      FirebaseFirestore.QueryDocumentSnapshot[]
+    >();
+    for (const device of devices.docs) {
+      const token = device.get("token");
+      if (typeof token !== "string" || token.length === 0) continue;
+      const matchingDevices = devicesByToken.get(token) ?? [];
+      matchingDevices.push(device);
+      devicesByToken.set(token, matchingDevices);
+    }
+    const tokens = Array.from(devicesByToken.keys());
 
     if (tokens.length === 0) {
       await markJob(jobReference, "failed", "no_active_devices");
@@ -108,13 +116,16 @@ async function processReminderJob(
       tokens,
       data: {
         taskId: initialJob.taskId,
-        title: `Påminnelse: ${task.title}`,
+        title: task.title,
         body: task.title,
       },
     };
     const response = await send(message);
 
-    await removeInvalidTokens(devices.docs, response.responses);
+    await removeInvalidTokens(
+      Array.from(devicesByToken.values()),
+      response.responses,
+    );
     await markJob(
       jobReference,
       response.successCount > 0 ? "sent" : "failed",
@@ -225,20 +236,22 @@ async function markJob(
  * @return {Promise<void>} Completion promise.
  */
 async function removeInvalidTokens(
-  devices: FirebaseFirestore.QueryDocumentSnapshot[],
+  devicesByToken: FirebaseFirestore.QueryDocumentSnapshot[][],
   responses: SendResponse[],
 ): Promise<void> {
   const invalidTokenCodes = new Set([
     "messaging/invalid-registration-token",
     "messaging/registration-token-not-registered",
   ]);
-  const invalidDevices = devices.filter((_device, index) => {
+  const invalidDevices = devicesByToken.filter((_devices, index) => {
     const errorCode = responses[index].error?.code;
     return errorCode !== undefined && invalidTokenCodes.has(errorCode);
   });
 
   if (invalidDevices.length === 0) return;
   const batch = db.batch();
-  for (const device of invalidDevices) batch.delete(device.ref);
+  for (const devices of invalidDevices) {
+    for (const device of devices) batch.delete(device.ref);
+  }
   await batch.commit();
 }

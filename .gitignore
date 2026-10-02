@@ -14,7 +14,7 @@ dist
 dist-ssr
 coverage
 *.local
-src_foodhero/
+src_*
 
 # Editor directories and files
 .vscode/*
