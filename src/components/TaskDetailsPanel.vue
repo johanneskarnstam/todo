@@ -48,6 +48,11 @@ const title = ref(props.task.title)
 const note = ref(props.task.note ?? '')
 const tagTitle = ref('')
 const stepTitle = ref('')
+const isStepToolsExpanded = ref(false)
+const stepImportJson = ref('')
+const stepImportError = ref('')
+const stepImportStatus = ref('')
+const isImportingSteps = ref(false)
 const editingStepId = ref<string | null>(null)
 const editingStepTitle = ref('')
 const stepsContainerRef = ref<HTMLElement | null>(null)
@@ -71,6 +76,23 @@ const reminderOptions = [
   { value: '120', label: '2 timmar före' },
   { value: '1440', label: '1 dag före' },
 ]
+const stepImportExample = computed(() => JSON.stringify({
+  steps: ['Delsteg 1', 'Delsteg 2'],
+}, null, 2))
+const taskContextJson = computed(() => {
+  const context = JSON.stringify({
+    title: props.task.title,
+    note: note.value,
+    expectedResponseFormat: { steps: ['Delsteg 1', 'Delsteg 2'] },
+  }, null, 2)
+
+  return [
+    'Skapa konkreta delsteg för uppgiften nedan. Använd anteckningen som stöd och formulera varje steg som en tydlig åtgärd. Låt mig kunna kopiera ut resultaten direkt. Skriv endast JSON, inga förklaringar eller kommentarer.',
+    'Förväntat svarsformat är JSON. Returnera endast giltig JSON enligt noden expectedResponseFormat. Inget annat får returneras.',
+    '',
+    context,
+  ].join('\n')
+})
 
 const dueDate = computed(() => {
   if (typeof props.task.dueDate === 'string') return props.task.dueDate.slice(0, 10)
@@ -91,6 +113,10 @@ watch(
     reminderOffset.value = String(props.task.reminder?.offsetMinutes ?? '')
     reminderMenuOpen.value = false
     setExpanded(false)
+    isStepToolsExpanded.value = false
+    stepImportJson.value = ''
+    stepImportError.value = ''
+    stepImportStatus.value = ''
   },
 )
 
@@ -150,6 +176,81 @@ const removeTag = (tag: string) => {
 
 const saveNote = () => {
   if (note.value !== (props.task.note ?? '')) emit('save-note', note.value)
+}
+
+const loadStepImportFile = async (event: Event) => {
+  const input = event.currentTarget as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+
+  stepImportError.value = ''
+  stepImportStatus.value = ''
+  if (file.size > 1_000_000) {
+    stepImportError.value = 'Filen får vara högst 1 MB.'
+    return
+  }
+
+  try {
+    stepImportJson.value = await file.text()
+  } catch {
+    stepImportError.value = 'Filen kunde inte läsas.'
+  }
+}
+
+const copyTaskContext = async () => {
+  try {
+    await navigator.clipboard.writeText(taskContextJson.value)
+    stepImportStatus.value = 'Uppgiftskontext kopierad.'
+    stepImportError.value = ''
+  } catch {
+    stepImportError.value = 'Uppgiftskontexten kunde inte kopieras.'
+    stepImportStatus.value = ''
+  }
+}
+
+const isJsonObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+const importSteps = async () => {
+  stepImportError.value = ''
+  stepImportStatus.value = ''
+  if (new TextEncoder().encode(stepImportJson.value).length > 1_000_000) {
+    stepImportError.value = 'JSON-texten får vara högst 1 MB.'
+    return
+  }
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(stepImportJson.value)
+  } catch {
+    stepImportError.value = 'Fältet innehåller inte giltig JSON.'
+    return
+  }
+
+  if (!isJsonObject(parsed) || !Array.isArray(parsed.steps)) {
+    stepImportError.value = 'JSON måste innehålla ett objekt med en lista i steps.'
+    return
+  }
+
+  const stepTitles = parsed.steps.map((step) => typeof step === 'string' ? step.trim() : '')
+  if (!stepTitles.length || stepTitles.some((step) => !step)) {
+    stepImportError.value = 'JSON måste innehålla minst ett delsteg med text.'
+    return
+  }
+  if (stepTitles.length > 500) {
+    stepImportError.value = 'Du kan importera högst 500 delsteg åt gången.'
+    return
+  }
+
+  isImportingSteps.value = true
+  try {
+    for (const stepTitle of [...stepTitles].reverse()) emit('add-step', stepTitle)
+    stepImportJson.value = ''
+    stepImportStatus.value = `${stepTitles.length} delsteg importerade.`
+  } finally {
+    isImportingSteps.value = false
+  }
 }
 
 const priorityOptions: Array<{ value: TaskPriority; label: string }> = [
@@ -495,6 +596,39 @@ const saveStepTitle = () => {
         <label class="sr-only" for="task-note">Anteckningar</label>
         <textarea id="task-note" v-model="note" class="min-h-28 w-full resize-y rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-700 outline-none transition focus:border-[#2564cf] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200" placeholder="Lägg till en anteckning" @blur="saveNote" />
       </section>
+
+      <div class="shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <button
+          id="step-tools-toggle"
+          class="flex min-h-12 w-full items-center justify-between gap-3 px-4 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
+          type="button"
+          aria-controls="step-tools-panel"
+          :aria-expanded="isStepToolsExpanded"
+          @click="isStepToolsExpanded = !isStepToolsExpanded"
+        >
+          <span>Förbered och importera delsteg</span>
+          <ChevronDown :size="17" class="shrink-0 transition-transform" :class="{ 'rotate-180': isStepToolsExpanded }" aria-hidden="true" />
+        </button>
+        <div v-if="isStepToolsExpanded" id="step-tools-panel" class="border-t border-slate-200 p-4 dark:border-slate-700">
+          <p class="text-sm text-slate-500 dark:text-slate-400">Kopiera kontexten till en extern AI och importera dess JSON-svar.</p>
+          <label class="mt-3 block text-sm font-medium" for="task-context-json">Uppgiftskontext</label>
+          <textarea id="task-context-json" aria-label="Uppgiftskontext" class="mt-1 min-h-32 w-full resize-y rounded-md border border-slate-300 bg-slate-50 p-3 font-mono text-xs outline-none dark:border-slate-600 dark:bg-slate-800" :value="taskContextJson" readonly />
+          <button class="mt-2 inline-flex min-h-9 items-center gap-2 rounded-md border border-slate-300 px-3 text-sm font-medium hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800" type="button" @click="copyTaskContext">
+            <Copy :size="15" aria-hidden="true" />Kopiera kontext
+          </button>
+
+          <label class="mt-4 block text-sm font-medium" for="step-import-json">JSON med delsteg</label>
+          <textarea id="step-import-json" v-model="stepImportJson" aria-label="JSON för delsteg" class="mt-1 min-h-28 w-full resize-y rounded-md border border-slate-300 bg-white p-3 font-mono text-xs outline-none focus:border-[#2564cf] dark:border-slate-600 dark:bg-slate-800" :placeholder="stepImportExample" :disabled="isImportingSteps" />
+          <label class="mt-3 block text-sm font-medium" for="step-import-file">Eller välj en JSON-fil</label>
+          <input id="step-import-file" class="mt-1 block w-full text-sm text-slate-600 file:mr-3 file:min-h-9 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:text-sm file:font-medium dark:text-slate-300 dark:file:bg-slate-800" type="file" accept=".json,application/json" :disabled="isImportingSteps" @change="loadStepImportFile" />
+          <button class="mt-3 min-h-10 rounded-md bg-[#2564cf] px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50" type="button" :disabled="isImportingSteps || !stepImportJson.trim()" @click="importSteps">
+            {{ isImportingSteps ? 'Importerar...' : 'Importera delsteg' }}
+          </button>
+          <p v-if="stepImportStatus" class="mt-2 text-sm text-emerald-700 dark:text-emerald-300" role="status">{{ stepImportStatus }}</p>
+          <p v-if="stepImportError" class="mt-2 text-sm text-red-700 dark:text-red-300" role="alert">{{ stepImportError }}</p>
+          <pre class="mt-3 overflow-x-auto rounded-md bg-slate-50 p-3 text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-200">{{ stepImportExample }}</pre>
+        </div>
+      </div>
     </div>
 
     <div class="shrink-0 border-t border-slate-200 p-3 dark:border-slate-700">
