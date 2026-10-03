@@ -1,18 +1,12 @@
 import { ref } from 'vue'
 import { registerSW } from 'virtual:pwa-register'
 
-const isUpdateAvailable = ref(false)
-const isUpdatePromptDismissed = ref(false)
 const isUpdatingApp = ref(false)
 const updateError = ref<string | null>(null)
 
-const updateServiceWorker = registerSW({
-  immediate: true,
-  onNeedRefresh: () => {
-    isUpdateAvailable.value = true
-    isUpdatePromptDismissed.value = false
-  },
-})
+// Register SW – autoUpdate mode; SW skips waiting on install,
+// so updates take effect on next page load automatically.
+registerSW({ immediate: true })
 
 const forceUpdateApp = async () => {
   isUpdatingApp.value = true
@@ -43,11 +37,6 @@ const forceUpdateApp = async () => {
           handleStateChange()
         })
       }
-
-      if (registration.waiting) {
-        await updateServiceWorker(true)
-        return
-      }
     }
 
     window.location.reload()
@@ -58,8 +47,6 @@ const forceUpdateApp = async () => {
 }
 
 export const useAppUpdate = () => ({
-  isUpdateAvailable,
-  isUpdatePromptDismissed,
   isUpdatingApp,
   updateError,
   forceUpdateApp,

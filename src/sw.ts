@@ -12,6 +12,10 @@ declare let self: ServiceWorkerGlobalScope & {
 precacheAndRoute(self.__WB_MANIFEST)
 clientsClaim()
 
+self.addEventListener('install', () => {
+  void self.skipWaiting()
+})
+
 self.addEventListener('message', (event) => {
   if (event.data?.type === 'SKIP_WAITING') void self.skipWaiting()
 })
