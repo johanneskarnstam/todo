@@ -47,7 +47,13 @@ export const loadTaskBreakdownModels = async (forceRefresh = false): Promise<voi
 
 const clearLegacyApiKeys = () => {
   try {
-    localStorage.removeItem('todo-gemini-api-keys')
+    const raw = localStorage.getItem('todo-gemini-api-keys')
+    if (raw) {
+      const parsed = JSON.parse(raw) as unknown
+      if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'string') {
+        localStorage.removeItem('todo-gemini-api-keys')
+      }
+    }
     localStorage.removeItem('todo-gemini-selected-key')
   } catch {
     // Legacy key cleanup must not prevent model selection from loading.

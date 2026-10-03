@@ -582,7 +582,7 @@ const handleLogout = async () => {
             <RefreshCw :size="16" :class="{ 'animate-spin': isLoadingModels }" aria-hidden="true" />
           </button>
         </div>
-        <p v-if="isLoadingModels" class="mt-2 text-xs text-slate-500 dark:text-slate-400" role="status">
+        <p v-if="isLoadingModels" class="mt-2 text-xs text-slate-500 dark:text-slate-400">
           Hämtar Gemini-modeller…
         </p>
       </section>

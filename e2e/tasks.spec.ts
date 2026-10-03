@@ -530,7 +530,7 @@ test('renames a tag globally and shows each result list', async ({ page }) => {
   await page.getByRole('button', { name: 'Redigera taggen #shared-tag' }).click()
   await page.getByLabel('Namn på taggen #shared-tag').fill('renamed-tag')
   await page.getByRole('button', { name: 'Spara taggnamn #shared-tag' }).click()
-  await expect(page.getByRole('status')).toContainText('Taggen har bytt namn till #renamed-tag.')
+  await expect(page.getByRole('status').filter({ hasText: 'Taggen har bytt namn' })).toContainText('Taggen har bytt namn till #renamed-tag.')
 
   await page.goto('#/tag/renamed-tag')
   const firstTask = page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' })

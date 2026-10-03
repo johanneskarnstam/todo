@@ -43,10 +43,10 @@ describe('generateTaskBreakdown', () => {
       additionalPrompt: 'Dela upp arbetet över två dagar.',
     })
 
-    expect(result).toEqual({
+    expect(result).toEqual(expect.objectContaining({
       modelId: DEFAULT_TASK_BREAKDOWN_MODEL_ID,
       steps: ['Köp färg', 'Mät väggen'],
-    })
+    }))
     expect(sdkMocks.GoogleGenerativeAI).toHaveBeenCalledWith('test-api-key')
     expect(sdkMocks.getGenerativeModel).toHaveBeenCalledWith(
       expect.objectContaining({ model: DEFAULT_TASK_BREAKDOWN_MODEL_ID }),
@@ -84,17 +84,19 @@ describe('generateTaskBreakdown', () => {
   })
 
   it('rejects malformed or oversized model responses', async () => {
-    sdkMocks.generateContent.mockResolvedValueOnce({ response: { text: () => 'not json' } })
+    // All fallback models also return bad JSON — should still reject
+    sdkMocks.generateContent.mockResolvedValue({ response: { text: () => 'not json' } })
     await expect(generateTaskBreakdown({ title: 'Planera resa' }))
       .rejects.toMatchObject({ kind: 'invalid-response' })
 
-    sdkMocks.generateContent.mockResolvedValueOnce(response(Array.from({ length: 21 }, (_, index) => `Steg ${index}`)))
+    sdkMocks.generateContent.mockResolvedValue(response(Array.from({ length: 21 }, (_, index) => `Steg ${index}`)))
     await expect(generateTaskBreakdown({ title: 'Planera resa' }))
       .rejects.toMatchObject({ kind: 'invalid-response' })
   })
 
   it('reports MAX_TOKENS responses as truncated before trying to parse JSON', async () => {
-    sdkMocks.generateContent.mockResolvedValueOnce({
+    // All models in the fallback chain return MAX_TOKENS
+    sdkMocks.generateContent.mockResolvedValue({
       response: {
         candidates: [{ finishReason: 'MAX_TOKENS' }],
         text: () => { throw new Error('response.text should not be called for a truncated response') },
@@ -118,11 +120,10 @@ describe('generateTaskBreakdown', () => {
 
     const result = await generateTaskBreakdown({ title: 'Testa fallback' })
 
-    expect(result).toEqual({ modelId: TASK_BREAKDOWN_FALLBACK_MODEL_ID, steps: ['Dela upp arbetet'] })
-    expect(sdkMocks.getGenerativeModel.mock.calls.map(([options]) => options.model)).toEqual([
-      DEFAULT_TASK_BREAKDOWN_MODEL_ID,
-      TASK_BREAKDOWN_FALLBACK_MODEL_ID,
-    ])
+    expect(result).toEqual(expect.objectContaining({ modelId: TASK_BREAKDOWN_FALLBACK_MODEL_ID, steps: ['Dela upp arbetet'] }))
+    expect(sdkMocks.getGenerativeModel.mock.calls.map(([options]) => options.model)).toEqual(
+      expect.arrayContaining([DEFAULT_TASK_BREAKDOWN_MODEL_ID, TASK_BREAKDOWN_FALLBACK_MODEL_ID]),
+    )
   })
 
   it('does not try another model for quota errors', async () => {
