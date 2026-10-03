@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { ArrowLeft, Bell, CalendarDays, Check, ChevronDown, Clock, Copy, Sun } from '@lucide/vue'
+import { ArrowLeft, Bell, CalendarDays, Check, ChevronDown, Clock, Copy, Expand, Shrink, Sun } from '@lucide/vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import type { Step, Task, TaskPriority, TaskReminder } from '@/types'
 import { normalizeTag, normalizeTags } from '@/utils/taskTags'
@@ -40,6 +40,7 @@ const title = ref(props.task.title)
 const note = ref(props.task.note ?? '')
 const tagTitle = ref('')
 const stepTitle = ref('')
+const isExpanded = ref(false)
 const editingStepId = ref<string | null>(null)
 const editingStepTitle = ref('')
 const stepsContainerRef = ref<HTMLElement | null>(null)
@@ -82,6 +83,7 @@ watch(
     tags.value = normalizeTags(props.task.tags ?? [])
     reminderOffset.value = String(props.task.reminder?.offsetMinutes ?? '')
     reminderMenuOpen.value = false
+    isExpanded.value = false
   },
 )
 
@@ -241,10 +243,29 @@ const saveStepTitle = () => {
 </script>
 
 <template>
-  <aside class="fixed inset-x-0 bottom-0 top-14 z-50 flex flex-col bg-white shadow-2xl dark:bg-slate-900 lg:static lg:z-auto lg:w-80 lg:shrink-0 lg:rounded-l-xl lg:border-l lg:border-slate-200 lg:shadow-none dark:lg:border-slate-700" role="dialog" aria-modal="true" aria-labelledby="task-details-heading" @click="reminderMenuOpen = false">
+  <div v-if="isExpanded" class="fixed inset-x-0 bottom-0 top-14 z-[55] hidden bg-slate-950/20 lg:block" aria-hidden="true" @click="isExpanded = false" />
+  <aside
+    class="fixed inset-x-0 bottom-0 top-14 z-50 flex flex-col bg-white shadow-2xl dark:bg-slate-900"
+    :class="isExpanded ? 'lg:fixed lg:inset-x-8 lg:bottom-8 lg:top-20 lg:z-[60] lg:h-auto lg:min-h-0 lg:w-auto lg:shrink-0 lg:rounded-xl lg:border lg:border-slate-200 lg:shadow-2xl dark:lg:border-slate-700' : 'lg:static lg:z-auto lg:h-full lg:min-h-0 lg:w-80 lg:shrink-0 lg:rounded-l-xl lg:border-l lg:border-slate-200 lg:shadow-none dark:lg:border-slate-700'"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="task-details-heading"
+    @click="reminderMenuOpen = false"
+    @keydown.esc="isExpanded = false"
+  >
     <div class="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 px-4 dark:border-slate-700">
       <span id="task-details-heading" class="text-sm font-semibold text-slate-700 dark:text-slate-200">Uppgiftsdetaljer</span>
       <div class="flex items-center gap-1">
+        <button
+          class="hidden size-8 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 lg:grid"
+          type="button"
+          :aria-label="isExpanded ? 'Minimera uppgiftsdetaljer' : 'Expandera uppgiftsdetaljer'"
+          :aria-pressed="isExpanded"
+          @click="isExpanded = !isExpanded"
+        >
+          <Shrink v-if="isExpanded" :size="17" aria-hidden="true" />
+          <Expand v-else :size="17" aria-hidden="true" />
+        </button>
         <button class="grid size-8 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800" type="button" aria-label="Kopiera uppgiftslänk" @click="emit('copy-link')">
           <Copy :size="17" aria-hidden="true" />
         </button>

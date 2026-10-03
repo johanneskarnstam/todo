@@ -110,6 +110,31 @@ test('opens task details from a task row', async ({ page }) => {
   await expect(page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' }).getByRole('img', { name: 'Anteckning finns' })).toBeVisible()
 })
 
+test('expands task details on desktop and keeps the control out of mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await page.goto('/#/tasks/local-task-3')
+  await dismissReleaseNotes(page)
+
+  const details = page.getByRole('dialog', { name: 'Uppgiftsdetaljer' })
+  const expandButton = details.getByRole('button', { name: 'Expandera uppgiftsdetaljer' })
+  await expect(expandButton).toBeVisible()
+  await expandButton.click()
+  await expect(details.getByRole('button', { name: 'Minimera uppgiftsdetaljer' })).toHaveAttribute('aria-pressed', 'true')
+
+  const expandedWidth = await details.evaluate((element) => element.getBoundingClientRect().width)
+  expect(expandedWidth).toBeGreaterThan(1000)
+
+  await details.getByRole('button', { name: 'Minimera uppgiftsdetaljer' }).click()
+  await expect(details.getByRole('button', { name: 'Expandera uppgiftsdetaljer' })).toHaveAttribute('aria-pressed', 'false')
+  const panelWidth = await details.evaluate((element) => element.getBoundingClientRect().width)
+  expect(panelWidth).toBeLessThan(400)
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect(details.getByRole('button', { name: 'Expandera uppgiftsdetaljer' })).toBeHidden()
+  const mobileWidth = await details.evaluate((element) => element.getBoundingClientRect().width)
+  expect(mobileWidth).toBe(390)
+})
+
 test('opens a task directly from its URL and restores its details after reload', async ({ page }) => {
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
   await page.goto('/#/tasks/local-task-3')
