@@ -1,24 +1,28 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { Check } from '@lucide/vue'
 import { useRoute, useRouter } from 'vue-router'
 import TodoHeader from '@/components/TodoHeader.vue'
+import TaskPriorityFilter from '@/components/TaskPriorityFilter.vue'
 import { useTheme } from '@/composables/useTheme'
 import { useListStore } from '@/stores/listStore'
 import { useTaskStore } from '@/stores/taskStore'
 import { isTaskCompleted } from '@/utils/taskStatus'
+import { countTaskPriorities, filterTasksByPriority, getTaskPriority, taskPriorityLabel } from '@/utils/taskPriority'
+import type { TaskPriorityFilterValue } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
 const listStore = useListStore()
 const taskStore = useTaskStore()
 const { isDark, toggleTheme } = useTheme()
+const priorityFilter = ref<TaskPriorityFilterValue>('all')
 
 const query = computed(() => typeof route.query.q === 'string' ? route.query.q : '')
 const normalizedQuery = computed(() => query.value.trim().toLocaleLowerCase('sv-SE'))
 const taskListName = (listId: string) => listStore.lists.find((list) => list.id === listId)?.name ?? 'Okänd lista'
 
-const matchingTasks = computed(() => {
+const textMatchingTasks = computed(() => {
   if (!normalizedQuery.value) return []
   return taskStore.tasks.filter((task) => {
     const searchableText = [
@@ -30,6 +34,8 @@ const matchingTasks = computed(() => {
     return searchableText.includes(normalizedQuery.value)
   })
 })
+const matchingTasks = computed(() => filterTasksByPriority(textMatchingTasks.value, priorityFilter.value))
+const matchingTaskPriorityCounts = computed(() => countTaskPriorities(textMatchingTasks.value))
 
 const matchingLists = computed(() => {
   if (!normalizedQuery.value) return []
@@ -96,6 +102,14 @@ onMounted(async () => {
           <span v-if="query" class="text-sm text-slate-500 dark:text-slate-400">{{ matchingTasks.length }} uppgifter</span>
         </div>
 
+        <TaskPriorityFilter
+          v-if="normalizedQuery && textMatchingTasks.length"
+          v-model="priorityFilter"
+          class="mt-5"
+          :counts="matchingTaskPriorityCounts"
+          :total="textMatchingTasks.length"
+        />
+
         <p v-if="!query" class="mt-10 rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">Börja skriva för att söka bland uppgifter, taggar och listor.</p>
         <p v-else-if="!matchingTasks.length && !matchingLists.length && !matchingTags.length" class="mt-10 rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">Inga matchande resultat.</p>
 
@@ -106,7 +120,7 @@ onMounted(async () => {
               <span class="grid size-6 shrink-0 place-items-center rounded-full border" :class="isTaskCompleted(task) ? 'border-[#2564cf] bg-[#2564cf] text-white' : 'border-slate-400 text-transparent'"><Check v-if="isTaskCompleted(task)" :size="14" aria-hidden="true" /></span>
               <span class="min-w-0 flex-1">
                 <span class="block truncate text-sm" :class="{ 'text-slate-400 line-through dark:text-slate-500': isTaskCompleted(task) }">{{ task.title }}</span>
-                <span class="block truncate text-xs text-slate-500 dark:text-slate-400">{{ taskListName(task.listId) }}<span v-if="task.tags?.length"> · #{{ task.tags.join(' #') }}</span></span>
+                <span class="block truncate text-xs text-slate-500 dark:text-slate-400">{{ taskListName(task.listId) }} · {{ taskPriorityLabel(getTaskPriority(task)) }} prioritet<span v-if="task.tags?.length"> · #{{ task.tags.join(' #') }}</span></span>
               </span>
             </button>
           </div>

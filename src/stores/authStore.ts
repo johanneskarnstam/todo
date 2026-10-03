@@ -5,7 +5,6 @@ import { isMockAuthEnabled, isUnauthenticatedTestMode, MOCK_USER_ID } from '@/de
 import { useListStore } from '@/stores/listStore'
 import { useTaskStore } from '@/stores/taskStore'
 import { usePushNotifications } from '@/composables/usePushNotifications'
-import { useAiKeys } from '@/composables/useAiKeys'
 import { markFeatureOverviewPending } from '@/utils/featureOverview'
 import {
   GoogleAuthProvider,
@@ -82,7 +81,6 @@ export const useAuthStore = defineStore('auth', () => {
   const clearUserData = () => {
     useListStore().clearState()
     useTaskStore().clearState()
-    useAiKeys().clearKeys()
   }
 
   const logout = async () => {

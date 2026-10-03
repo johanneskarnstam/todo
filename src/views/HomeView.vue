@@ -6,7 +6,7 @@ import TodoHeader from '@/components/TodoHeader.vue'
 import TodoSidebar from '@/components/TodoSidebar.vue'
 import TaskRow from '@/components/TaskRow.vue'
 import TaskDetailsPanel from '@/components/TaskDetailsPanel.vue'
-import TaskBreakdownModal from '@/components/TaskBreakdownModal.vue'
+import TaskPriorityFilter from '@/components/TaskPriorityFilter.vue'
 import ListIcon from '@/components/ListIcon.vue'
 import ToggleSwitch from '@/components/ToggleSwitch.vue'
 import { useTheme } from '@/composables/useTheme'
@@ -19,12 +19,13 @@ import { usePreferences } from '@/composables/usePreferences'
 import { sortTasksForMode } from '@/utils/taskSorting'
 import { copyRouteLink } from '@/utils/shareLink'
 import { isTaskCompleted } from '@/utils/taskStatus'
-import type { ListSortMode, SmartView, TaskReminder } from '@/types'
+import type { ListSortMode, SmartView, TaskPriorityFilterValue, TaskReminder } from '@/types'
+import { filterTasksByPriority } from '@/utils/taskPriority'
 
 const isSidebarOpen = ref(typeof window === 'undefined' ? true : window.innerWidth >= 1024)
 const isSearchOpen = ref(false)
-const isTaskBreakdownModalOpen = ref(false)
 const taskTitle = ref('')
+const priorityFilter = ref<TaskPriorityFilterValue>('all')
 const pendingDeleteTaskId = ref<string | null>(null)
 const pendingDeleteListId = ref<string | null>(null)
 const deleteListTasks = ref(false)
@@ -106,7 +107,7 @@ const activeListCompact = computed(() => activeList.value?.viewMode === 'compact
 const availableTags = computed(() => [...new Set(taskStore.tasks.flatMap((task) => task.tags ?? []))].sort())
 const filteredVisibleTasks = computed(() => {
   const sortMode = taskStore.activeView?.type === 'list' ? activeListSortMode.value : preferences.value.taskSort
-  return sortTasksForMode(taskStore.visibleTasks, sortMode)
+  return sortTasksForMode(filterTasksByPriority(taskStore.visibleTasks, priorityFilter.value), sortMode)
 })
 const filteredActiveTasks = computed(() => filteredVisibleTasks.value.filter((task) => !isTaskCompleted(task)))
 const filteredCompletedTasks = computed(() => filteredVisibleTasks.value.filter((task) => isTaskCompleted(task)))
@@ -277,7 +278,6 @@ const copyActiveTaskLink = async () => {
 }
 
 const closeActiveTask = async () => {
-  isTaskBreakdownModalOpen.value = false
   const task = taskStore.activeTask
   if (!routeTaskId.value) {
     taskStore.setActiveTask(null)
@@ -664,6 +664,14 @@ watch(
             {{ listStore.error }}
           </p>
 
+          <TaskPriorityFilter
+            v-if="taskStore.visibleTasks.length"
+            v-model="priorityFilter"
+            class="mt-5"
+            :counts="taskStore.priorityCounts"
+            :total="taskStore.visibleTasks.length"
+          />
+
           <form v-if="canAddTask" class="mt-7 flex h-14 w-full items-center gap-4 rounded-xl border border-slate-200 bg-white px-5 text-left text-sm text-[#2564cf] shadow-sm transition focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-200 dark:border-slate-700 dark:bg-slate-900 dark:text-blue-400 dark:focus-within:ring-blue-900" @submit.prevent="handleAddTask">
             <Plus :size="20" aria-hidden="true" />
             <label class="sr-only" for="new-task-title">Lägg till en uppgift</label>
@@ -692,6 +700,7 @@ watch(
                   @select="openTask(task.id)"
                   @toggle-completed="handleToggleCompleted(task.id)"
                   @toggle-important="taskStore.toggleImportant(task.id)"
+                  @set-priority="taskStore.updateTask(task.id, { priority: $event })"
                   @toggle-my-day="taskStore.toggleMyDay(task.id)"
                   @delete="requestDeleteTask(task.id)"
                   @move-to-list="handleMoveTaskToList(task.id, $event)"
@@ -718,6 +727,7 @@ watch(
                 @toggle-completed="handleToggleCompleted(task.id)"
                 @set-status="handleSetTaskStatus(task.id, $event, activeListTaskStatusMode)"
                 @toggle-important="taskStore.toggleImportant(task.id)"
+                @set-priority="taskStore.updateTask(task.id, { priority: $event })"
                 @toggle-my-day="taskStore.toggleMyDay(task.id)"
                 @delete="requestDeleteTask(task.id)"
                 @move="(direction) => handleMoveTask(task.id, direction)"
@@ -756,6 +766,7 @@ watch(
                 @toggle-completed="handleToggleCompleted(task.id)"
                 @set-status="handleSetTaskStatus(task.id, $event, activeListTaskStatusMode)"
                 @toggle-important="taskStore.toggleImportant(task.id)"
+                @set-priority="taskStore.updateTask(task.id, { priority: $event })"
                 @toggle-my-day="taskStore.toggleMyDay(task.id)"
                 @delete="requestDeleteTask(task.id)"
                 @move-to-list="handleMoveTaskToList(task.id, $event)"
@@ -764,7 +775,9 @@ watch(
             </div>
           </section>
 
-          <p v-if="taskStore.isLoaded && !filteredVisibleTasks.length" class="mt-16 text-center text-sm text-slate-500 dark:text-slate-400">Inga uppgifter ännu</p>
+          <p v-if="taskStore.isLoaded && !filteredVisibleTasks.length" class="mt-16 text-center text-sm text-slate-500 dark:text-slate-400">
+            {{ taskStore.visibleTasks.length && priorityFilter !== 'all' ? 'Inga uppgifter med vald prioritet.' : 'Inga uppgifter ännu.' }}
+          </p>
         </div>
       </main>
 
@@ -778,13 +791,13 @@ watch(
         @copy-link="copyActiveTaskLink"
         @save-title="taskStore.updateTask(taskStore.activeTaskId!, { title: $event })"
         @add-step="taskStore.createStep({ taskId: taskStore.activeTaskId!, title: $event })"
-        @open-ai-breakdown="isTaskBreakdownModalOpen = true"
         @reorder-steps="taskStore.reorderSteps(taskStore.activeTaskId!, $event)"
         @save-step-title="handleSaveStepTitle"
         @toggle-step="taskStore.toggleStep($event)"
         @toggle-task-completed="taskStore.toggleCompleted(taskStore.activeTaskId!)"
         @delete-step="taskStore.deleteStep($event)"
         @toggle-my-day="taskStore.toggleMyDay(taskStore.activeTaskId!)"
+        @set-priority="taskStore.updateTask(taskStore.activeTaskId!, { priority: $event })"
         @set-due-date="handleSetDueDate(taskStore.activeTaskId!, $event)"
         @save-reminder="handleSaveReminder(taskStore.activeTaskId!, $event)"
         @save-note="taskStore.saveNote(taskStore.activeTaskId!, $event)"
@@ -792,13 +805,6 @@ watch(
         @select-tag="handleSelectTag"
         @move-to-list="handleMoveTaskToList(taskStore.activeTaskId!, $event)"
         @delete-task="handleDeleteActiveTask"
-      />
-
-      <TaskBreakdownModal
-        v-if="taskStore.activeTask && isTaskBreakdownModalOpen"
-        :is-open="isTaskBreakdownModalOpen"
-        :task="taskStore.activeTask"
-        @close="isTaskBreakdownModalOpen = false"
       />
 
       <div v-if="pendingDeleteTaskId" class="fixed inset-0 z-[100] grid place-items-center bg-slate-950/40 px-4" role="presentation" @click.self="cancelDeleteTask">

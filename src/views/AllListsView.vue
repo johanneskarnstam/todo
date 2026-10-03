@@ -12,9 +12,11 @@ import { useListStore } from '@/stores/listStore'
 import { useTaskStore } from '@/stores/taskStore'
 import { useToastStore } from '@/stores/toastStore'
 import { useTheme } from '@/composables/useTheme'
-import type { List, Task, TaskReminder } from '@/types'
+import type { List, Task, TaskPriorityFilterValue, TaskReminder } from '@/types'
 import { isTaskCompleted } from '@/utils/taskStatus'
 import { sortTasksForMode } from '@/utils/taskSorting'
+import { countTaskPriorities, filterTasksByPriority } from '@/utils/taskPriority'
+import TaskPriorityFilter from '@/components/TaskPriorityFilter.vue'
 import { copyRouteLink } from '@/utils/shareLink'
 
 const router = useRouter()
@@ -38,13 +40,18 @@ const desktopGroups = computed(() => [
 const isDesktopView = ref(false)
 const pendingDeleteTaskId = ref<string | null>(null)
 const taskTitlesByListId = ref<Record<string, string>>({})
+const priorityFilter = ref<TaskPriorityFilterValue>('all')
+const priorityCounts = computed(() => countTaskPriorities(taskStore.tasks.filter((task) => !task.archived)))
 let desktopMediaQuery: MediaQueryList | null = null
 
 const tasksByListId = computed(() => {
   const groupedTasks = new Map<string, { active: Task[]; completed: Task[] }>()
 
   for (const list of listStore.lists) {
-    const listTasks = taskStore.tasks.filter((task) => task.listId === list.id && !task.archived)
+    const listTasks = filterTasksByPriority(
+      taskStore.tasks.filter((task) => task.listId === list.id && !task.archived),
+      priorityFilter.value,
+    )
     groupedTasks.set(list.id, {
       active: sortTasksForMode(listTasks.filter((task) => !isTaskCompleted(task)), list.sortMode ?? 'manual'),
       completed: sortTasksForMode(listTasks.filter(isTaskCompleted), list.sortMode ?? 'manual'),
@@ -261,6 +268,13 @@ onUnmounted(() => desktopMediaQuery?.removeEventListener('change', syncDesktopVi
       <p v-if="listStore.error || taskStore.error" class="mx-5 mt-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200" role="alert">
         {{ listStore.error ?? taskStore.error }}
       </p>
+      <TaskPriorityFilter
+        v-if="taskStore.tasks.some((task) => !task.archived)"
+        v-model="priorityFilter"
+        class="px-5 pt-3"
+        :counts="priorityCounts"
+        :total="Object.values(priorityCounts).reduce((total, count) => total + count, 0)"
+      />
       <div class="min-h-0 flex-1 overflow-x-auto overflow-y-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#2564cf]" role="region" aria-label="Listöversikt" tabindex="0">
       <div class="flex h-full w-max items-stretch gap-6 p-5">
         <section v-for="group in desktopGroups" :key="group.id" class="flex h-full shrink-0 flex-col rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900" role="group" :aria-labelledby="`overview-group-${group.id}`">
@@ -293,6 +307,7 @@ onUnmounted(() => desktopMediaQuery?.removeEventListener('change', syncDesktopVi
                       @toggle-completed="taskStore.toggleCompleted(task.id)"
                       @set-status="taskStore.setTaskStatus(task.id, $event, list.taskStatusMode ?? 'binary')"
                       @toggle-important="taskStore.toggleImportant(task.id)"
+                      @set-priority="taskStore.updateTask(task.id, { priority: $event })"
                       @toggle-my-day="taskStore.toggleMyDay(task.id)"
                       @delete="requestDeleteTask(task.id)"
                       @move-to-list="handleMoveTaskToList(task.id, $event)"
@@ -322,6 +337,7 @@ onUnmounted(() => desktopMediaQuery?.removeEventListener('change', syncDesktopVi
                           @toggle-completed="taskStore.toggleCompleted(task.id)"
                           @set-status="taskStore.setTaskStatus(task.id, $event, list.taskStatusMode ?? 'binary')"
                           @toggle-important="taskStore.toggleImportant(task.id)"
+                          @set-priority="taskStore.updateTask(task.id, { priority: $event })"
                           @toggle-my-day="taskStore.toggleMyDay(task.id)"
                           @delete="requestDeleteTask(task.id)"
                           @move-to-list="handleMoveTaskToList(task.id, $event)"
@@ -358,6 +374,7 @@ onUnmounted(() => desktopMediaQuery?.removeEventListener('change', syncDesktopVi
       @toggle-task-completed="taskStore.toggleCompleted(taskStore.activeTaskId!)"
       @delete-step="taskStore.deleteStep($event)"
       @toggle-my-day="taskStore.toggleMyDay(taskStore.activeTaskId!)"
+      @set-priority="taskStore.updateTask(taskStore.activeTaskId!, { priority: $event })"
       @set-due-date="taskStore.setDueDate(taskStore.activeTaskId!, $event)"
       @save-reminder="handleSaveReminder(taskStore.activeTaskId!, $event)"
       @save-note="taskStore.saveNote(taskStore.activeTaskId!, $event)"

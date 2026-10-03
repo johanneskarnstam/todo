@@ -1,5 +1,8 @@
 import type { ListSortMode, Task } from '@/types'
 import { isTaskCompleted } from '@/utils/taskStatus'
+import { getTaskPriority } from '@/utils/taskPriority'
+
+const priorityRank = { low: 0, normal: 1, high: 2, urgent: 3 } as const
 
 const dueDateKey = (task: Task): string => {
   if (!task.dueDate) return '9999-12-31'
@@ -18,7 +21,7 @@ export const sortTasksForMode = (tasks: Task[], sortMode: ListSortMode): Task[] 
   }
 
   if (sortMode === 'priority') {
-    return Number(second.important) - Number(first.important)
+    return priorityRank[getTaskPriority(second)] - priorityRank[getTaskPriority(first)]
       || Number(isTaskCompleted(first)) - Number(isTaskCompleted(second))
       || compareCreatedAt(first, second)
   }

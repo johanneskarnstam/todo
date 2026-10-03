@@ -10,6 +10,8 @@ export type ListSortMode = 'manual' | 'created' | 'createdDesc' | 'dueDate' | 'p
 export type ListViewMode = 'detailed' | 'compact'
 export type TaskStatus = 'todo' | 'inProgress' | 'completed'
 export type TaskStatusMode = 'binary' | 'threeStep'
+export type TaskPriority = 'low' | 'normal' | 'high' | 'urgent'
+export type TaskPriorityFilterValue = 'all' | TaskPriority
 
 export interface List {
   id: string
@@ -39,6 +41,7 @@ export interface Task {
   title: string
   completed: boolean
   important: boolean
+  priority?: TaskPriority
   myDay: boolean
   dueDate?: string | Timestamp
   dueTimeZone?: string
@@ -58,44 +61,11 @@ export interface Step {
   completed: boolean
   createdAt: Timestamp
   order?: number
-  aiSuggestionId?: string
-}
-
-export interface AiSuggestionSelection {
-  suggestionId: string
-  selected: boolean
-  title?: string
 }
 
 export interface StepCount {
   completed: number
   total: number
-}
-
-export type AiBreakdownSuggestionStatus = 'available' | 'skipped' | 'added'
-
-export interface AiBreakdownMetadata {
-  schemaVersion: 1
-  modelId: string
-  sourceTitle: string
-  sourceNote: string
-  sourcePrompt: string
-  generatedAt: Timestamp
-  suggestionCount: number
-  suggestionIds: string[]
-}
-
-export interface AiBreakdownSuggestion {
-  id: string
-  title: string
-  order: number
-  status: AiBreakdownSuggestionStatus
-  stepId?: string
-}
-
-export interface TaskAiBreakdown {
-  metadata: AiBreakdownMetadata
-  suggestions: AiBreakdownSuggestion[]
 }
 
 export type SmartView = 'myDay' | 'important' | 'planned' | 'archived'

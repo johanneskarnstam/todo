@@ -232,83 +232,6 @@ test('asks to complete the parent task when all subtasks are checked', async ({ 
   await expect(taskRow.getByRole('button', { name: 'Markera uppgift som aktiv' })).toBeVisible()
 })
 
-test('generates, selects, reopens and replaces AI task breakdown suggestions', async ({ page }) => {
-  const generatedSteps = [
-    ['Packa verktyg', 'Skydda golvet'],
-    ['Förbered material', 'Mät väggen'],
-  ]
-  let generationIndex = 0
-  await page.route(/\/v1beta\/models\?key=/, async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        models: [
-          { name: 'models/gemini-3.8-flash', displayName: 'Gemini 3.8 Flash', supportedGenerationMethods: ['generateContent'] },
-          { name: 'models/gemini-3.8-flash-audio', supportedGenerationMethods: ['generateContent'] },
-        ],
-      }),
-    })
-  })
-  await page.route(/generateContent/, async (route) => {
-    const steps = generatedSteps[generationIndex] ?? generatedSteps[1]
-    generationIndex += 1
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        candidates: [{
-          content: { role: 'model', parts: [{ text: JSON.stringify({ steps }) }] },
-          finishReason: 'STOP',
-        }],
-      }),
-    })
-  })
-
-  await page.goto('/#/tasks/local-task-2')
-  await dismissReleaseNotes(page)
-  const details = page.getByRole('dialog', { name: 'Uppgiftsdetaljer' })
-  await details.getByRole('textbox', { name: 'Anteckningar' }).fill('Testa på en liten skärm först.')
-  await details.getByRole('button', { name: 'Bryt ner med AI' }).click()
-
-  const modal = page.getByRole('dialog', { name: 'Bryt ner uppgiften' })
-  const context = modal.getByRole('region', { name: 'Kontext som skickas till AI' })
-  await expect(context.getByText('Kontrollera mobilvyn', { exact: true })).toBeVisible()
-  await expect(context.getByText('Testa på en liten skärm först.', { exact: true })).toBeVisible()
-  await modal.getByPlaceholder('Till exempel: Dela upp arbetet i korta pass').fill('Håll varje steg under 15 minuter.')
-  await modal.getByRole('button', { name: 'Generera förslag' }).click()
-
-  const firstSuggestion = modal.getByRole('checkbox', { name: 'Packa verktyg' })
-  const secondSuggestion = modal.getByRole('checkbox', { name: 'Skydda golvet' })
-  await expect(firstSuggestion).toBeChecked()
-  await expect(secondSuggestion).toBeChecked()
-  await secondSuggestion.uncheck()
-  await modal.getByRole('button', { name: 'Lägg till valda (1)' }).click()
-
-  await expect(modal).toHaveCount(0)
-  await expect(details.getByText('Packa verktyg', { exact: true })).toBeVisible()
-  await details.getByRole('button', { name: 'Bryt ner med AI' }).click()
-
-  const reopenedModal = page.getByRole('dialog', { name: 'Bryt ner uppgiften' })
-  await expect(reopenedModal.getByRole('checkbox', { name: /Packa verktyg/ })).toBeChecked()
-  await expect(reopenedModal.getByRole('checkbox', { name: 'Packa verktyg Tillagt' })).toBeDisabled()
-  await expect(reopenedModal.getByRole('checkbox', { name: 'Skydda golvet' })).not.toBeChecked()
-  await reopenedModal.getByPlaceholder('Till exempel: Dela upp arbetet i korta pass').fill('Fokusera på en sak i taget.')
-  await reopenedModal.getByRole('button', { name: 'Generera nya förslag' }).click()
-
-  await expect(reopenedModal.getByRole('checkbox', { name: 'Förbered material' })).toBeChecked()
-  await expect(reopenedModal.getByRole('checkbox', { name: 'Mät väggen' })).toBeChecked()
-  await expect(details.getByText('Packa verktyg', { exact: true })).toBeVisible()
-  await reopenedModal.getByRole('checkbox', { name: 'Förbered material' }).uncheck()
-  await reopenedModal.getByRole('checkbox', { name: 'Mät väggen' }).uncheck()
-  await reopenedModal.getByRole('button', { name: 'Stäng', exact: true }).click()
-
-  await expect(page.getByRole('dialog', { name: 'Bryt ner uppgiften' })).toHaveCount(0)
-  await expect(details.getByText('Packa verktyg', { exact: true })).toBeVisible()
-  await expect(details.getByText('Förbered material', { exact: true })).toHaveCount(0)
-  expect(generationIndex).toBe(2)
-})
-
 test('marks a task complete and restores it to active', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: 'Jag har sett detta' }).click()
@@ -332,6 +255,47 @@ test('marks a task important and finds it in Viktigt', async ({ page }) => {
 
   await expect(page).toHaveURL(/\/important$/)
   await expect(page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' })).toBeVisible()
+})
+
+test('sets an urgent priority and finds the task in Viktigt', async ({ page }) => {
+  await page.goto('/')
+  await dismissReleaseNotes(page)
+
+  const task = page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' })
+  await task.getByRole('button', { name: 'Uppgiftsåtgärder' }).click()
+  await page.getByLabel('Prioritet för Kontrollera mobilvyn').selectOption('urgent')
+
+  await expect(task.getByRole('img', { name: 'Brådskande prioritet' })).toBeVisible()
+  await page.getByRole('button', { name: 'Viktigt' }).click()
+  await expect(page).toHaveURL(/\/important$/)
+  await expect(task).toBeVisible()
+})
+
+test('filters the active list by priority', async ({ page }) => {
+  await page.goto('/#/lists/__default__')
+  await dismissReleaseNotes(page)
+
+  const importantTask = page.getByRole('group', { name: 'Uppgift: Testa dra och släppa uppgifter' })
+  const normalTask = page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' })
+  await expect(importantTask).toBeVisible()
+  await expect(normalTask).toBeVisible()
+
+  await page.getByLabel('Filtrera uppgifter efter prioritet').selectOption('high')
+
+  await expect(importantTask).toBeVisible()
+  await expect(normalTask).toHaveCount(0)
+})
+
+test('sets a task priority from the details panel', async ({ page }) => {
+  await page.goto('/')
+  await dismissReleaseNotes(page)
+
+  const task = page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' })
+  await task.click()
+  const details = page.getByRole('dialog', { name: 'Uppgiftsdetaljer' })
+  await details.getByLabel('Uppgiftens prioritet').selectOption('low')
+
+  await expect(task.getByRole('img', { name: 'Låg prioritet' })).toBeVisible()
 })
 
 test('adds a task to Min dag and finds it in the smart view', async ({ page }) => {

@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { ArrowLeft, Bell, CalendarDays, Check, ChevronDown, Clock, Copy, Sparkles, Sun } from '@lucide/vue'
+import { ArrowLeft, Bell, CalendarDays, Check, ChevronDown, Clock, Copy, Sun } from '@lucide/vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
-import type { Step, Task, TaskReminder } from '@/types'
+import type { Step, Task, TaskPriority, TaskReminder } from '@/types'
 import { normalizeTag, normalizeTags } from '@/utils/taskTags'
+import { getTaskPriority, isTaskPriority } from '@/utils/taskPriority'
 import { useDragReorder } from '@/composables/useDragReorder'
 
 interface Props {
@@ -17,12 +18,12 @@ interface Emits {
   (event: 'copy-link'): void
   (event: 'save-title', title: string): void
   (event: 'add-step', title: string): void
-  (event: 'open-ai-breakdown'): void
   (event: 'save-step-title', stepId: string, title: string): void
   (event: 'toggle-step', stepId: string): void
   (event: 'toggle-task-completed'): void
   (event: 'delete-step', stepId: string): void
   (event: 'toggle-my-day'): void
+  (event: 'set-priority', priority: TaskPriority): void
   (event: 'set-due-date', dueDate: string): void
   (event: 'save-reminder', reminder: TaskReminder | null): void
   (event: 'save-note', note: string): void
@@ -142,6 +143,18 @@ const saveNote = () => {
   if (note.value !== (props.task.note ?? '')) emit('save-note', note.value)
 }
 
+const priorityOptions: Array<{ value: TaskPriority; label: string }> = [
+  { value: 'low', label: 'Låg' },
+  { value: 'normal', label: 'Normal' },
+  { value: 'high', label: 'Hög' },
+  { value: 'urgent', label: 'Brådskande' },
+]
+
+const handlePriorityChange = (event: Event) => {
+  const value = (event.target as HTMLSelectElement).value
+  if (isTaskPriority(value)) emit('set-priority', value)
+}
+
 const formatDate = (date: Date) => {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -255,6 +268,19 @@ const saveStepTitle = () => {
         />
       </section>
 
+      <section class="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-900" aria-labelledby="priority-heading">
+        <h2 id="priority-heading" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Prioritet</h2>
+        <label class="flex min-h-10 items-center justify-between gap-3 text-sm text-slate-700 dark:text-slate-200">
+          <span>Uppgiftens nivå</span>
+          <span class="relative inline-flex items-center">
+            <select class="max-w-40 appearance-none rounded-md border border-slate-200 bg-white py-1.5 pl-2 pr-8 dark:border-slate-700 dark:bg-slate-900" aria-label="Uppgiftens prioritet" :value="getTaskPriority(task)" @change="handlePriorityChange">
+              <option v-for="option in priorityOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+            </select>
+            <ChevronDown class="pointer-events-none absolute right-2.5 text-slate-500 dark:text-slate-400" :size="16" aria-hidden="true" />
+          </span>
+        </label>
+      </section>
+
       <section class="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-900" aria-labelledby="tags-heading">
         <h2 id="tags-heading" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Taggar</h2>
         <div class="flex flex-wrap gap-2">
@@ -281,18 +307,7 @@ const saveStepTitle = () => {
       <section class="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-900" aria-labelledby="steps-heading">
         <h2 id="steps-heading" class="mb-2 flex min-h-8 items-center justify-between gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
           <span>Delsteg</span>
-          <span class="flex items-center gap-2">
-            <span v-if="steps.length" class="font-normal normal-case tracking-normal">{{ steps.length }}</span>
-            <button
-              class="inline-flex min-h-8 items-center gap-1.5 rounded-lg px-2 text-xs font-medium normal-case tracking-normal text-[#2564cf] transition hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/40"
-              type="button"
-              aria-label="Bryt ner med AI"
-              @click="emit('open-ai-breakdown')"
-            >
-              <Sparkles :size="14" aria-hidden="true" />
-              <span>AI-förslag</span>
-            </button>
-          </span>
+          <span v-if="steps.length" class="font-normal normal-case tracking-normal">{{ steps.length }}</span>
         </h2>
         <div ref="stepsContainerRef" class="space-y-1">
           <div
