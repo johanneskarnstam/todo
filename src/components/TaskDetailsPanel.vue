@@ -4,6 +4,7 @@ import { ArrowLeft, Bell, CalendarDays, Check, ChevronDown, Clock, Copy, Sparkle
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import type { Step, Task, TaskReminder } from '@/types'
 import { normalizeTag, normalizeTags } from '@/utils/taskTags'
+import { useDragReorder } from '@/composables/useDragReorder'
 
 interface Props {
   task: Task
@@ -28,6 +29,7 @@ interface Emits {
   (event: 'save-tags', tags: string[]): void
   (event: 'select-tag', tag: string): void
   (event: 'delete-task'): void
+  (event: 'reorder-steps', orderedIds: string[]): void
 }
 
 const props = defineProps<Props>()
@@ -39,6 +41,16 @@ const tagTitle = ref('')
 const stepTitle = ref('')
 const editingStepId = ref<string | null>(null)
 const editingStepTitle = ref('')
+const stepsContainerRef = ref<HTMLElement | null>(null)
+
+const { isDragging: isDraggingStep, dragIndex: dragStepIndex } = useDragReorder({
+  containerRef: stepsContainerRef,
+  items: computed(() => props.steps),
+  onReorder: (orderedIds) => emit('reorder-steps', orderedIds),
+  enabled: computed(() => props.steps.length > 1),
+  itemSelector: '[data-step-id]',
+  handleSelector: '[data-step-id]',
+})
 const reminderOffset = ref(String(props.task.reminder?.offsetMinutes ?? ''))
 const isParentCompletionConfirmationOpen = ref(false)
 const reminderMenuOpen = ref(false)
@@ -282,8 +294,21 @@ const saveStepTitle = () => {
             </button>
           </span>
         </h2>
-        <div class="space-y-1">
-          <label v-for="step in steps" :key="step.id" class="flex min-h-10 items-center gap-3 rounded-lg px-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800">
+        <div ref="stepsContainerRef" class="space-y-1">
+          <div
+            v-for="(step, index) in steps"
+            :key="step.id"
+            :data-step-id="step.id"
+            class="flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm text-slate-700 select-none hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
+            :class="[
+              steps.length > 1 ? 'cursor-grab active:cursor-grabbing' : '',
+              dragStepIndex === index ? 'opacity-50' : '',
+            ]"
+          >
+            <span
+              class="w-5 shrink-0 text-center text-xs font-semibold tabular-nums text-slate-400 dark:text-slate-500"
+              aria-hidden="true"
+            >{{ index + 1 }}</span>
             <button
               class="grid size-6 shrink-0 place-items-center rounded-full border border-slate-400 text-xs text-white transition hover:border-[#2564cf] dark:border-slate-500"
               :class="{ 'border-[#2564cf] bg-[#2564cf] dark:border-blue-400 dark:bg-blue-400': step.completed }"
@@ -291,6 +316,7 @@ const saveStepTitle = () => {
               role="checkbox"
               :aria-checked="step.completed"
               :aria-label="`Markera delsteg som klart: ${step.title}`"
+              @pointerdown.stop
               @click="handleToggleStep(step.id)"
             >
               <Check v-if="step.completed" :size="14" aria-hidden="true" />
@@ -302,6 +328,7 @@ const saveStepTitle = () => {
               type="text"
               :aria-label="`Redigera delsteg: ${step.title}`"
               autofocus
+              @pointerdown.stop
               @blur="saveStepTitle"
               @keydown.enter.prevent="saveStepTitle"
               @keydown.escape="editingStepId = null"
@@ -309,9 +336,10 @@ const saveStepTitle = () => {
             <button
               v-else
               class="min-w-0 flex-1 truncate text-left"
+              :class="{ 'text-slate-400 line-through dark:text-slate-500': step.completed, 'cursor-grab active:cursor-grabbing': steps.length > 1 }"
               type="button"
-              :class="{ 'text-slate-400 line-through dark:text-slate-500': step.completed }"
-              @click="startEditingStep(step)"
+              :aria-label="`Redigera delsteg: ${step.title}`"
+              @click="!isDraggingStep && startEditingStep(step)"
             >
               {{ step.title }}
             </button>
@@ -319,11 +347,12 @@ const saveStepTitle = () => {
               class="grid size-8 shrink-0 place-items-center rounded-full text-base text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950 dark:hover:text-red-400"
               type="button"
               :aria-label="`Ta bort delsteg: ${step.title}`"
+              @pointerdown.stop
               @click="emit('delete-step', step.id)"
             >
               ×
             </button>
-          </label>
+          </div>
         </div>
         <form class="mt-2 flex items-center gap-2 border-b border-slate-200 px-2 py-2 dark:border-slate-700" @submit.prevent="addStep">
           <span class="text-lg text-[#2564cf] dark:text-blue-400" aria-hidden="true">＋</span>
