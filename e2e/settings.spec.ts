@@ -82,6 +82,7 @@ test('imports JSON tasks into a selected list', async ({ page }) => {
         reminder: { offsetMinutes: 60 },
         tags: ['Arbete Projekt', 'rapport'],
         important: true,
+        priority: 'urgent',
         myDay: true,
         completed: false,
         status: 'todo',
@@ -100,6 +101,7 @@ test('imports JSON tasks into a selected list', async ({ page }) => {
   await expect(importedTask.getByRole('button', { name: 'Visa uppgifter med taggen #arbete-projekt' })).toBeVisible()
   await expect(importedTask.getByRole('button', { name: 'Visa uppgifter med taggen #rapport' })).toBeVisible()
   await expect(importedTask.getByRole('img', { name: 'Stjärnmärkt' })).toBeVisible()
+  await expect(importedTask.getByRole('img', { name: 'Brådskande prioritet' })).toBeVisible()
   await expect(importedTask.getByRole('img', { name: /^Påminnelse:/ })).toBeVisible()
   await expect(importedTask.getByRole('img', { name: /^Förfallodatum:/ })).toBeVisible()
   await importedTask.click()
@@ -144,7 +146,7 @@ test('restores a full backup with list settings and subtasks', async ({ page }) 
     formatVersion: 2,
     folders: [],
     lists: [{ id: 'backup-list', name: 'Återställd lista', icon: 'star', viewMode: 'compact', showCompletedTasks: false }],
-    tasks: [{ id: 'backup-task', listId: 'backup-list', title: 'Återställd uppgift', completed: false, status: 'todo' }],
+    tasks: [{ id: 'backup-task', listId: 'backup-list', title: 'Återställd uppgift', completed: false, status: 'todo', priority: 'low' }],
     steps: [{ taskId: 'backup-task', title: 'Återställt delsteg', completed: true }],
   }))
   await page.getByRole('button', { name: 'Importera uppgifter' }).click()
@@ -154,6 +156,7 @@ test('restores a full backup with list settings and subtasks', async ({ page }) 
   await page.getByRole('button', { name: /^Återställd lista/ }).click()
   const restoredTask = page.getByRole('group', { name: 'Uppgift: Återställd uppgift' })
   await expect(restoredTask).toBeVisible()
+  await expect(restoredTask.getByRole('img', { name: 'Låg prioritet' })).toBeVisible()
   await restoredTask.click()
   await expect(page.getByText('Återställt delsteg', { exact: true })).toBeVisible()
 })

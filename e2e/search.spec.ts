@@ -16,6 +16,21 @@ test('opens search and shows live matching task results', async ({ page }) => {
   await expect(page.getByText('Kontrollera mobilvyn', { exact: true })).toBeVisible()
 })
 
+test('filters matching search results by priority', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Jag har sett detta' }).click()
+  await page.getByRole('button', { name: 'Öppna sök' }).click()
+  await page.getByRole('searchbox', { name: 'Sök uppgifter, taggar eller listor' }).fill('Testa dra')
+
+  const result = page.getByRole('button', { name: /Testa dra och släppa uppgifter/ })
+  await expect(result).toBeVisible()
+  await page.getByLabel('Filtrera uppgifter efter prioritet').selectOption('urgent')
+  await expect(result).toHaveCount(0)
+
+  await page.getByLabel('Filtrera uppgifter efter prioritet').selectOption('high')
+  await expect(result).toBeVisible()
+})
+
 test('opens a task search result at its canonical task URL', async ({ page }) => {
   await page.goto('/')
   const releaseCloseButton = page.getByRole('button', { name: 'Jag har sett detta' })

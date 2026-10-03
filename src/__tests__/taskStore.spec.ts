@@ -127,10 +127,16 @@ describe('useTaskStore', () => {
     const store = useTaskStore()
     await store.fetchTasks()
 
+    expect(store.tasks.find((task) => task.id === 'important-task')).toMatchObject({ priority: 'high', important: true })
+    expect(store.tasks.find((task) => task.id === 'list-task')).toMatchObject({ priority: 'normal', important: false })
     expect(store.smartViewCounts).toEqual({ myDay: 1, important: 0, planned: 1, archived: 0 })
 
     store.setListView('list-1')
     expect(store.visibleTasks.map((task) => task.id)).toEqual(['list-task'])
+    expect(store.priorityCounts).toEqual({ low: 0, normal: 1, high: 0, urgent: 0 })
+
+    store.setListView('list-2')
+    expect(store.priorityCounts).toEqual({ low: 0, normal: 2, high: 1, urgent: 0 })
 
     store.setSmartView('important')
     expect(store.visibleTasks.map((task) => task.id)).toEqual(['important-task'])
@@ -367,9 +373,9 @@ describe('useTaskStore', () => {
     store.toggleImportant('task-1')
     store.toggleMyDay('task-1')
 
-    expect(store.tasks[0]).toMatchObject({ completed: true, important: true, myDay: true })
+    expect(store.tasks[0]).toMatchObject({ completed: true, important: true, priority: 'high', myDay: true })
     expect(firestoreMocks.updateDoc).toHaveBeenCalledWith(expect.anything(), { completed: true, status: 'completed' })
-    expect(firestoreMocks.updateDoc).toHaveBeenCalledWith(expect.anything(), { important: true })
+    expect(firestoreMocks.updateDoc).toHaveBeenCalledWith(expect.anything(), { important: true, priority: 'high' })
     expect(firestoreMocks.updateDoc).toHaveBeenCalledWith(expect.anything(), { myDay: true })
   })
 
@@ -394,7 +400,21 @@ describe('useTaskStore', () => {
     await Promise.resolve()
 
     expect(store.tasks[0].important).toBe(false)
+    expect(store.tasks[0].priority).toBe('normal')
     expect(store.error).toBe('important update failed')
+  })
+
+  it('sets urgent priority and treats it as important', async () => {
+    const store = useTaskStore()
+    store.tasks.push({
+      id: 'task-1', listId: 'list-1', title: 'Task', completed: false, important: false,
+      priority: 'normal', myDay: false, createdAt: Timestamp.now(),
+    })
+
+    await store.updateTask('task-1', { priority: 'urgent' })
+
+    expect(store.tasks[0]).toMatchObject({ priority: 'urgent', important: true })
+    expect(firestoreMocks.updateDoc).toHaveBeenCalledWith(expect.anything(), { priority: 'urgent', important: true })
   })
 
   it('adds and toggles steps optimistically for the active task', async () => {

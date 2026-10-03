@@ -19,8 +19,9 @@ import { isMockAuthEnabled, MOCK_USER_ID } from '@/devMode'
 import { useListStore } from '@/stores/listStore'
 import { useToastStore } from '@/stores/toastStore'
 import { isBrowserOffline } from '@/composables/useNetworkStatus'
-import type { SmartView, Step, StepCount, Task, TaskReminder, TaskStatus, TaskStatusMode, TaskView } from '@/types'
+import type { SmartView, Step, StepCount, Task, TaskPriority, TaskReminder, TaskStatus, TaskStatusMode, TaskView } from '@/types'
 import { sortTasksForMode } from '@/utils/taskSorting'
+import { countTaskPriorities, getTaskPriority, isImportantPriority, normalizeTaskPriority } from '@/utils/taskPriority'
 import { normalizeTags } from '@/utils/taskTags'
 import { vibrateOnTaskCompletion } from '@/utils/deviceFeedback'
 import { getTaskStatus, isTaskCompleted, isTaskStatusAllowed, taskStatusToCompleted } from '@/utils/taskStatus'
@@ -31,6 +32,7 @@ interface NewTaskInput {
   completed?: boolean
   status?: TaskStatus
   important?: boolean
+  priority?: TaskPriority
   myDay?: boolean
   dueDate?: string
   dueTimeZone?: string
@@ -65,7 +67,7 @@ const readMockTasks = (): Task[] | null => {
     const storedTasks = localStorage.getItem(mockTasksStorageKey)
     if (!storedTasks) return null
 
-    return JSON.parse(storedTasks).map((task: Task & { createdAt: number }) => ({
+    return JSON.parse(storedTasks).map((task: Task & { createdAt: number }) => normalizeTaskPriority({
       ...task,
       createdAt: Timestamp.fromMillis(task.createdAt),
     })) as Task[]
@@ -160,6 +162,7 @@ export const useTaskStore = defineStore('tasks', () => {
     planned: tasks.value.filter((task) => !task.archived && Boolean(task.dueDate) && !isTaskCompleted(task)).length,
     archived: tasks.value.filter((task) => task.archived).length,
   }))
+  const priorityCounts = computed(() => countTaskPriorities(visibleTasks.value))
   const listTaskCounts = computed<Record<string, number>>(() => tasks.value.reduce<Record<string, number>>((counts, task) => {
     if (!task.archived && !isTaskCompleted(task)) counts[task.listId] = (counts[task.listId] ?? 0) + 1
     return counts
@@ -246,7 +249,7 @@ export const useTaskStore = defineStore('tasks', () => {
         { id: 'local-task-2', listId: '__default__', title: 'Kontrollera mobilvyn', completed: false, important: false, myDay: false, order: 1, createdAt },
         { id: 'local-task-3', listId: 'local-projects', title: 'Förbered nästa release', completed: false, important: false, myDay: false, order: 0, createdAt },
       ] satisfies Task[]
-      tasks.value = sortTasks(readMockTasks() ?? initialTasks)
+      tasks.value = sortTasks((readMockTasks() ?? initialTasks).map(normalizeTaskPriority))
       if (!readMockTasks()) persistMockTasks(tasks.value)
       isLoaded.value = true
       return
@@ -255,17 +258,17 @@ export const useTaskStore = defineStore('tasks', () => {
     try {
       const read = isBrowserOffline() ? getDocsFromCache : getDocs
       const snapshot = await read(userCollection())
-      tasks.value = sortTasks(
-        snapshot.docs.map((task) => ({ id: task.id, ...task.data() }) as Task),
-      )
+      tasks.value = sortTasks(snapshot.docs.map((task) =>
+        normalizeTaskPriority({ id: task.id, ...task.data() } as Task),
+      ))
       isLoaded.value = true
       await fetchAllSteps(tasks.value)
     } catch (fetchError) {
       try {
         const cachedSnapshot = await getDocsFromCache(userCollection())
-        tasks.value = sortTasks(
-          cachedSnapshot.docs.map((task) => ({ id: task.id, ...task.data() }) as Task),
-        )
+        tasks.value = sortTasks(cachedSnapshot.docs.map((task) =>
+          normalizeTaskPriority({ id: task.id, ...task.data() } as Task),
+        ))
         isLoaded.value = true
         await fetchAllSteps(tasks.value)
         return
@@ -299,6 +302,7 @@ export const useTaskStore = defineStore('tasks', () => {
     if (!title) return
 
     const status = input.status ?? (input.completed ? 'completed' : 'todo')
+    const priority = input.priority ?? (input.important ? 'high' : 'normal')
     const optimisticId = `optimistic-${crypto.randomUUID()}`
     const listTasks = tasks.value.filter((task) => task.listId === input.listId)
     const newTasksFirst = listStore.lists.find((list) => list.id === input.listId)?.newTasksFirst ?? true
@@ -313,7 +317,8 @@ export const useTaskStore = defineStore('tasks', () => {
       title,
       completed: input.completed ?? status === 'completed',
       status,
-      important: input.important ?? false,
+      important: isImportantPriority(priority),
+      priority,
       myDay: input.myDay ?? false,
       createdAt: Timestamp.now(),
       order: taskOrder,
@@ -340,6 +345,7 @@ export const useTaskStore = defineStore('tasks', () => {
         completed: optimisticTask.completed,
         status: optimisticTask.status,
         important: optimisticTask.important,
+        priority: optimisticTask.priority,
         myDay: optimisticTask.myDay,
         order: optimisticTask.order,
         archived: optimisticTask.archived,
@@ -362,12 +368,17 @@ export const useTaskStore = defineStore('tasks', () => {
 
   const updateTask = async (
     taskId: string,
-    updates: Partial<Pick<Task, 'completed' | 'status' | 'important' | 'myDay' | 'title' | 'dueDate' | 'dueTimeZone' | 'note' | 'tags' | 'order' | 'archived'>> & { reminder?: TaskReminder | null },
+    updates: Partial<Pick<Task, 'completed' | 'status' | 'important' | 'priority' | 'myDay' | 'title' | 'dueDate' | 'dueTimeZone' | 'note' | 'tags' | 'order' | 'archived'>> & { reminder?: TaskReminder | null },
   ) => {
     const currentTask = tasks.value.find((task) => task.id === taskId)
     if (!currentTask) return
 
-    const normalizedUpdates = updates.tags ? { ...updates, tags: normalizeTags(updates.tags) } : updates
+    const normalizedUpdates: typeof updates = updates.tags ? { ...updates, tags: normalizeTags(updates.tags) } : { ...updates }
+    if (updates.priority !== undefined) {
+      normalizedUpdates.important = isImportantPriority(updates.priority)
+    } else if (updates.important !== undefined) {
+      normalizedUpdates.priority = updates.important ? 'high' : 'normal'
+    }
     const previousTask = { ...currentTask }
     Object.assign(currentTask, normalizedUpdates)
     error.value = null
@@ -569,6 +580,7 @@ export const useTaskStore = defineStore('tasks', () => {
           completed: task.completed,
           status: getTaskStatus(task),
           important: task.important,
+          priority: getTaskPriority(task),
           myDay: task.myDay,
           archived: task.archived ?? false,
           ...(task.dueDate ? { dueDate: task.dueDate } : {}),
@@ -719,6 +731,7 @@ export const useTaskStore = defineStore('tasks', () => {
     activeSteps,
     taskStepCounts,
     smartViewCounts,
+    priorityCounts,
     listTaskCounts,
     activeView,
     visibleTasks,

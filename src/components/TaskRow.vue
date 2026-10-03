@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
-import { Bell, CalendarDays, CalendarPlus, Check, CheckCircle2, ChevronRight, GripVertical, ListTodo, MoreVertical, Play, Star, StickyNote, Trash2 } from '@lucide/vue'
-import type { List, StepCount, Task, TaskStatus, TaskStatusMode } from '@/types'
+import { Bell, CalendarDays, CalendarPlus, Check, CheckCircle2, ChevronDown, ChevronRight, GripVertical, ListTodo, MoreVertical, Play, Star, StickyNote, Trash2 } from '@lucide/vue'
+import type { List, StepCount, Task, TaskPriority, TaskStatus, TaskStatusMode } from '@/types'
 import { getTaskStatus } from '@/utils/taskStatus'
+import { getTaskPriority, isTaskPriority } from '@/utils/taskPriority'
 
 const rowInteractionResets = new Set<() => void>()
 
@@ -22,6 +23,7 @@ interface Emits {
   (event: 'toggle-completed'): void
   (event: 'set-status', status: TaskStatus): void
   (event: 'toggle-important'): void
+  (event: 'set-priority', priority: TaskPriority): void
   (event: 'toggle-my-day'): void
   (event: 'delete'): void
   (event: 'move', direction: -1 | 1): void
@@ -39,6 +41,19 @@ const menuStyle = ref<Record<string, string>>({})
 const swipeOffset = ref(0)
 const swipeStartX = ref<number | null>(null)
 const suppressClick = ref(false)
+const priorityOptions: Array<{ value: TaskPriority; label: string }> = [
+  { value: 'low', label: 'Låg' },
+  { value: 'normal', label: 'Normal' },
+  { value: 'high', label: 'Hög' },
+  { value: 'urgent', label: 'Brådskande' },
+]
+
+const handlePriorityChange = (event: Event) => {
+  const value = (event.target as HTMLSelectElement).value
+  if (!isTaskPriority(value)) return
+  emit('set-priority', value)
+  closeMenu()
+}
 
 const resetRowInteraction = () => {
   isMenuOpen.value = false
@@ -306,7 +321,7 @@ const reminderDateText = computed(() => {
           </div>
 
           <div
-            v-if="task.tags?.length || task.important || task.myDay || task.dueDate || task.note?.trim() || (task.reminder && getTaskStatus(task) !== 'completed')"
+            v-if="task.tags?.length || getTaskPriority(task) !== 'normal' || task.myDay || task.dueDate || task.note?.trim() || (task.reminder && getTaskStatus(task) !== 'completed')"
             class="mt-1 flex min-w-0 flex-nowrap items-center gap-x-2 overflow-x-auto whitespace-nowrap text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2564cf] lg:flex-wrap lg:gap-x-3 lg:overflow-visible lg:whitespace-normal"
             role="group"
             aria-label="Taggar och uppgiftsmarkeringar"
@@ -325,6 +340,17 @@ const reminderDateText = computed(() => {
                 <Star :size="14" fill="none" aria-hidden="true" />
                 <span class="hidden lg:inline">Stjärnmärkt</span>
               </span>
+              <span
+                v-if="getTaskPriority(task) !== 'normal'"
+                class="inline-flex items-center whitespace-nowrap font-medium"
+                :class="{
+                  'text-slate-600 dark:text-slate-300': getTaskPriority(task) === 'low',
+                  'text-amber-700 dark:text-amber-400': getTaskPriority(task) === 'high',
+                  'text-red-700 dark:text-red-400': getTaskPriority(task) === 'urgent',
+                }"
+                role="img"
+                :aria-label="`${priorityOptions.find((option) => option.value === getTaskPriority(task))?.label} prioritet`"
+              >{{ priorityOptions.find((option) => option.value === getTaskPriority(task))?.label }}</span>
               <span v-if="task.myDay" class="inline-flex items-center gap-1.5 whitespace-nowrap text-slate-600 dark:text-slate-300" role="img" aria-label="Tillagd i Min dag" title="Min dag">
                 <CalendarPlus :size="14" aria-hidden="true" />
                 <span class="hidden lg:inline">Min dag</span>
@@ -357,6 +383,15 @@ const reminderDateText = computed(() => {
         <button class="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="emit('select'); closeMenu()"><ListTodo :size="17" aria-hidden="true" />Visa detaljer</button>
         <button class="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="emit('toggle-completed'); closeMenu()"><CheckCircle2 :size="17" aria-hidden="true" />{{ getTaskStatus(task) === 'completed' ? 'Markera som aktiv' : 'Markera som slutförd' }}</button>
         <button class="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="emit('toggle-important'); closeMenu()"><Star :size="17" :fill="task.important ? 'currentColor' : 'none'" aria-hidden="true" />{{ task.important ? 'Ta bort stjärnmarkering' : 'Stjärnmarkera' }}</button>
+        <label class="flex min-h-10 w-full items-center justify-between gap-3 px-3 text-sm text-slate-700 dark:text-slate-200">
+          <span>Prioritet</span>
+          <span class="relative inline-flex items-center">
+            <select class="max-w-36 appearance-none rounded-md border border-slate-200 bg-white py-1 pl-2 pr-7 text-sm dark:border-slate-600 dark:bg-slate-800" :aria-label="`Prioritet för ${task.title}`" :value="getTaskPriority(task)" @click.stop @change="handlePriorityChange">
+              <option v-for="option in priorityOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+            </select>
+            <ChevronDown class="pointer-events-none absolute right-2 text-slate-500 dark:text-slate-400" :size="14" aria-hidden="true" />
+          </span>
+        </label>
         <button class="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="emit('toggle-my-day'); closeMenu()"><CalendarPlus :size="17" aria-hidden="true" />{{ task.myDay ? 'Ta bort från Min dag' : 'Lägg till i Min dag' }}</button>
         <template v-if="availableLists && availableLists.length > 1">
           <button class="flex min-h-10 w-full items-center justify-between gap-3 rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" :aria-expanded="isMoveMenuOpen" @click="toggleMoveMenu"><span>Flytta till lista</span><ChevronRight :size="17" aria-hidden="true" /></button>

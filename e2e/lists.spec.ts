@@ -73,6 +73,21 @@ test('copies a list link from the All Lists columns', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Byt namn på listan Projekt' })).toBeVisible()
 })
 
+test('filters task columns by priority in All Lists', async ({ page }) => {
+  await page.goto('/#/all-lists')
+  await dismissReleaseNotes(page)
+
+  const importantTask = page.getByRole('group', { name: 'Uppgift: Testa dra och släppa uppgifter' })
+  const normalTask = page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' })
+  await expect(importantTask).toBeVisible()
+  await expect(normalTask).toBeVisible()
+
+  await page.getByLabel('Filtrera uppgifter efter prioritet').selectOption('high')
+
+  await expect(importantTask).toBeVisible()
+  await expect(normalTask).toHaveCount(0)
+})
+
 test('returns to a shared list after an authenticated login route', async ({ page }) => {
   await page.goto('/#/login?redirect=%2Flists%2Flocal-projects')
 

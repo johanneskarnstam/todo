@@ -10,6 +10,8 @@ export type ListSortMode = 'manual' | 'created' | 'createdDesc' | 'dueDate' | 'p
 export type ListViewMode = 'detailed' | 'compact'
 export type TaskStatus = 'todo' | 'inProgress' | 'completed'
 export type TaskStatusMode = 'binary' | 'threeStep'
+export type TaskPriority = 'low' | 'normal' | 'high' | 'urgent'
+export type TaskPriorityFilterValue = 'all' | TaskPriority
 
 export interface List {
   id: string
@@ -39,6 +41,7 @@ export interface Task {
   title: string
   completed: boolean
   important: boolean
+  priority?: TaskPriority
   myDay: boolean
   dueDate?: string | Timestamp
   dueTimeZone?: string

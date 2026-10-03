@@ -257,6 +257,47 @@ test('marks a task important and finds it in Viktigt', async ({ page }) => {
   await expect(page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' })).toBeVisible()
 })
 
+test('sets an urgent priority and finds the task in Viktigt', async ({ page }) => {
+  await page.goto('/')
+  await dismissReleaseNotes(page)
+
+  const task = page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' })
+  await task.getByRole('button', { name: 'Uppgiftsåtgärder' }).click()
+  await page.getByLabel('Prioritet för Kontrollera mobilvyn').selectOption('urgent')
+
+  await expect(task.getByRole('img', { name: 'Brådskande prioritet' })).toBeVisible()
+  await page.getByRole('button', { name: 'Viktigt' }).click()
+  await expect(page).toHaveURL(/\/important$/)
+  await expect(task).toBeVisible()
+})
+
+test('filters the active list by priority', async ({ page }) => {
+  await page.goto('/#/lists/__default__')
+  await dismissReleaseNotes(page)
+
+  const importantTask = page.getByRole('group', { name: 'Uppgift: Testa dra och släppa uppgifter' })
+  const normalTask = page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' })
+  await expect(importantTask).toBeVisible()
+  await expect(normalTask).toBeVisible()
+
+  await page.getByLabel('Filtrera uppgifter efter prioritet').selectOption('high')
+
+  await expect(importantTask).toBeVisible()
+  await expect(normalTask).toHaveCount(0)
+})
+
+test('sets a task priority from the details panel', async ({ page }) => {
+  await page.goto('/')
+  await dismissReleaseNotes(page)
+
+  const task = page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' })
+  await task.click()
+  const details = page.getByRole('dialog', { name: 'Uppgiftsdetaljer' })
+  await details.getByLabel('Uppgiftens prioritet').selectOption('low')
+
+  await expect(task.getByRole('img', { name: 'Låg prioritet' })).toBeVisible()
+})
+
 test('adds a task to Min dag and finds it in the smart view', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: 'Jag har sett detta' }).click()

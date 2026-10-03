@@ -15,8 +15,9 @@ import { usePushNotifications } from '@/composables/usePushNotifications'
 import { useReminderNotifications } from '@/composables/useReminderNotifications'
 import { useTheme } from '@/composables/useTheme'
 import { useAppUpdate } from '@/composables/useAppUpdate'
-import type { List, TaskReminder, TaskStatus } from '@/types'
+import type { List, TaskPriority, TaskReminder, TaskStatus } from '@/types'
 import { normalizeTag, normalizeTags } from '@/utils/taskTags'
+import { isTaskPriority } from '@/utils/taskPriority'
 import { releaseNotes } from '@/releaseNotes'
 
 interface ImportedTask {
@@ -26,6 +27,7 @@ interface ImportedTask {
   completed?: boolean
   status?: TaskStatus
   important?: boolean
+  priority?: TaskPriority
   myDay?: boolean
   dueDate?: string
   dueTimeZone?: string
@@ -317,6 +319,10 @@ const importTasks = async () => {
         return
       }
     }
+    if ('priority' in row && !isTaskPriority(row.priority)) {
+      importError.value = `Fältet priority i uppgift ${index + 1} måste vara low, normal, high eller urgent.`
+      return
+    }
     if ('status' in row && row.status !== 'todo' && row.status !== 'inProgress' && row.status !== 'completed') {
       importError.value = `Fältet status i uppgift ${index + 1} måste vara todo, inProgress eller completed.`
       return
@@ -361,6 +367,7 @@ const importTasks = async () => {
       ...(typeof row.completed === 'boolean' ? { completed: row.completed } : {}),
       ...(row.status === 'todo' || row.status === 'inProgress' || row.status === 'completed' ? { status: row.status } : {}),
       ...(typeof row.important === 'boolean' ? { important: row.important } : {}),
+      ...(isTaskPriority(row.priority) ? { priority: row.priority } : {}),
       ...(typeof row.myDay === 'boolean' ? { myDay: row.myDay } : {}),
       ...(typeof row.dueDate === 'string' ? { dueDate: row.dueDate } : {}),
       ...(typeof row.dueTimeZone === 'string' ? { dueTimeZone: row.dueTimeZone } : {}),
@@ -402,6 +409,7 @@ const importTasks = async () => {
         completed: task.completed,
         status: task.status,
         important: task.important,
+        priority: task.priority,
         myDay: task.myDay,
         dueDate: task.dueDate,
         dueTimeZone: task.dueTimeZone,

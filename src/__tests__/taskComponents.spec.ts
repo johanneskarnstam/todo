@@ -206,6 +206,21 @@ describe('TodoSidebar', () => {
 })
 
 describe('TaskRow', () => {
+  it('emits the selected priority from the task actions menu', async () => {
+    const wrapper = mount(TaskRow, { props: { task } })
+
+    await wrapper.get('button[aria-label="Uppgiftsåtgärder"]').trigger('click')
+    await nextTick()
+    const prioritySelect = document.body.querySelector('select[aria-label="Prioritet för Paint the wall"]')
+    expect(prioritySelect).toBeTruthy()
+    if (!(prioritySelect instanceof HTMLSelectElement)) throw new Error('Priority selector was not rendered')
+
+    prioritySelect.value = 'urgent'
+    prioritySelect.dispatchEvent(new Event('change', { bubbles: true }))
+
+    expect(wrapper.emitted('set-priority')).toEqual([['urgent']])
+  })
+
   it('opens details from the row and keeps inline controls independent', async () => {
     const wrapper = mount(TaskRow, { props: { task } })
 
@@ -409,16 +424,25 @@ describe('TaskDetailsPanel', () => {
     expect(sections.map((section) => section.attributes('aria-labelledby'))).toEqual([
       'task-details-heading',
       'title-heading',
+      'priority-heading',
       'tags-heading',
       'steps-heading',
       'planning-heading',
       'notes-heading',
     ])
     expect(sections[1]?.classes()).toContain('bg-white')
-    expect(sections[2]?.classes()).toContain('bg-white')
     expect(sections[3]?.classes()).toContain('bg-white')
     expect(sections[4]?.classes()).toContain('bg-white')
     expect(sections[5]?.classes()).toContain('bg-white')
+    expect(sections[6]?.classes()).toContain('bg-white')
+  })
+
+  it('emits the selected priority from task details', async () => {
+    const wrapper = mount(TaskDetailsPanel, { props: { task, steps } })
+
+    await wrapper.get('select[aria-label="Uppgiftens prioritet"]').setValue('low')
+
+    expect(wrapper.emitted('set-priority')).toEqual([['low']])
   })
 
   it('emits updates for title, steps, My day, notes, and deletion', async () => {

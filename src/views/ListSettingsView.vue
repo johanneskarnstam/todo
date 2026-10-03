@@ -10,6 +10,7 @@ import { useTheme } from '@/composables/useTheme'
 import { useListStore } from '@/stores/listStore'
 import { useTaskStore } from '@/stores/taskStore'
 import { getTaskStatus } from '@/utils/taskStatus'
+import { getTaskPriority } from '@/utils/taskPriority'
 import type { List, ListSortMode, ListViewMode, TaskStatusMode } from '@/types'
 
 const route = useRoute()
@@ -90,6 +91,7 @@ const taskContextJson = computed(() => {
       status: getTaskStatus(task),
       completed: task.completed,
       important: task.important,
+      priority: getTaskPriority(task),
       myDay: task.myDay,
       dueDate,
       dueTimeZone: task.dueTimeZone ?? null,

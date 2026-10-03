@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { Timestamp } from 'firebase/firestore'
 import type { Task } from '@/types'
 import { sortTasksForMode } from '@/utils/taskSorting'
+import { filterTasksByPriority } from '@/utils/taskPriority'
 
 const task = (id: string, overrides: Partial<Task> = {}): Task => ({
   id,
@@ -32,17 +33,36 @@ describe('sortTasksForMode', () => {
     expect(sortTasksForMode(tasks, 'dueDate').map((item) => item.id)).toEqual(['sooner', 'later', 'missing'])
   })
 
-  it('sorts important tasks first and completed tasks after active tasks', () => {
+  it('sorts by priority and keeps completed tasks after active tasks at the same priority', () => {
     const tasks = [
-      task('completed-important', { important: true, completed: true }),
-      task('active-important', { important: true }),
+      task('completed-high', { priority: 'high', important: true, completed: true }),
+      task('active-high', { priority: 'high', important: true }),
       task('active-normal'),
+      task('active-low', { priority: 'low' }),
+      task('active-urgent', { priority: 'urgent', important: true }),
     ]
 
     expect(sortTasksForMode(tasks, 'priority').map((item) => item.id)).toEqual([
-      'active-important',
-      'completed-important',
+      'active-urgent',
+      'active-high',
+      'completed-high',
       'active-normal',
+      'active-low',
     ])
+  })
+})
+
+describe('filterTasksByPriority', () => {
+  it('returns only tasks matching one priority and preserves all tasks for all', () => {
+    const tasks = [
+      task('legacy-important', { important: true }),
+      task('urgent', { priority: 'urgent', important: true }),
+      task('low', { priority: 'low' }),
+    ]
+
+    expect(filterTasksByPriority(tasks, 'high').map((item) => item.id)).toEqual(['legacy-important'])
+    expect(filterTasksByPriority(tasks, 'urgent').map((item) => item.id)).toEqual(['urgent'])
+    expect(filterTasksByPriority(tasks, 'all')).toEqual(tasks)
+    expect(filterTasksByPriority(tasks, 'all')).not.toBe(tasks)
   })
 })
