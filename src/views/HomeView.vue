@@ -293,7 +293,7 @@ const handleSelectList = (listId: string) => {
   listStore.selectList(listId)
   taskStore.setListView(listId)
   void router.push({ name: 'list', params: { listId } })
-  isSidebarOpen.value = false
+  if (window.innerWidth < 1024) isSidebarOpen.value = false
 }
 
 const openTask = (taskId: string) => {
