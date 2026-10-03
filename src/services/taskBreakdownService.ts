@@ -39,10 +39,13 @@ export interface TaskBreakdownInput {
   note?: string
   additionalPrompt?: string
   modelId?: TaskBreakdownModelId
+  /** Optional list of API keys to try. Falls back to VITE_GEMINI_KEY when empty. */
+  apiKeys?: string[]
 }
 
 export interface TaskBreakdownResult {
   modelId: TaskBreakdownModelId
+  usedApiKeyIndex?: number
   steps: string[]
 }
 
@@ -335,25 +338,60 @@ const generateWithModel = async (
   }
 }
 
+/** Models to try in order when the primary model is overloaded. */
+const FALLBACK_MODEL_CHAIN: TaskBreakdownModelId[] = [
+  TASK_BREAKDOWN_FALLBACK_MODEL_ID,
+  'gemini-3.5-flash-lite',
+  'gemini-2.0-flash-lite',
+]
+
 export const generateTaskBreakdown = async (input: TaskBreakdownInput): Promise<TaskBreakdownResult> => {
   const normalizedInput = normalizeInput(input)
-  const apiKey = getGeminiApiKey()
-  if (!apiKey) {
-    throw new TaskBreakdownError('configuration', 'Gemini API-nyckel saknas. Kontrollera VITE_GEMINI_KEY i deployment-konfigurationen.')
+
+  // Build the ordered list of API keys to try
+  const envKey = getGeminiApiKey()
+  const keysToTry = (
+    input.apiKeys?.filter((k) => k.trim()) ?? []
+  ).length > 0
+    ? input.apiKeys!.filter((k) => k.trim())
+    : envKey
+      ? [envKey]
+      : []
+
+  if (keysToTry.length === 0) {
+    throw new TaskBreakdownError('configuration', 'Gemini API-nyckel saknas. Lägg till en nyckel under Inställningar eller konfigurera VITE_GEMINI_KEY.')
   }
 
-  const client = new GoogleGenerativeAI(apiKey)
-  try {
-    return await generateWithModel(client, normalizedInput.modelId, normalizedInput)
-  } catch (error) {
-    const classified = classifyTaskBreakdownError(error)
-    if (classified.kind !== 'overloaded' || normalizedInput.modelId === TASK_BREAKDOWN_FALLBACK_MODEL_ID) {
-      throw classified
-    }
-    try {
-      return await generateWithModel(client, TASK_BREAKDOWN_FALLBACK_MODEL_ID, normalizedInput)
-    } catch (fallbackError) {
-      throw classifyTaskBreakdownError(fallbackError)
+  // Build the ordered list of models to try: requested model first, then fallback chain
+  const primaryModel = normalizedInput.modelId
+  const modelsToTry = [
+    primaryModel,
+    ...FALLBACK_MODEL_CHAIN.filter((m) => m !== primaryModel),
+  ]
+
+  let lastError: TaskBreakdownError | null = null
+
+  for (let keyIndex = 0; keyIndex < keysToTry.length; keyIndex++) {
+    const apiKey = keysToTry[keyIndex]
+    const client = new GoogleGenerativeAI(apiKey)
+
+    for (const modelId of modelsToTry) {
+      try {
+        const result = await generateWithModel(client, modelId, normalizedInput)
+        return { ...result, usedApiKeyIndex: keyIndex }
+      } catch (error) {
+        const classified = classifyTaskBreakdownError(error)
+        lastError = classified
+        // Only continue to next model/key when the issue is overload.
+        // Configuration and quota errors on a specific key should stop that key.
+        if (classified.kind === 'quota' || classified.kind === 'configuration' || classified.kind === 'network') {
+          // For quota/config, skip remaining models for this key and try next key
+          break
+        }
+        // For overloaded/invalid-response, try next model in chain
+      }
     }
   }
+
+  throw lastError ?? new TaskBreakdownError('unknown', 'Det gick inte att generera delsteg just nu. Försök igen senare.')
 }

@@ -27,7 +27,7 @@ export const useTaskBreakdown = () => {
     }
   }
 
-  const generate = async (task: Task, additionalPrompt: string, modelId?: TaskBreakdownModelId) => {
+  const generate = async (task: Task, additionalPrompt: string, modelId?: TaskBreakdownModelId, apiKeys?: string[]) => {
     if (breakdownStore.isGenerating) return null
 
     const request = ++requestId.value
@@ -38,6 +38,7 @@ export const useTaskBreakdown = () => {
       note: task.note,
       additionalPrompt,
       ...(modelId ? { modelId } : {}),
+      ...(apiKeys ? { apiKeys } : {}),
     })
     if (request !== requestId.value || activeTaskId.value !== task.id) return null
     return result

@@ -16,6 +16,7 @@ import { useReminderNotifications } from '@/composables/useReminderNotifications
 import { useTheme } from '@/composables/useTheme'
 import { useAppUpdate } from '@/composables/useAppUpdate'
 import { useTaskBreakdownModels } from '@/composables/useTaskBreakdownModels'
+import { useAiKeys } from '@/composables/useAiKeys'
 import type { List, TaskReminder, TaskStatus } from '@/types'
 import { normalizeTag, normalizeTags } from '@/utils/taskTags'
 import { releaseNotes } from '@/releaseNotes'
@@ -83,6 +84,22 @@ const tagError = ref('')
 const availableTags = computed(() => [...new Set(taskStore.tasks.flatMap((task) => task.tags ?? []))].sort())
 
 const { models: taskBreakdownModels, selectedModelId, isLoadingModels, loadModels } = useTaskBreakdownModels()
+const { apiKeys, addKey, removeKey } = useAiKeys()
+const newKeyLabel = ref('')
+const newKeyValue = ref('')
+const addKeyError = ref('')
+
+const handleAddKey = () => {
+  addKeyError.value = ''
+  const trimmed = newKeyValue.value.trim()
+  if (!trimmed) {
+    addKeyError.value = 'Ange en API-nyckel.'
+    return
+  }
+  addKey(newKeyLabel.value, trimmed)
+  newKeyLabel.value = ''
+  newKeyValue.value = ''
+}
 
 onMounted(async () => {
   void loadModels()
@@ -568,6 +585,62 @@ const handleLogout = async () => {
         <p v-if="isLoadingModels" class="mt-2 text-xs text-slate-500 dark:text-slate-400" role="status">
           Hämtar Gemini-modeller…
         </p>
+      </section>
+
+      <section id="ai-keys" class="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:px-5" aria-labelledby="ai-keys-heading">
+        <div class="mb-3 flex items-center gap-2">
+          <Sparkles :size="18" class="text-[#2564cf] dark:text-blue-400" aria-hidden="true" />
+          <h2 id="ai-keys-heading" class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">AI-nycklar</h2>
+        </div>
+        <p class="mb-3 text-xs text-slate-500 dark:text-slate-400">
+          Lägg till egna Gemini API-nycklar. Appen provar dem i ordning om en nyckel når kvotgränsen.
+        </p>
+        <ul v-if="apiKeys.length > 0" class="mb-3 divide-y divide-slate-100 rounded-lg border border-slate-200 dark:divide-slate-700 dark:border-slate-700">
+          <li v-for="k in apiKeys" :key="k.id" class="flex items-center gap-2 px-3 py-2">
+            <span class="min-w-0 flex-1">
+              <span class="block text-sm font-medium text-slate-800 dark:text-slate-100">{{ k.label }}</span>
+              <span class="block truncate font-mono text-xs text-slate-400">{{ k.key.slice(0, 8) }}…{{ k.key.slice(-4) }}</span>
+            </span>
+            <button
+              type="button"
+              class="grid size-8 shrink-0 place-items-center rounded-md text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+              :aria-label="`Ta bort nyckel ${k.label}`"
+              @click="removeKey(k.id)"
+            >
+              <Trash2 :size="15" aria-hidden="true" />
+            </button>
+          </li>
+        </ul>
+        <p v-else class="mb-3 text-sm text-slate-500 dark:text-slate-400">Inga sparade nycklar ännu.</p>
+        <div class="space-y-2">
+          <input
+            id="ai-key-label"
+            v-model="newKeyLabel"
+            type="text"
+            placeholder="Etikett (valfritt, t.ex. Privat)"
+            class="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-[#2564cf] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+          />
+          <div class="flex gap-2">
+            <input
+              id="ai-key-value"
+              v-model="newKeyValue"
+              type="password"
+              placeholder="AIza…"
+              class="h-10 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-[#2564cf] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              autocomplete="off"
+              @keydown.enter="handleAddKey"
+            />
+            <button
+              id="ai-key-add-btn"
+              type="button"
+              class="h-10 shrink-0 rounded-lg bg-[#2564cf] px-4 text-sm font-medium text-white hover:bg-blue-700"
+              @click="handleAddKey"
+            >
+              Lägg till
+            </button>
+          </div>
+          <p v-if="addKeyError" class="text-xs text-red-600 dark:text-red-400" role="alert">{{ addKeyError }}</p>
+        </div>
       </section>
 
       <section class="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:px-5" aria-labelledby="import-heading">

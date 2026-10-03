@@ -10,6 +10,7 @@ import {
 } from '@lucide/vue'
 import { useTaskBreakdown } from '@/composables/useTaskBreakdown'
 import { useTaskBreakdownModels } from '@/composables/useTaskBreakdownModels'
+import { useAiKeys } from '@/composables/useAiKeys'
 import type { Task } from '@/types'
 
 interface Props {
@@ -37,6 +38,7 @@ const {
 } = useTaskBreakdown()
 
 const { models, selectedModelId, isLoadingModels, loadModels } = useTaskBreakdownModels()
+const { apiKeys, selectedKeyId, resolveKeysToTry } = useAiKeys()
 
 const additionalPrompt = ref('')
 const selectedSuggestionIds = ref<string[]>([])
@@ -83,7 +85,8 @@ watch(suggestions, syncSelectedSuggestions)
 
 const generateSuggestions = async () => {
   try {
-    await generate(props.task, additionalPrompt.value, selectedModelId.value)
+    const keysToTry = resolveKeysToTry()
+    await generate(props.task, additionalPrompt.value, selectedModelId.value, keysToTry)
     syncSelectedSuggestions()
   } catch {
     // The composable keeps a categorized, user-safe error for the modal.
@@ -194,9 +197,9 @@ const errorTitle = computed(() => {
             <span class="mt-1 block text-right text-xs text-slate-500">{{ additionalPrompt.length }}/1000</span>
           </label>
 
-          <section class="space-y-2 rounded-lg border border-slate-200 p-4 dark:border-slate-700" aria-label="AI-modell">
+          <section class="space-y-3 rounded-lg border border-slate-200 p-4 dark:border-slate-700" aria-label="AI-inställningar">
             <div class="flex items-center gap-2">
-              <label for="modal-model-select" class="flex-1 text-xs font-medium text-slate-700 dark:text-slate-300">Gemini-modell</label>
+              <span class="flex-1 text-xs font-medium text-slate-700 dark:text-slate-300">AI-inställningar</span>
               <button
                 type="button"
                 class="grid size-8 place-items-center rounded-md text-slate-500 hover:bg-slate-100 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800"
@@ -208,18 +211,36 @@ const errorTitle = computed(() => {
                 <RefreshCw :size="15" :class="{ 'animate-spin': isLoadingModels }" aria-hidden="true" />
               </button>
             </div>
-            <select
-              id="modal-model-select"
-              ref="modelSelect"
-              v-model="selectedModelId"
-              class="min-h-9 w-full rounded-md border border-slate-200 bg-white px-2.5 text-sm text-slate-800 outline-none focus:border-[#2564cf] dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-              :disabled="isGenerating"
-            >
-              <option v-for="model in models" :key="model.id" :value="model.id">
-                {{ model.name }}
-              </option>
-            </select>
+            <label class="block">
+              <span class="mb-1 block text-xs text-slate-600 dark:text-slate-400">Modell</span>
+              <select
+                id="modal-model-select"
+                ref="modelSelect"
+                v-model="selectedModelId"
+                class="min-h-9 w-full rounded-md border border-slate-200 bg-white px-2.5 text-sm text-slate-800 outline-none focus:border-[#2564cf] dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                :disabled="isGenerating"
+              >
+                <option v-for="model in models" :key="model.id" :value="model.id">
+                  {{ model.name }}
+                </option>
+              </select>
+            </label>
+            <label class="block">
+              <span class="mb-1 block text-xs text-slate-600 dark:text-slate-400">API-nyckel</span>
+              <select
+                id="modal-key-select"
+                v-model="selectedKeyId"
+                class="min-h-9 w-full rounded-md border border-slate-200 bg-white px-2.5 text-sm text-slate-800 outline-none focus:border-[#2564cf] dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                :disabled="isGenerating"
+              >
+                <option value="auto">Automatisk (prova alla nycklar)</option>
+                <option v-for="k in apiKeys" :key="k.id" :value="k.id">{{ k.label }}</option>
+              </select>
+            </label>
             <p v-if="isLoadingModels" class="text-xs text-slate-500 dark:text-slate-400" role="status">Hämtar modeller…</p>
+            <p v-if="apiKeys.length === 0" class="text-xs text-amber-600 dark:text-amber-400">
+              Ingen sparad API-nyckel – lägg till en under Inställningar → AI-nycklar.
+            </p>
           </section>
 
 
