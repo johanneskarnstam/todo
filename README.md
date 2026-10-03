@@ -277,9 +277,7 @@ Skapa en `.env`-fil med Firebase-konfiguration:
 npm run generate-env
 ```
 
-Lägg till `VITE_GEMINI_KEY` i `.env.local` för uppgiftsnedbrytning. Värdet används i webbläsaren och byggs in i den publika JavaScript-bundlen; det är inte en serverhemlighet. Begränsa nyckeln till Gemini API och appens HTTP-referrers där det stöds, sätt projektkvoter/kostnadsaviseringar och rotera nyckeln om den missbrukas. Använd GitHub Actions-secret med namnet `VITE_GEMINI_KEY` för deploy- och releasebyggen.
-
-Lägg även till `VITE_FIREBASE_VAPID_KEY` med projektets publika Web Push-nyckel i `.env.local`. GitHub Pages-bygget hämtar Firebase-, VAPID- och Gemini-värden från repositoryts Actions-secrets.
+Lägg till `VITE_FIREBASE_VAPID_KEY` med projektets publika Web Push-nyckel i `.env.local`. GitHub Pages-bygget hämtar Firebase- och VAPID-värden från repositoryts Actions-secrets.
 
 Serverns `PUSH_REMINDERS_ENABLED` är en kill switch. Den ska bara sättas till `true` i Functions-miljön när produktionens utskick är godkända; den aktiverar leverans för alla förfallna jobb, inte bara en testenhet. Lägg aldrig FCM-enhetstoken i källkod eller loggar.
 

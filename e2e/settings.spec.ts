@@ -33,34 +33,6 @@ test('settings exposes preferences and data actions', async ({ page }) => {
   await expect(page.getByLabel('Tema')).toHaveValue('dark')
 })
 
-test('selects and persists the Gemini model from settings', async ({ page }) => {
-  await page.route(/\/v1beta\/models\?key=/, async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        models: [
-          { name: 'models/gemini-3.8-flash', displayName: 'Gemini 3.8 Flash', supportedGenerationMethods: ['generateContent'] },
-          { name: 'models/gemini-3.6-flash', displayName: 'Gemini 3.6 Flash', supportedGenerationMethods: ['generateContent'] },
-        ],
-      }),
-    })
-  })
-  await page.goto('#/settings')
-  const releaseCloseButton = page.getByRole('button', { name: 'Jag har sett detta' })
-  if (await releaseCloseButton.count()) await releaseCloseButton.click()
-
-  const modelSelect = page.getByLabel('Gemini-modell', { exact: true })
-  await expect(modelSelect).toBeVisible()
-  await expect(modelSelect).toContainText('Gemini 3.6 Flash')
-  await modelSelect.selectOption('gemini-3.6-flash')
-  await expect(modelSelect).toHaveValue('gemini-3.6-flash')
-
-  await page.reload()
-  await expect(page.getByLabel('Gemini-modell', { exact: true })).toHaveValue('gemini-3.6-flash')
-  await expect(page.getByLabel('Ny Gemini API-nyckel')).toHaveCount(0)
-})
-
 test('forces the latest app version from settings', async ({ page }) => {
   await page.goto('#/settings')
   const releaseCloseButton = page.getByRole('button', { name: 'Jag har sett detta' })

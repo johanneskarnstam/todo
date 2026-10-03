@@ -169,6 +169,51 @@ test('configures list sorting and a three-step task workflow', async ({ page }) 
   await expect(page.getByRole('group', { name: `Uppgift: ${taskTitle}` }).getByRole('checkbox', { name: 'Markera uppgift som klar' })).toHaveAttribute('aria-checked', 'mixed')
 })
 
+test('imports JSON subtasks from list settings', async ({ page }) => {
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
+  await page.goto('/#/tasks/local-task-3')
+  await dismissReleaseNotes(page)
+  const taskDetails = page.getByRole('dialog', { name: 'Uppgiftsdetaljer' })
+  await taskDetails.getByRole('textbox', { name: 'Anteckningar' }).fill('Testa bygget innan publicering.')
+  await taskDetails.getByPlaceholder('Lägg till tagg').fill('release')
+  await taskDetails.getByPlaceholder('Lägg till tagg').press('Enter')
+
+  await page.goto('/#/lists/local-projects/settings')
+  await dismissReleaseNotes(page)
+
+  await expect(page.getByText('Exempel på JSON-format')).toBeVisible()
+  const contextInput = page.getByRole('textbox', { name: 'Uppgiftskontext' })
+  await expect(contextInput).toHaveValue(/"note": "Testa bygget innan publicering\."/)
+  await expect(contextInput).toHaveValue(/"tags": \[\s+"release"/)
+  await page.getByRole('button', { name: 'Kopiera kontext' }).click()
+  await expect(page.getByRole('status')).toContainText('Uppgiftskontext kopierad.')
+  const copiedContext = await page.evaluate(() => navigator.clipboard.readText())
+  expect(copiedContext).toContain('Testa bygget innan publicering.')
+  expect(copiedContext).toContain('"release"')
+
+  const jsonInput = page.getByRole('textbox', { name: 'JSON' })
+  await jsonInput.fill(JSON.stringify([
+    {
+      taskTitle: 'Förbered nästa release',
+      steps: ['Samla ändringar', 'Skriv versionsanteckningar'],
+    },
+  ]))
+  await page.getByRole('button', { name: 'Importera delsteg' }).click()
+  await expect(page.getByRole('status')).toContainText('2 delsteg importerade till 1 uppgift.')
+
+  await jsonInput.fill('{')
+  await page.getByRole('button', { name: 'Importera delsteg' }).click()
+  await expect(page.getByRole('alert')).toContainText('Fältet innehåller inte giltig JSON.')
+
+  await page.getByRole('button', { name: 'Tillbaka till listan' }).click()
+  await page.getByRole('group', { name: 'Uppgift: Förbered nästa release' }).click()
+  const details = page.getByRole('dialog', { name: 'Uppgiftsdetaljer' })
+  const importedSteps = details.locator('[data-step-id]')
+  await expect(importedSteps).toHaveCount(2)
+  await expect(importedSteps.nth(0).getByRole('button', { name: 'Redigera delsteg: Samla ändringar' })).toBeVisible()
+  await expect(importedSteps.nth(1).getByRole('button', { name: 'Redigera delsteg: Skriv versionsanteckningar' })).toBeVisible()
+})
+
 test('confirms converting in-progress tasks to the two-step workflow', async ({ page }) => {
   await page.goto('/')
   await dismissReleaseNotes(page)

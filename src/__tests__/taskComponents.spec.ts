@@ -421,14 +421,6 @@ describe('TaskDetailsPanel', () => {
     expect(sections[5]?.classes()).toContain('bg-white')
   })
 
-  it('emits an event to open AI breakdown from the steps section', async () => {
-    const wrapper = mount(TaskDetailsPanel, { props: { task, steps } })
-
-    await wrapper.get('button[aria-label="Bryt ner med AI"]').trigger('click')
-
-    expect(wrapper.emitted('open-ai-breakdown')).toHaveLength(1)
-  })
-
   it('emits updates for title, steps, My day, notes, and deletion', async () => {
     const wrapper = mount(TaskDetailsPanel, { props: { task, steps } })
     await wrapper.get('button[aria-label="Kopiera uppgiftslänk"]').trigger('click')

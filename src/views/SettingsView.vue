@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowLeft, BookOpen, ChevronDown, Download, History, LogOut, RefreshCw, Sparkles, Trash2 } from '@lucide/vue'
+import { ArrowLeft, BookOpen, ChevronDown, Download, History, LogOut, RefreshCw, Trash2 } from '@lucide/vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import ChangeTimelineModal from '@/components/ChangeTimelineModal.vue'
 import FeatureOverviewModal from '@/components/FeatureOverviewModal.vue'
@@ -15,8 +15,6 @@ import { usePushNotifications } from '@/composables/usePushNotifications'
 import { useReminderNotifications } from '@/composables/useReminderNotifications'
 import { useTheme } from '@/composables/useTheme'
 import { useAppUpdate } from '@/composables/useAppUpdate'
-import { useTaskBreakdownModels } from '@/composables/useTaskBreakdownModels'
-import { useAiKeys } from '@/composables/useAiKeys'
 import type { List, TaskReminder, TaskStatus } from '@/types'
 import { normalizeTag, normalizeTags } from '@/utils/taskTags'
 import { releaseNotes } from '@/releaseNotes'
@@ -83,26 +81,7 @@ const editedTagName = ref('')
 const tagError = ref('')
 const availableTags = computed(() => [...new Set(taskStore.tasks.flatMap((task) => task.tags ?? []))].sort())
 
-const { models: taskBreakdownModels, selectedModelId, isLoadingModels, loadModels } = useTaskBreakdownModels()
-const { apiKeys, addKey, removeKey } = useAiKeys()
-const newKeyLabel = ref('')
-const newKeyValue = ref('')
-const addKeyError = ref('')
-
-const handleAddKey = () => {
-  addKeyError.value = ''
-  const trimmed = newKeyValue.value.trim()
-  if (!trimmed) {
-    addKeyError.value = 'Ange en API-nyckel.'
-    return
-  }
-  addKey(newKeyLabel.value, trimmed)
-  newKeyLabel.value = ''
-  newKeyValue.value = ''
-}
-
 onMounted(async () => {
-  void loadModels()
   await Promise.all([listStore.fetchLists(), taskStore.fetchTasks()])
   importListId.value = listStore.lists[0]?.id ?? CREATE_NEW_LIST_OPTION
 })
@@ -553,94 +532,6 @@ const handleLogout = async () => {
         </ul>
         <p v-else class="px-2 py-2 text-sm text-slate-500 dark:text-slate-400">Inga taggar ännu.</p>
         <p v-if="tagError" class="mt-2 text-sm text-red-700 dark:text-red-300" role="alert">{{ tagError }}</p>
-      </section>
-
-      <section id="ai-model" class="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:px-5" aria-labelledby="ai-settings-heading">
-        <div class="mb-3 flex items-center gap-2">
-          <Sparkles :size="18" class="text-[#2564cf] dark:text-blue-400" aria-hidden="true" />
-          <h2 id="ai-settings-heading" class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">AI-modell</h2>
-        </div>
-        <div class="flex items-center gap-2">
-          <label class="sr-only" for="settings-model-select">Gemini-modell</label>
-          <select
-            id="settings-model-select"
-            v-model="selectedModelId"
-            class="min-h-10 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-[#2564cf] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-          >
-            <option v-for="model in taskBreakdownModels" :key="model.id" :value="model.id">
-              {{ model.name }}
-            </option>
-          </select>
-          <button
-            type="button"
-            class="grid size-10 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800"
-            aria-label="Uppdatera Gemini-modeller"
-            title="Uppdatera modellista"
-            :disabled="isLoadingModels"
-            @click="loadModels(true)"
-          >
-            <RefreshCw :size="16" :class="{ 'animate-spin': isLoadingModels }" aria-hidden="true" />
-          </button>
-        </div>
-        <p v-if="isLoadingModels" class="mt-2 text-xs text-slate-500 dark:text-slate-400">
-          Hämtar Gemini-modeller…
-        </p>
-      </section>
-
-      <section id="ai-keys" class="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:px-5" aria-labelledby="ai-keys-heading">
-        <div class="mb-3 flex items-center gap-2">
-          <Sparkles :size="18" class="text-[#2564cf] dark:text-blue-400" aria-hidden="true" />
-          <h2 id="ai-keys-heading" class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">AI-nycklar</h2>
-        </div>
-        <p class="mb-3 text-xs text-slate-500 dark:text-slate-400">
-          Lägg till egna Gemini API-nycklar. Nycklarna sparas i ditt konto och synkroniseras mellan alla dina enheter.
-        </p>
-        <ul v-if="apiKeys.length > 0" class="mb-3 divide-y divide-slate-100 rounded-lg border border-slate-200 dark:divide-slate-700 dark:border-slate-700">
-          <li v-for="k in apiKeys" :key="k.id" class="flex items-center gap-2 px-3 py-2">
-            <span class="min-w-0 flex-1">
-              <span class="block text-sm font-medium text-slate-800 dark:text-slate-100">{{ k.label }}</span>
-              <span class="block truncate font-mono text-xs text-slate-400">{{ k.key.slice(0, 8) }}…{{ k.key.slice(-4) }}</span>
-            </span>
-            <button
-              type="button"
-              class="grid size-8 shrink-0 place-items-center rounded-md text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-              :aria-label="`Ta bort nyckel ${k.label}`"
-              @click="removeKey(k.id)"
-            >
-              <Trash2 :size="15" aria-hidden="true" />
-            </button>
-          </li>
-        </ul>
-        <p v-else class="mb-3 text-sm text-slate-500 dark:text-slate-400">Inga sparade nycklar ännu.</p>
-        <div class="space-y-2">
-          <input
-            id="ai-key-label"
-            v-model="newKeyLabel"
-            type="text"
-            placeholder="Etikett (valfritt, t.ex. Privat)"
-            class="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-[#2564cf] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-          />
-          <div class="flex gap-2">
-            <input
-              id="ai-key-value"
-              v-model="newKeyValue"
-              type="password"
-              placeholder="AIza…"
-              class="h-10 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-[#2564cf] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-              autocomplete="off"
-              @keydown.enter="handleAddKey"
-            />
-            <button
-              id="ai-key-add-btn"
-              type="button"
-              class="h-10 shrink-0 rounded-lg bg-[#2564cf] px-4 text-sm font-medium text-white hover:bg-blue-700"
-              @click="handleAddKey"
-            >
-              Lägg till
-            </button>
-          </div>
-          <p v-if="addKeyError" class="text-xs text-red-600 dark:text-red-400" role="alert">{{ addKeyError }}</p>
-        </div>
       </section>
 
       <section class="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:px-5" aria-labelledby="import-heading">

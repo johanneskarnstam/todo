@@ -10,7 +10,6 @@ const firestoreMocks = vi.hoisted(() => ({
   deleteDoc: vi.fn(),
   deleteField: vi.fn(() => 'delete-field'),
   doc: vi.fn(),
-  getDoc: vi.fn(),
   getDocs: vi.fn(),
   getDocsFromCache: vi.fn(),
   serverTimestamp: vi.fn(() => 'server-timestamp'),
@@ -52,7 +51,6 @@ describe('useTaskStore', () => {
     let nextDocumentId = 0
     firestoreMocks.collection.mockImplementation((...path: string[]) => ({ path }))
     firestoreMocks.doc.mockImplementation((...path: string[]) => ({ path, id: `generated-${nextDocumentId++}` }))
-    firestoreMocks.getDoc.mockResolvedValue({ exists: () => false, data: () => ({}) })
     firestoreMocks.getDocs.mockResolvedValue(snapshot([]))
     firestoreMocks.getDocsFromCache.mockResolvedValue(snapshot([]))
     firestoreMocks.addDoc.mockResolvedValue({ id: 'persisted-id' })
@@ -425,162 +423,6 @@ describe('useTaskStore', () => {
     await pendingToggle.promise
   })
 
-  it('creates selected AI steps and updates skipped suggestions in one batch', async () => {
-    const store = useTaskStore()
-    store.activeTaskId = 'task-1'
-    firestoreMocks.getDoc.mockResolvedValueOnce({
-      exists: () => true,
-      data: () => ({ suggestionIds: ['suggestion-1', 'suggestion-2'] }),
-    })
-    firestoreMocks.getDocs.mockResolvedValueOnce(snapshot([
-      taskDocument('suggestion-1', { title: 'Clear room', order: 0, status: 'available' }),
-      taskDocument('suggestion-2', { title: 'Cover floor', order: 1, status: 'available' }),
-    ]))
-    const batch = {
-      set: vi.fn(),
-      update: vi.fn(),
-      delete: vi.fn(),
-      commit: vi.fn(),
-    }
-    const pendingCommit = deferred<void>()
-    batch.commit = vi.fn().mockReturnValue(pendingCommit.promise)
-    firestoreMocks.writeBatch.mockReturnValueOnce(batch)
-
-    const creation = store.createStepsFromAi('task-1', [
-      { suggestionId: 'suggestion-1', selected: true },
-      { suggestionId: 'suggestion-2', selected: false },
-    ])
-
-    await vi.waitFor(() => expect(store.activeSteps.map((step) => step.title)).toEqual(['Clear room']))
-    expect(store.activeSteps[0].id).toContain('optimistic-')
-    pendingCommit.resolve()
-    const createdSteps = await creation
-    const createdReference = batch.set.mock.calls[0]?.[0] as { id: string }
-
-    expect(createdSteps).toHaveLength(1)
-    expect(createdSteps[0]).toMatchObject({
-      id: createdReference.id,
-      title: 'Clear room',
-      aiSuggestionId: 'suggestion-1',
-      completed: false,
-    })
-    expect(batch.set).toHaveBeenCalledWith(
-      expect.objectContaining({ id: createdReference.id }),
-      expect.objectContaining({ title: 'Clear room', aiSuggestionId: 'suggestion-1' }),
-    )
-    expect(batch.update).toHaveBeenCalledWith(
-      expect.anything(),
-      { status: 'added', stepId: createdReference.id },
-    )
-    expect(batch.update).toHaveBeenCalledWith(expect.anything(), { status: 'skipped' })
-    expect(batch.commit).toHaveBeenCalledOnce()
-  })
-
-  it('rolls back optimistic AI steps when the Firestore batch fails', async () => {
-    const store = useTaskStore()
-    store.activeTaskId = 'task-1'
-    firestoreMocks.getDoc.mockResolvedValueOnce({
-      exists: () => true,
-      data: () => ({ suggestionIds: ['suggestion-1'] }),
-    })
-    firestoreMocks.getDocs.mockResolvedValueOnce(snapshot([
-      taskDocument('suggestion-1', { title: 'Clear room', order: 0, status: 'available' }),
-    ]))
-    firestoreMocks.writeBatch.mockReturnValueOnce({
-      set: vi.fn(),
-      update: vi.fn(),
-      delete: vi.fn(),
-      commit: vi.fn().mockRejectedValue(new Error('batch rejected')),
-    })
-
-    await expect(store.createStepsFromAi('task-1', [
-      { suggestionId: 'suggestion-1', selected: true },
-    ])).resolves.toEqual([])
-
-    expect(store.activeSteps).toEqual([])
-    expect(store.error).toBe('batch rejected')
-  })
-
-  it('skips already-added suggestions when creating AI steps', async () => {
-    const store = useTaskStore()
-    store.activeTaskId = 'task-1'
-    firestoreMocks.getDoc.mockResolvedValueOnce({
-      exists: () => true,
-      data: () => ({ suggestionIds: ['suggestion-1', 'suggestion-2'] }),
-    })
-    firestoreMocks.getDocs.mockResolvedValueOnce(snapshot([
-      taskDocument('suggestion-1', { title: 'Clear room', order: 0, status: 'added', stepId: 'existing-step' }),
-      taskDocument('suggestion-2', { title: 'Cover floor', order: 1, status: 'available' }),
-    ]))
-    const batch = {
-      set: vi.fn(),
-      update: vi.fn(),
-      delete: vi.fn(),
-      commit: vi.fn().mockResolvedValue(undefined),
-    }
-    firestoreMocks.writeBatch.mockReturnValueOnce(batch)
-
-    const createdSteps = await store.createStepsFromAi('task-1', [
-      { suggestionId: 'suggestion-1', selected: true },
-      { suggestionId: 'suggestion-2', selected: true },
-    ])
-
-    expect(createdSteps).toHaveLength(1)
-    expect(createdSteps[0].title).toBe('Cover floor')
-    expect(batch.set).toHaveBeenCalledTimes(1)
-  })
-
-  it('assigns AI-created step order values after existing steps', async () => {
-    const store = useTaskStore()
-    store.activeTaskId = 'task-1'
-    store.allSteps.push({
-      id: 'existing-step',
-      taskId: 'task-1',
-      title: 'Existing step',
-      completed: false,
-      order: 5,
-      createdAt: Timestamp.now(),
-    })
-    firestoreMocks.getDoc.mockResolvedValueOnce({
-      exists: () => true,
-      data: () => ({ suggestionIds: ['suggestion-1', 'suggestion-2'] }),
-    })
-    firestoreMocks.getDocs.mockResolvedValueOnce(snapshot([
-      taskDocument('suggestion-1', { title: 'First AI step', order: 0, status: 'available' }),
-      taskDocument('suggestion-2', { title: 'Second AI step', order: 1, status: 'available' }),
-    ]))
-    const batch = {
-      set: vi.fn(),
-      update: vi.fn(),
-      delete: vi.fn(),
-      commit: vi.fn().mockResolvedValue(undefined),
-    }
-    firestoreMocks.writeBatch.mockReturnValueOnce(batch)
-
-    const createdSteps = await store.createStepsFromAi('task-1', [
-      { suggestionId: 'suggestion-1', selected: true },
-      { suggestionId: 'suggestion-2', selected: true },
-    ])
-
-    expect(createdSteps[0].order).toBe(6)
-    expect(createdSteps[1].order).toBe(7)
-  })
-
-  it('returns empty array when all selections reference non-existent suggestions', async () => {
-    const store = useTaskStore()
-    store.activeTaskId = 'task-1'
-    firestoreMocks.getDoc.mockResolvedValueOnce({
-      exists: () => true,
-      data: () => ({ suggestionIds: ['suggestion-1'] }),
-    })
-
-    const result = await store.createStepsFromAi('task-1', [
-      { suggestionId: 'missing-suggestion', selected: true },
-    ])
-
-    expect(result).toEqual([])
-  })
-
   it('updates details fields and deletes tasks optimistically', async () => {
     const createdAt = Timestamp.now()
     firestoreMocks.getDocs.mockResolvedValueOnce(
@@ -681,37 +523,6 @@ describe('useTaskStore', () => {
     expect(store.activeSteps).toHaveLength(0)
     expect(store.taskStepCounts.has('task-1')).toBe(false)
     expect(firestoreMocks.deleteDoc).toHaveBeenCalledWith(expect.anything())
-  })
-
-  it('deletes an AI-created step and makes its suggestion available in the same batch', async () => {
-    const store = useTaskStore()
-    store.activeTaskId = 'task-1'
-    store.allSteps.push({
-      id: 'step-1',
-      taskId: 'task-1',
-      title: 'Clear room',
-      completed: false,
-      order: 0,
-      aiSuggestionId: 'suggestion-1',
-      createdAt: Timestamp.now(),
-    })
-    const batch = {
-      set: vi.fn(),
-      update: vi.fn(),
-      delete: vi.fn(),
-      commit: vi.fn().mockResolvedValue(undefined),
-    }
-    firestoreMocks.writeBatch.mockReturnValueOnce(batch)
-
-    await store.deleteStep('step-1')
-
-    expect(store.activeSteps).toEqual([])
-    expect(batch.delete).toHaveBeenCalledWith(expect.objectContaining({ path: expect.any(Array) }))
-    expect(batch.update).toHaveBeenCalledWith(expect.anything(), {
-      status: 'available',
-      stepId: 'delete-field',
-    })
-    expect(batch.commit).toHaveBeenCalledOnce()
   })
 
   it('rolls back a subtask completion when Firestore rejects', async () => {
