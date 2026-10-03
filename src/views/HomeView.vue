@@ -614,7 +614,7 @@ watch(
 </script>
 
 <template>
-  <div class="flex h-screen flex-col bg-[#faf9f8] text-slate-800 dark:bg-slate-950 dark:text-slate-100" :class="{ dark: isDark }">
+  <div class="fixed inset-0 flex flex-col overflow-hidden bg-[#faf9f8] text-slate-800 dark:bg-slate-950 dark:text-slate-100" :class="{ dark: isDark }">
     <div v-if="confettiVisible" class="pointer-events-none fixed inset-0 z-[120] overflow-hidden" role="status" aria-live="polite">
       <p class="absolute left-1/2 top-20 -translate-x-1/2 rounded-full bg-white/95 px-5 py-2 text-base font-semibold text-slate-800 shadow-xl dark:bg-slate-900/95 dark:text-slate-100">{{ confettiMessage }}</p>
       <span
