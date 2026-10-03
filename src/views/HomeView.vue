@@ -15,7 +15,7 @@ import { useTaskStore } from '@/stores/taskStore'
 import { useToastStore } from '@/stores/toastStore'
 import { useReminderNotifications } from '@/composables/useReminderNotifications'
 import { useDragReorder } from '@/composables/useDragReorder'
-import { usePreferences } from '@/composables/usePreferences'
+import { usePreferences, type TaskSortPreference } from '@/composables/usePreferences'
 import { sortTasksForMode } from '@/utils/taskSorting'
 import { copyRouteLink } from '@/utils/shareLink'
 import { isTaskCompleted } from '@/utils/taskStatus'
@@ -37,6 +37,7 @@ const setTaskDetailsExpanded = (expanded: boolean) => {
 const isSearchOpen = ref(false)
 const taskTitle = ref('')
 const priorityFilter = ref<TaskPriorityFilterValue>('all')
+const isSortFilterMenuOpen = ref(false)
 const pendingDeleteTaskId = ref<string | null>(null)
 const pendingDeleteListId = ref<string | null>(null)
 const deleteListTasks = ref(false)
@@ -96,6 +97,21 @@ const currentTitle = computed(() => {
 const canRenameActiveList = computed(() => Boolean(activeList.value && activeList.value.id !== DEFAULT_LIST_ID))
 const activeListColor = computed(() => activeList.value?.themeColor ?? '#2564cf')
 const activeListSortMode = computed<ListSortMode>(() => activeList.value?.sortMode ?? 'manual')
+const listSortOptions: Array<{ value: ListSortMode; label: string }> = [
+  { value: 'manual', label: 'Min ordning' },
+  { value: 'created', label: 'Skapade först' },
+  { value: 'createdDesc', label: 'Nya uppgifter först' },
+  { value: 'dueDate', label: 'Förfallodatum' },
+  { value: 'priority', label: 'Prioritet' },
+]
+const preferenceSortOptions: Array<{ value: TaskSortPreference; label: string }> = [
+  { value: 'manual', label: 'Min ordning' },
+  { value: 'created', label: 'Skapade först' },
+  { value: 'dueDate', label: 'Förfallodatum' },
+  { value: 'priority', label: 'Prioritet' },
+]
+const sortOptions = computed(() => activeList.value ? listSortOptions : preferenceSortOptions)
+const selectedSortMode = computed<ListSortMode>(() => activeList.value ? activeListSortMode.value : preferences.value.taskSort)
 const activeListSortLabel = computed(() => ({
   manual: 'Min ordning',
   created: 'Skapade först',
@@ -103,6 +119,17 @@ const activeListSortLabel = computed(() => ({
   dueDate: 'Förfallodatum',
   priority: 'Prioritet',
 }[activeListSortMode.value]))
+const handleSortModeChange = (event: Event) => {
+  const nextSortMode = (event.target as HTMLSelectElement).value
+  if (activeList.value && taskStore.activeView?.type === 'list') {
+    const listMode = listSortOptions.find((option) => option.value === nextSortMode)?.value
+    if (listMode) listStore.updateListSortMode(activeList.value.id, listMode)
+    return
+  }
+
+  const preferenceMode = preferenceSortOptions.find((option) => option.value === nextSortMode)?.value
+  if (preferenceMode) preferences.value.taskSort = preferenceMode
+}
 const activeListTaskStatusMode = computed(() => activeList.value?.taskStatusMode ?? 'binary')
 const areCompletedTasksVisible = computed(() => {
   return activeList.value?.showCompletedTasks ?? true
@@ -517,6 +544,11 @@ const handleSaveReminder = async (taskId: string, reminder: TaskReminder | null)
 const handleGlobalKeydown = (event: KeyboardEvent) => {
   if (event.key !== 'Escape') return
 
+  if (isSortFilterMenuOpen.value) {
+    isSortFilterMenuOpen.value = false
+    return
+  }
+
   if (pendingDeleteTaskId.value) {
     cancelDeleteTask()
     return
@@ -630,7 +662,7 @@ watch(
         @delete-folder="handleDeleteFolder"
       />
 
-      <main class="min-w-0 flex-1 overflow-y-auto rounded-t-2xl bg-[#faf9f8] dark:bg-slate-950 sm:rounded-t-none">
+      <main class="min-w-0 flex-1 overflow-y-auto rounded-t-2xl bg-[#faf9f8] dark:bg-slate-950 sm:rounded-t-none" @click="isSortFilterMenuOpen = false">
         <div v-if="isListRouteLoading || isTaskRouteLoading" class="mx-auto mt-16 max-w-5xl px-4 text-center text-sm text-slate-500" role="status">Läser in...</div>
         <div v-else-if="isListRouteNotFound" class="mx-auto mt-16 max-w-lg px-4 text-center" role="alert">
           <h1 class="text-xl font-semibold">Listan hittades inte</h1>
@@ -669,20 +701,38 @@ watch(
               </div>
             </div>
             <div v-else class="size-9" aria-hidden="true" />
-            <button class="hidden size-9 place-items-center rounded text-[#2564cf] transition hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-slate-800 sm:grid" type="button" aria-label="Sortera uppgifter"><ArrowDownUp :size="18" aria-hidden="true" /></button>
+            <div class="relative" @click.stop @keydown.esc.stop="isSortFilterMenuOpen = false">
+              <button
+                class="grid size-9 place-items-center rounded text-[#2564cf] transition hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-slate-800"
+                type="button"
+                aria-label="Filtrera och sortera uppgifter"
+                aria-controls="task-filter-sort-menu"
+                :aria-expanded="isSortFilterMenuOpen"
+                @click="isSortFilterMenuOpen = !isSortFilterMenuOpen"
+              >
+                <ArrowDownUp :size="18" aria-hidden="true" />
+              </button>
+              <section v-if="isSortFilterMenuOpen" id="task-filter-sort-menu" class="absolute right-0 top-11 z-30 w-72 max-w-[calc(100vw-1.5rem)] rounded-xl border border-slate-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-800">
+                <div class="border-b border-slate-200 pb-3 dark:border-slate-700">
+                  <h2 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Filtrera</h2>
+                  <TaskPriorityFilter
+                    v-if="taskStore.visibleTasks.length"
+                    v-model="priorityFilter"
+                    :counts="taskStore.priorityCounts"
+                    :total="taskStore.visibleTasks.length"
+                  />
+                </div>
+                <label class="mt-3 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400" for="task-sort-mode">Sortera efter</label>
+                <select id="task-sort-mode" class="mt-2 min-h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-[#2564cf] focus:ring-2 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:ring-blue-900" aria-label="Sortera uppgifter efter" :value="selectedSortMode" @change="handleSortModeChange">
+                  <option v-for="option in sortOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+                </select>
+              </section>
+            </div>
           </div>
 
           <p v-if="listStore.error" class="mt-3 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200" role="alert">
             {{ listStore.error }}
           </p>
-
-          <TaskPriorityFilter
-            v-if="taskStore.visibleTasks.length"
-            v-model="priorityFilter"
-            class="mt-5"
-            :counts="taskStore.priorityCounts"
-            :total="taskStore.visibleTasks.length"
-          />
 
           <form v-if="canAddTask" class="mt-7 flex h-14 w-full items-center gap-4 rounded-xl border border-slate-200 bg-white px-5 text-left text-sm text-[#2564cf] shadow-sm transition focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-200 dark:border-slate-700 dark:bg-slate-900 dark:text-blue-400 dark:focus-within:ring-blue-900" @submit.prevent="handleAddTask">
             <Plus :size="20" aria-hidden="true" />
