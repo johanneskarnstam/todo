@@ -23,6 +23,17 @@ import type { ListSortMode, SmartView, TaskPriorityFilterValue, TaskReminder } f
 import { filterTasksByPriority } from '@/utils/taskPriority'
 
 const isSidebarOpen = ref(typeof window === 'undefined' ? true : window.innerWidth >= 1024)
+const isTaskDetailsExpanded = ref(false)
+const canExpandBothPanels = () => typeof window !== 'undefined' && window.innerWidth >= 1920
+const setSidebarOpen = (open: boolean) => {
+  isSidebarOpen.value = open
+  if (open && !canExpandBothPanels()) isTaskDetailsExpanded.value = false
+}
+const toggleSidebar = () => setSidebarOpen(!isSidebarOpen.value)
+const setTaskDetailsExpanded = (expanded: boolean) => {
+  isTaskDetailsExpanded.value = expanded
+  if (expanded && !canExpandBothPanels()) isSidebarOpen.value = false
+}
 const isSearchOpen = ref(false)
 const taskTitle = ref('')
 const priorityFilter = ref<TaskPriorityFilterValue>('all')
@@ -587,7 +598,7 @@ watch(
       :is-sidebar-open="isSidebarOpen"
       :is-saving="taskStore.isSaving || listStore.isSaving"
       :search-open="isSearchOpen"
-      @toggle-menu="isSidebarOpen = !isSidebarOpen"
+      @toggle-menu="toggleSidebar"
       @toggle-theme="toggleTheme"
       @go-home="handleGoHome"
       @open-search="openSearch"
@@ -606,7 +617,8 @@ watch(
         :ungrouped-lists="listStore.ungroupedLists"
         :smart-view-counts="taskStore.smartViewCounts"
         :list-task-counts="taskStore.listTaskCounts"
-        @close="isSidebarOpen = false"
+        @close="setSidebarOpen(false)"
+        @open="setSidebarOpen(true)"
         @select-list="handleSelectList"
         @select-smart-view="handleSelectSmartView"
         @select-tag="handleSelectTag"
@@ -783,6 +795,7 @@ watch(
 
       <TaskDetailsPanel
         v-if="taskStore.activeTask && !isTaskRouteNotFound"
+        :expanded="isTaskDetailsExpanded"
         :task="taskStore.activeTask"
         :steps="taskStore.activeSteps"
         :available-tags="availableTags"
@@ -805,6 +818,7 @@ watch(
         @select-tag="handleSelectTag"
         @move-to-list="handleMoveTaskToList(taskStore.activeTaskId!, $event)"
         @delete-task="handleDeleteActiveTask"
+        @update:expanded="setTaskDetailsExpanded"
       />
 
       <div v-if="pendingDeleteTaskId" class="fixed inset-0 z-[100] grid place-items-center bg-slate-950/40 px-4" role="presentation" @click.self="cancelDeleteTask">

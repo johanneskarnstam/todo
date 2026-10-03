@@ -120,6 +120,8 @@ test('expands task details on desktop and keeps the control out of mobile', asyn
   await expect(expandButton).toBeVisible()
   await expandButton.click()
   await expect(details.getByRole('button', { name: 'Minimera uppgiftsdetaljer' })).toHaveAttribute('aria-pressed', 'true')
+  const sidebar = page.getByRole('complementary', { name: 'Uppgiftsnavigering' })
+  await expect(sidebar.getByRole('button', { name: 'Expandera navigeringsmeny' })).toBeVisible()
 
   const laptopBounds = await details.evaluate((element) => {
     const { left, right, width } = element.getBoundingClientRect()
@@ -137,7 +139,18 @@ test('expands task details on desktop and keeps the control out of mobile', asyn
   expect(mainBounds.width).toBeGreaterThan(250)
   expect(Math.abs(mainBounds.right - laptopBounds.left)).toBeLessThan(2)
 
+  await sidebar.getByRole('button', { name: 'Expandera navigeringsmeny' }).click()
+  await expect(sidebar.getByRole('button', { name: 'Fäll ihop navigeringsmeny' })).toBeVisible()
+  await expect(details.getByRole('button', { name: 'Expandera uppgiftsdetaljer' })).toHaveAttribute('aria-pressed', 'false')
+  const collapsedPanelWidth = await details.evaluate((element) => element.getBoundingClientRect().width)
+  expect(collapsedPanelWidth).toBeLessThan(400)
+
+  await details.getByRole('button', { name: 'Expandera uppgiftsdetaljer' }).click()
+  await expect(sidebar.getByRole('button', { name: 'Expandera navigeringsmeny' })).toBeVisible()
   await page.setViewportSize({ width: 1920, height: 1080 })
+  await sidebar.getByRole('button', { name: 'Expandera navigeringsmeny' }).click()
+  await expect(sidebar.getByRole('button', { name: 'Fäll ihop navigeringsmeny' })).toBeVisible()
+  await expect(details.getByRole('button', { name: 'Minimera uppgiftsdetaljer' })).toHaveAttribute('aria-pressed', 'true')
   const largeScreenBounds = await details.evaluate((element) => {
     const { right, width } = element.getBoundingClientRect()
     return { right, width }
@@ -148,6 +161,8 @@ test('expands task details on desktop and keeps the control out of mobile', asyn
 
   await details.getByRole('button', { name: 'Minimera uppgiftsdetaljer' }).click()
   await expect(details.getByRole('button', { name: 'Expandera uppgiftsdetaljer' })).toHaveAttribute('aria-pressed', 'false')
+  await expect(sidebar.getByRole('button', { name: 'Fäll ihop navigeringsmeny' })).toBeVisible()
+  await sidebar.getByRole('button', { name: 'Fäll ihop navigeringsmeny' }).click()
   const panelWidth = await details.evaluate((element) => element.getBoundingClientRect().width)
   expect(panelWidth).toBeLessThan(400)
 

@@ -10,12 +10,14 @@ import { useDragReorder } from '@/composables/useDragReorder'
 interface Props {
   task: Task
   steps: Step[]
+  expanded?: boolean
   availableTags?: string[]
 }
 
 interface Emits {
   (event: 'close'): void
   (event: 'copy-link'): void
+  (event: 'update:expanded', expanded: boolean): void
   (event: 'save-title', title: string): void
   (event: 'add-step', title: string): void
   (event: 'save-step-title', stepId: string, title: string): void
@@ -35,12 +37,17 @@ interface Emits {
 
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
+const localIsExpanded = ref(false)
+const isExpanded = computed(() => props.expanded ?? localIsExpanded.value)
+const setExpanded = (expanded: boolean) => {
+  if (props.expanded === undefined) localIsExpanded.value = expanded
+  emit('update:expanded', expanded)
+}
 
 const title = ref(props.task.title)
 const note = ref(props.task.note ?? '')
 const tagTitle = ref('')
 const stepTitle = ref('')
-const isExpanded = ref(false)
 const editingStepId = ref<string | null>(null)
 const editingStepTitle = ref('')
 const stepsContainerRef = ref<HTMLElement | null>(null)
@@ -83,7 +90,7 @@ watch(
     tags.value = normalizeTags(props.task.tags ?? [])
     reminderOffset.value = String(props.task.reminder?.offsetMinutes ?? '')
     reminderMenuOpen.value = false
-    isExpanded.value = false
+    setExpanded(false)
   },
 )
 
@@ -250,7 +257,7 @@ const saveStepTitle = () => {
     :aria-modal="isExpanded ? 'false' : 'true'"
     aria-labelledby="task-details-heading"
     @click="reminderMenuOpen = false"
-    @keydown.esc="isExpanded = false"
+    @keydown.esc="setExpanded(false)"
   >
     <div class="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 px-4 dark:border-slate-700">
       <span id="task-details-heading" class="text-sm font-semibold text-slate-700 dark:text-slate-200">Uppgiftsdetaljer</span>
@@ -260,7 +267,7 @@ const saveStepTitle = () => {
           type="button"
           :aria-label="isExpanded ? 'Minimera uppgiftsdetaljer' : 'Expandera uppgiftsdetaljer'"
           :aria-pressed="isExpanded"
-          @click="isExpanded = !isExpanded"
+          @click="setExpanded(!isExpanded)"
         >
           <Shrink v-if="isExpanded" :size="17" aria-hidden="true" />
           <Expand v-else :size="17" aria-hidden="true" />
