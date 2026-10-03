@@ -46,6 +46,15 @@ test("allows a user to write only their own task", async () => {
   await assertFails(setDoc(otherTask, {title: "Other task"}));
 });
 
+test("allows a user to read and write only their own settings", async () => {
+  const userDb = testEnvironment.authenticatedContext("user-1").firestore();
+  const ownSettings = doc(userDb, "users/user-1/settings/aiKeys");
+  const otherSettings = doc(userDb, "users/user-2/settings/aiKeys");
+
+  await assertSucceeds(setDoc(ownSettings, {keys: [], selectedKeyId: "auto"}));
+  await assertFails(setDoc(otherSettings, {keys: [], selectedKeyId: "auto"}));
+});
+
 test("denies unauthenticated task access", async () => {
   const anonymousDb = testEnvironment.unauthenticatedContext().firestore();
   const task = doc(anonymousDb, "users/user-1/tasks/task-1");

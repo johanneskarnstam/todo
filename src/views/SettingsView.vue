@@ -593,7 +593,7 @@ const handleLogout = async () => {
           <h2 id="ai-keys-heading" class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">AI-nycklar</h2>
         </div>
         <p class="mb-3 text-xs text-slate-500 dark:text-slate-400">
-          Lägg till egna Gemini API-nycklar. Appen provar dem i ordning om en nyckel når kvotgränsen.
+          Lägg till egna Gemini API-nycklar. Nycklarna sparas i ditt konto och synkroniseras mellan alla dina enheter.
         </p>
         <ul v-if="apiKeys.length > 0" class="mb-3 divide-y divide-slate-100 rounded-lg border border-slate-200 dark:divide-slate-700 dark:border-slate-700">
           <li v-for="k in apiKeys" :key="k.id" class="flex items-center gap-2 px-3 py-2">

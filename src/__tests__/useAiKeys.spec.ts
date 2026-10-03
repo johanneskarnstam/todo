@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { useAiKeys } from '../composables/useAiKeys'
+import { handleAiKeysSnapshot, useAiKeys } from '../composables/useAiKeys'
 
 describe('useAiKeys', () => {
   beforeEach(() => {
@@ -95,5 +95,32 @@ describe('useAiKeys', () => {
     const keys = resolveKeysToTry()
     // Returns env key if configured, or empty array
     expect(Array.isArray(keys)).toBe(true)
+  })
+
+  it('clears all keys and resets selectedKeyId to auto when clearKeys is called', () => {
+    const { apiKeys, selectedKeyId, addKey, clearKeys } = useAiKeys()
+    addKey('Key 1', 'val-1')
+    expect(apiKeys.value).toHaveLength(1)
+
+    clearKeys()
+    expect(apiKeys.value).toHaveLength(0)
+    expect(selectedKeyId.value).toBe('auto')
+    expect(localStorage.getItem('todo-gemini-api-keys')).toBe('[]')
+    expect(localStorage.getItem('todo-gemini-selected-key-index')).toBe('auto')
+  })
+
+  it('updates local state when Firestore snapshot arrives', () => {
+    handleAiKeysSnapshot({
+      exists: () => true,
+      data: () => ({
+        keys: [{ id: 'k-remote', label: 'Molnnyckel', key: 'remote-secret' }],
+        selectedKeyId: 'k-remote',
+      }),
+    })
+
+    const { apiKeys, selectedKeyId } = useAiKeys()
+    expect(apiKeys.value).toEqual([{ id: 'k-remote', label: 'Molnnyckel', key: 'remote-secret' }])
+    expect(selectedKeyId.value).toBe('k-remote')
+    expect(localStorage.getItem('todo-gemini-selected-key-index')).toBe('k-remote')
   })
 })
