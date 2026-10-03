@@ -614,7 +614,7 @@ watch(
 </script>
 
 <template>
-  <div class="flex h-screen flex-col bg-[#faf9f8] text-slate-800 dark:bg-slate-950 dark:text-slate-100" :class="{ dark: isDark }">
+  <div class="fixed inset-0 flex flex-col overflow-hidden bg-[#faf9f8] text-slate-800 dark:bg-slate-950 dark:text-slate-100" :class="{ dark: isDark }">
     <div v-if="confettiVisible" class="pointer-events-none fixed inset-0 z-[120] overflow-hidden" role="status" aria-live="polite">
       <p class="absolute left-1/2 top-20 -translate-x-1/2 rounded-full bg-white/95 px-5 py-2 text-base font-semibold text-slate-800 shadow-xl dark:bg-slate-900/95 dark:text-slate-100">{{ confettiMessage }}</p>
       <span
@@ -685,8 +685,7 @@ watch(
               </form>
               <h1 v-else class="truncate text-2xl font-semibold tracking-tight sm:text-3xl" :style="{ color: activeListColor }">
                 <ListIcon v-if="activeList" :name="activeList.icon" :size="24" class="mr-2 inline-block align-[-3px]" />
-                <button v-if="canRenameActiveList" class="max-w-full truncate text-left hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2564cf]" type="button" :aria-label="`Byt namn på listan ${currentTitle}`" @click="startRenameList">{{ currentTitle }}</button>
-                <span v-else>{{ currentTitle }}</span>
+                <span>{{ currentTitle }}</span>
               </h1>
               <p v-if="activeList && activeListSortMode !== 'manual'" class="mt-1 text-xs text-slate-600 dark:text-slate-400" role="note">
                 Sorterad efter {{ activeListSortLabel }}. Dra och släpp är avstängt.
@@ -695,6 +694,7 @@ watch(
             <div v-if="activeList" class="relative">
               <button class="grid size-9 place-items-center rounded-lg text-slate-500 transition hover:bg-slate-200 dark:hover:bg-slate-800" type="button" aria-label="Fler listalternativ" :aria-expanded="isListOptionsOpen" @click="isListOptionsOpen = !isListOptionsOpen"><Ellipsis :size="20" aria-hidden="true" /></button>
               <div v-if="isListOptionsOpen" class="absolute right-0 top-10 z-20 w-64 rounded-xl border border-slate-200 bg-white p-3 shadow-xl dark:border-slate-700 dark:bg-slate-800">
+                <button v-if="canRenameActiveList" class="flex min-h-9 w-full items-center rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="isListOptionsOpen = false; startRenameList()">Byt namn på lista</button>
                 <button class="flex min-h-9 w-full items-center rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="openListSettings">Listinställningar</button>
                 <button class="flex min-h-9 w-full items-center gap-2 rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700" type="button" @click="copyListLink"><Copy :size="16" aria-hidden="true" />Kopiera listlänk</button>
                 <button v-if="activeList.id !== DEFAULT_LIST_ID" class="mt-1 flex min-h-9 w-full items-center rounded-lg px-3 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950" type="button" @click="requestDeleteList()">Ta bort lista</button>

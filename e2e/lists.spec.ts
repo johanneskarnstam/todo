@@ -32,7 +32,7 @@ test('opens a list directly from its URL and restores it after reload', async ({
   await page.goto('/#/lists/local-projects')
   await dismissReleaseNotes(page)
 
-  await expect(page.getByRole('heading', { name: 'Byt namn på listan Projekt' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Projekt', exact: true })).toBeVisible()
   await expect(page.getByRole('group', { name: 'Uppgift: Förbered nästa release' })).toBeVisible()
   await page.getByRole('button', { name: 'Fler listalternativ' }).click()
   await page.getByRole('button', { name: 'Kopiera listlänk' }).click()
@@ -70,7 +70,7 @@ test('copies a list link from the All Lists columns', async ({ page }) => {
 
   await page.goto(copiedUrl)
   await expect(page).toHaveURL(/\/#\/lists\/local-projects$/)
-  await expect(page.getByRole('heading', { name: 'Byt namn på listan Projekt' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Projekt', exact: true })).toBeVisible()
 })
 
 test('filters task columns by priority in All Lists', async ({ page }) => {
@@ -251,7 +251,8 @@ test('renames a list and a folder', async ({ page }) => {
   await page.getByRole('button', { name: 'Ny lista' }).click()
   await page.getByPlaceholder('Listnamn').fill('Gammal lista')
   await page.getByPlaceholder('Listnamn').press('Enter')
-  await page.getByRole('button', { name: 'Byt namn på listan Gammal lista' }).click()
+  await page.getByRole('button', { name: 'Fler listalternativ' }).click()
+  await page.getByRole('button', { name: 'Byt namn på lista' }).click()
   await page.getByLabel('Listnamn').fill('Ny lista')
   await page.getByLabel('Listnamn').press('Enter')
   await expect(page.getByRole('heading', { name: 'Ny lista' })).toBeVisible()
