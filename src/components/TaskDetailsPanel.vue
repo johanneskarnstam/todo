@@ -243,12 +243,11 @@ const saveStepTitle = () => {
 </script>
 
 <template>
-  <div v-if="isExpanded" class="fixed inset-x-0 bottom-0 top-14 z-[55] hidden bg-slate-950/20 lg:block" aria-hidden="true" @click="isExpanded = false" />
   <aside
     class="fixed inset-x-0 bottom-0 top-14 z-50 flex flex-col bg-white shadow-2xl dark:bg-slate-900"
-    :class="isExpanded ? 'lg:fixed lg:inset-x-8 lg:bottom-8 lg:top-20 lg:z-[60] lg:h-auto lg:min-h-0 lg:w-auto lg:shrink-0 lg:rounded-xl lg:border lg:border-slate-200 lg:shadow-2xl dark:lg:border-slate-700' : 'lg:static lg:z-auto lg:h-full lg:min-h-0 lg:w-80 lg:shrink-0 lg:rounded-l-xl lg:border-l lg:border-slate-200 lg:shadow-none dark:lg:border-slate-700'"
+    :class="isExpanded ? 'lg:static lg:z-auto lg:h-full lg:min-h-0 lg:w-[50vw] lg:shrink-0 lg:rounded-l-xl lg:border-l lg:border-slate-200 lg:shadow-none 2xl:w-[33vw] dark:lg:border-slate-700' : 'lg:static lg:z-auto lg:h-full lg:min-h-0 lg:w-80 lg:shrink-0 lg:rounded-l-xl lg:border-l lg:border-slate-200 lg:shadow-none dark:lg:border-slate-700'"
     role="dialog"
-    aria-modal="true"
+    :aria-modal="isExpanded ? 'false' : 'true'"
     aria-labelledby="task-details-heading"
     @click="reminderMenuOpen = false"
     @keydown.esc="isExpanded = false"

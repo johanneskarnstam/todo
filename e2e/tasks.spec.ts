@@ -121,8 +121,30 @@ test('expands task details on desktop and keeps the control out of mobile', asyn
   await expandButton.click()
   await expect(details.getByRole('button', { name: 'Minimera uppgiftsdetaljer' })).toHaveAttribute('aria-pressed', 'true')
 
-  const expandedWidth = await details.evaluate((element) => element.getBoundingClientRect().width)
-  expect(expandedWidth).toBeGreaterThan(1000)
+  const laptopBounds = await details.evaluate((element) => {
+    const { left, right, width } = element.getBoundingClientRect()
+    return { left, right, width }
+  })
+  expect(laptopBounds.width).toBeGreaterThan(600)
+  expect(laptopBounds.width).toBeLessThan(700)
+  expect(Math.abs(laptopBounds.right - 1280)).toBeLessThan(2)
+  expect(await page.getByRole('dialog', { name: 'Uppgiftsdetaljer' }).getAttribute('aria-modal')).toBe('false')
+
+  const mainBounds = await page.getByRole('main').evaluate((element) => {
+    const { left, right, width } = element.getBoundingClientRect()
+    return { left, right, width }
+  })
+  expect(mainBounds.width).toBeGreaterThan(250)
+  expect(Math.abs(mainBounds.right - laptopBounds.left)).toBeLessThan(2)
+
+  await page.setViewportSize({ width: 1920, height: 1080 })
+  const largeScreenBounds = await details.evaluate((element) => {
+    const { right, width } = element.getBoundingClientRect()
+    return { right, width }
+  })
+  expect(largeScreenBounds.width).toBeGreaterThan(600)
+  expect(largeScreenBounds.width).toBeLessThan(670)
+  expect(Math.abs(largeScreenBounds.right - 1920)).toBeLessThan(2)
 
   await details.getByRole('button', { name: 'Minimera uppgiftsdetaljer' }).click()
   await expect(details.getByRole('button', { name: 'Expandera uppgiftsdetaljer' })).toHaveAttribute('aria-pressed', 'false')
