@@ -377,7 +377,7 @@ test('sets an urgent priority and finds the task in Viktigt', async ({ page }) =
   await expect(task).toBeVisible()
 })
 
-test('filters the active list by priority', async ({ page }) => {
+test('filters and sorts the active list from the toolbar menu', async ({ page }) => {
   await page.goto('/#/lists/__default__')
   await dismissReleaseNotes(page)
 
@@ -386,10 +386,26 @@ test('filters the active list by priority', async ({ page }) => {
   await expect(importantTask).toBeVisible()
   await expect(normalTask).toBeVisible()
 
+  await page.getByRole('button', { name: 'Filtrera och sortera uppgifter' }).click()
   await page.getByLabel('Filtrera uppgifter efter prioritet').selectOption('high')
 
   await expect(importantTask).toBeVisible()
   await expect(normalTask).toHaveCount(0)
+
+  await page.getByLabel('Sortera uppgifter efter').selectOption('priority')
+  await expect(page.getByRole('note')).toContainText('Sorterad efter Prioritet')
+})
+
+test('persists sort preference for smart views', async ({ page }) => {
+  await page.goto('/#/important')
+  await dismissReleaseNotes(page)
+
+  await page.getByRole('button', { name: 'Filtrera och sortera uppgifter' }).click()
+  await page.getByLabel('Sortera uppgifter efter').selectOption('dueDate')
+
+  await page.reload()
+  await page.getByRole('button', { name: 'Filtrera och sortera uppgifter' }).click()
+  await expect(page.getByLabel('Sortera uppgifter efter')).toHaveValue('dueDate')
 })
 
 test('sets a task priority from the details panel', async ({ page }) => {
