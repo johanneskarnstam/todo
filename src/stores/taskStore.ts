@@ -471,7 +471,9 @@ export const useTaskStore = defineStore('tasks', () => {
       title,
       completed: input.completed ?? false,
       createdAt: Timestamp.now(),
-      order: allSteps.value.filter((step) => step.taskId === input.taskId).length,
+      order: allSteps.value
+        .filter((step) => step.taskId === input.taskId)
+        .reduce((min, step) => Math.min(min, step.order ?? 0), 0) - 1,
     }
 
     allSteps.value = [...allSteps.value, optimisticStep]
