@@ -437,6 +437,45 @@ describe('TaskDetailsPanel', () => {
     expect(sections[6]?.classes()).toContain('bg-white')
   })
 
+  it('keeps the step preparation and import section collapsed by default', () => {
+    const wrapper = mount(TaskDetailsPanel, { props: { task, steps } })
+
+    expect(wrapper.get('#step-tools-toggle').attributes('aria-expanded')).toBe('false')
+    expect(wrapper.find('#step-tools-panel').exists()).toBe(false)
+  })
+
+  it('copies only title, note, and expected response format in task context', async () => {
+    const wrapper = mount(TaskDetailsPanel, { props: { task: { ...task, note: 'Keep this note' }, steps } })
+    await wrapper.get('#step-tools-toggle').trigger('click')
+
+    const contextValue = (wrapper.get('[aria-label="Uppgiftskontext"]').element as HTMLTextAreaElement).value
+    const [instructions, contextJson] = contextValue.split('\n\n')
+    expect(instructions).toBe([
+      'Skapa konkreta delsteg för uppgiften nedan. Använd anteckningen som stöd och formulera varje steg som en tydlig åtgärd. Låt mig kunna kopiera ut resultaten direkt. Skriv endast JSON, inga förklaringar eller kommentarer.',
+      'Förväntat svarsformat är JSON. Returnera endast giltig JSON enligt noden expectedResponseFormat. Inget annat får returneras.',
+    ].join('\n'))
+    const context = JSON.parse(contextJson ?? '') as Record<string, unknown>
+    expect(context).toEqual({
+      title: task.title,
+      note: 'Keep this note',
+      expectedResponseFormat: { steps: ['Delsteg 1', 'Delsteg 2'] },
+    })
+  })
+
+  it('imports JSON subtasks for the current task in the requested order', async () => {
+    const wrapper = mount(TaskDetailsPanel, { props: { task, steps } })
+    await wrapper.get('#step-tools-toggle').trigger('click')
+    await wrapper.get('[aria-label="JSON för delsteg"]').setValue(JSON.stringify({
+      steps: ['First step', 'Second step'],
+    }))
+    const importButton = wrapper.get('#step-tools-panel').findAll('button').find((button) => button.text().includes('Importera delsteg'))
+    expect(importButton).toBeTruthy()
+    await importButton?.trigger('click')
+
+    expect(wrapper.emitted('add-step')).toEqual([['Second step'], ['First step']])
+    expect(wrapper.get('#step-tools-panel').get('[role="status"]').text()).toContain('2 delsteg importerade.')
+  })
+
   it('emits the selected priority from task details', async () => {
     const wrapper = mount(TaskDetailsPanel, { props: { task, steps } })
 

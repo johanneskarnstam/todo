@@ -110,6 +110,112 @@ test('opens task details from a task row', async ({ page }) => {
   await expect(page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' }).getByRole('img', { name: 'Anteckning finns' })).toBeVisible()
 })
 
+test('expands task details on desktop and keeps the control out of mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await page.goto('/#/tasks/local-task-3')
+  await dismissReleaseNotes(page)
+
+  const details = page.getByRole('dialog', { name: 'Uppgiftsdetaljer' })
+  const expandButton = details.getByRole('button', { name: 'Expandera uppgiftsdetaljer' })
+  await expect(expandButton).toBeVisible()
+  await expandButton.click()
+  await expect(details.getByRole('button', { name: 'Minimera uppgiftsdetaljer' })).toHaveAttribute('aria-pressed', 'true')
+  const sidebar = page.getByRole('complementary', { name: 'Uppgiftsnavigering' })
+  await expect(sidebar.getByRole('button', { name: 'Expandera navigeringsmeny' })).toBeVisible()
+
+  const laptopBounds = await details.evaluate((element) => {
+    const { left, right, width } = element.getBoundingClientRect()
+    return { left, right, width }
+  })
+  expect(laptopBounds.width).toBeGreaterThan(600)
+  expect(laptopBounds.width).toBeLessThan(700)
+  expect(Math.abs(laptopBounds.right - 1280)).toBeLessThan(2)
+  expect(await page.getByRole('dialog', { name: 'Uppgiftsdetaljer' }).getAttribute('aria-modal')).toBe('false')
+
+  const mainBounds = await page.getByRole('main').evaluate((element) => {
+    const { left, right, width } = element.getBoundingClientRect()
+    return { left, right, width }
+  })
+  expect(mainBounds.width).toBeGreaterThan(250)
+  expect(Math.abs(mainBounds.right - laptopBounds.left)).toBeLessThan(2)
+
+  await sidebar.getByRole('button', { name: 'Expandera navigeringsmeny' }).click()
+  await expect(sidebar.getByRole('button', { name: 'Fäll ihop navigeringsmeny' })).toBeVisible()
+  await expect(details.getByRole('button', { name: 'Expandera uppgiftsdetaljer' })).toHaveAttribute('aria-pressed', 'false')
+  const collapsedPanelWidth = await details.evaluate((element) => element.getBoundingClientRect().width)
+  expect(collapsedPanelWidth).toBeLessThan(400)
+
+  await details.getByRole('button', { name: 'Expandera uppgiftsdetaljer' }).click()
+  await expect(sidebar.getByRole('button', { name: 'Expandera navigeringsmeny' })).toBeVisible()
+  await page.setViewportSize({ width: 1920, height: 1080 })
+  await sidebar.getByRole('button', { name: 'Expandera navigeringsmeny' }).click()
+  await expect(sidebar.getByRole('button', { name: 'Fäll ihop navigeringsmeny' })).toBeVisible()
+  await expect(details.getByRole('button', { name: 'Minimera uppgiftsdetaljer' })).toHaveAttribute('aria-pressed', 'true')
+  const largeScreenBounds = await details.evaluate((element) => {
+    const { right, width } = element.getBoundingClientRect()
+    return { right, width }
+  })
+  expect(largeScreenBounds.width).toBeGreaterThan(600)
+  expect(largeScreenBounds.width).toBeLessThan(670)
+  expect(Math.abs(largeScreenBounds.right - 1920)).toBeLessThan(2)
+
+  await details.getByRole('button', { name: 'Minimera uppgiftsdetaljer' }).click()
+  await expect(details.getByRole('button', { name: 'Expandera uppgiftsdetaljer' })).toHaveAttribute('aria-pressed', 'false')
+  await expect(sidebar.getByRole('button', { name: 'Fäll ihop navigeringsmeny' })).toBeVisible()
+  await sidebar.getByRole('button', { name: 'Fäll ihop navigeringsmeny' }).click()
+  const panelWidth = await details.evaluate((element) => element.getBoundingClientRect().width)
+  expect(panelWidth).toBeLessThan(400)
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect(details.getByRole('button', { name: 'Expandera uppgiftsdetaljer' })).toBeHidden()
+  const mobileWidth = await details.evaluate((element) => element.getBoundingClientRect().width)
+  expect(mobileWidth).toBe(390)
+})
+
+test('prepares and imports subtasks from the task details panel', async ({ page }) => {
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
+  await page.goto('/#/tasks/local-task-3')
+  await dismissReleaseNotes(page)
+
+  const details = page.getByRole('dialog', { name: 'Uppgiftsdetaljer' })
+  await details.getByRole('textbox', { name: 'Anteckningar' }).fill('Testa bygget innan publicering.')
+  const stepToolsToggle = details.getByRole('button', { name: 'Förbered och importera delsteg' })
+  await expect(stepToolsToggle).toHaveAttribute('aria-expanded', 'false')
+  await expect(details.getByRole('textbox', { name: 'Uppgiftskontext' })).toHaveCount(0)
+  await stepToolsToggle.click()
+
+  const expectedContext = {
+    title: 'Förbered nästa release',
+    note: 'Testa bygget innan publicering.',
+    expectedResponseFormat: { steps: ['Delsteg 1', 'Delsteg 2'] },
+  }
+  const expectedInstructions = [
+    'Skapa konkreta delsteg för uppgiften nedan. Använd anteckningen som stöd och formulera varje steg som en tydlig åtgärd. Låt mig kunna kopiera ut resultaten direkt. Skriv endast JSON, inga förklaringar eller kommentarer.',
+    'Förväntat svarsformat är JSON. Returnera endast giltig JSON enligt noden expectedResponseFormat. Inget annat får returneras.',
+  ].join('\n')
+  const expectedCopiedContext = `${expectedInstructions}\n\n${JSON.stringify(expectedContext, null, 2)}`
+  const contextInput = details.getByRole('textbox', { name: 'Uppgiftskontext' })
+  await expect(contextInput).toHaveValue(expectedCopiedContext)
+  await details.getByRole('button', { name: 'Kopiera kontext' }).click()
+  await expect(details.getByRole('status')).toContainText('Uppgiftskontext kopierad.')
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(expectedCopiedContext)
+
+  const jsonInput = details.getByRole('textbox', { name: 'JSON för delsteg' })
+  await jsonInput.fill(JSON.stringify({
+    steps: ['Samla ändringar', 'Skriv versionsanteckningar'],
+  }))
+  await details.getByRole('button', { name: 'Importera delsteg', exact: true }).click()
+  await expect(details.getByRole('status')).toContainText('2 delsteg importerade.')
+  const importedSteps = details.locator('[data-step-id]')
+  await expect(importedSteps).toHaveCount(2)
+  await expect(importedSteps.nth(0).getByRole('button', { name: 'Redigera delsteg: Samla ändringar' })).toBeVisible()
+  await expect(importedSteps.nth(1).getByRole('button', { name: 'Redigera delsteg: Skriv versionsanteckningar' })).toBeVisible()
+
+  await jsonInput.fill('{')
+  await details.getByRole('button', { name: 'Importera delsteg', exact: true }).click()
+  await expect(details.getByRole('alert')).toContainText('Fältet innehåller inte giltig JSON.')
+})
+
 test('opens a task directly from its URL and restores its details after reload', async ({ page }) => {
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
   await page.goto('/#/tasks/local-task-3')

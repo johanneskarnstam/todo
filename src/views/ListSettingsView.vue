@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
-import { ArrowLeft, Check, ChevronDown, Copy, Settings2 } from '@lucide/vue'
+import { computed, onMounted, ref } from 'vue'
+import { ArrowLeft, Check, ChevronDown, Settings2 } from '@lucide/vue'
 import { useRoute, useRouter } from 'vue-router'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import ListIcon from '@/components/ListIcon.vue'
@@ -10,7 +10,6 @@ import { useTheme } from '@/composables/useTheme'
 import { useListStore } from '@/stores/listStore'
 import { useTaskStore } from '@/stores/taskStore'
 import { getTaskStatus } from '@/utils/taskStatus'
-import { getTaskPriority } from '@/utils/taskPriority'
 import type { List, ListSortMode, ListViewMode, TaskStatusMode } from '@/types'
 
 const route = useRoute()
@@ -60,60 +59,6 @@ const viewOptions: Array<{ value: ListViewMode; label: string }> = [
 const listId = computed(() => typeof route.params.listId === 'string' ? route.params.listId : '')
 const currentList = computed(() => listStore.lists.find((list) => list.id === listId.value) ?? null)
 const inProgressTasks = computed(() => taskStore.tasks.filter((task) => task.listId === listId.value && getTaskStatus(task) === 'inProgress'))
-const tasksInCurrentList = computed(() => taskStore.tasks.filter((task) => task.listId === listId.value))
-const selectedContextTaskId = ref('')
-const stepImportExample = `[
-  {
-    "taskTitle": "Förbered nästa release",
-    "steps": ["Samla ändringar", "Skriv versionsanteckningar", "Publicera"]
-  }
-]`
-const stepImportJson = ref('')
-const stepImportError = ref('')
-const isImportingSteps = ref(false)
-const selectedContextTask = computed(() => tasksInCurrentList.value.find((task) => task.id === selectedContextTaskId.value) ?? null)
-const taskContextJson = computed(() => {
-  const task = selectedContextTask.value
-  if (!task) return ''
-
-  const dueDate = !task.dueDate
-    ? null
-    : typeof task.dueDate === 'string'
-      ? task.dueDate
-      : task.dueDate.toDate().toISOString()
-
-  return JSON.stringify({
-    list: currentList.value?.name ?? '',
-    task: {
-      title: task.title,
-      note: task.note ?? '',
-      tags: task.tags ?? [],
-      status: getTaskStatus(task),
-      completed: task.completed,
-      important: task.important,
-      priority: getTaskPriority(task),
-      myDay: task.myDay,
-      dueDate,
-      dueTimeZone: task.dueTimeZone ?? null,
-      reminder: task.reminder ?? null,
-      archived: task.archived ?? false,
-      existingSteps: taskStore.allSteps
-        .filter((step) => step.taskId === task.id)
-        .map((step) => ({ title: step.title, completed: step.completed })),
-    },
-    expectedResponseFormat: [{ taskTitle: task.title, steps: ['Delsteg 1', 'Delsteg 2'] }],
-  }, null, 2)
-})
-
-watch(tasksInCurrentList, (tasks) => {
-  if (!tasks.some((task) => task.id === selectedContextTaskId.value)) {
-    selectedContextTaskId.value = tasks[0]?.id ?? ''
-  }
-}, { immediate: true })
-
-const isJsonObject = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
-
 const initialize = async () => {
   await Promise.all([
     listStore.fetchLists(),
@@ -246,118 +191,6 @@ const confirmTaskStatusMode = async () => {
   const nextMode = pendingTaskStatusMode.value
   pendingTaskStatusMode.value = null
   if (nextMode) await applyTaskStatusMode(nextMode)
-}
-
-const loadStepImportFile = async (event: Event) => {
-  const input = event.currentTarget as HTMLInputElement
-  const file = input.files?.[0]
-  input.value = ''
-  if (!file) return
-
-  stepImportError.value = ''
-  if (file.size > 1_000_000) {
-    stepImportError.value = 'Filen får vara högst 1 MB.'
-    return
-  }
-
-  try {
-    stepImportJson.value = await file.text()
-  } catch {
-    stepImportError.value = 'Filen kunde inte läsas.'
-  }
-}
-
-const importSteps = async () => {
-  statusMessage.value = ''
-  stepImportError.value = ''
-  if (new TextEncoder().encode(stepImportJson.value).length > 1_000_000) {
-    stepImportError.value = 'JSON-texten får vara högst 1 MB.'
-    return
-  }
-
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(stepImportJson.value)
-  } catch {
-    stepImportError.value = 'Fältet innehåller inte giltig JSON.'
-    return
-  }
-
-  if (!Array.isArray(parsed) || parsed.length === 0) {
-    stepImportError.value = 'JSON måste vara en lista med uppgifter och delsteg.'
-    return
-  }
-
-  const tasksInList = taskStore.tasks.filter((task) => task.listId === listId.value)
-  const importedGroups: Array<{ taskId: string; taskTitle: string; steps: string[] }> = []
-  const importedTaskIds = new Set<string>()
-  let totalSteps = 0
-
-  for (const [index, row] of parsed.entries()) {
-    if (!isJsonObject(row) || typeof row.taskTitle !== 'string' || !Array.isArray(row.steps)) {
-      stepImportError.value = `Post ${index + 1} måste innehålla taskTitle och en lista med steps.`
-      return
-    }
-
-    const taskTitle = row.taskTitle.trim()
-    const stepTitles = row.steps.map((title) => typeof title === 'string' ? title.trim() : '')
-    if (!taskTitle || stepTitles.length === 0 || stepTitles.some((title) => !title)) {
-      stepImportError.value = `Post ${index + 1} måste ha en uppgiftstitel och minst ett delsteg med text.`
-      return
-    }
-
-    const matchingTasks = tasksInList.filter((task) => task.title === taskTitle)
-    if (matchingTasks.length !== 1) {
-      stepImportError.value = matchingTasks.length === 0
-        ? `Uppgiften "${taskTitle}" finns inte i den här listan.`
-        : `Flera uppgifter heter "${taskTitle}". Byt namn på en av dem före importen.`
-      return
-    }
-
-    const task = matchingTasks[0]
-    if (!task || importedTaskIds.has(task.id)) {
-      stepImportError.value = `Uppgiften "${taskTitle}" förekommer flera gånger i JSON-filen.`
-      return
-    }
-    importedTaskIds.add(task.id)
-    totalSteps += stepTitles.length
-    if (totalSteps > 500) {
-      stepImportError.value = 'Du kan importera högst 500 delsteg åt gången.'
-      return
-    }
-    importedGroups.push({ taskId: task.id, taskTitle, steps: stepTitles })
-  }
-
-  isImportingSteps.value = true
-  try {
-    let importedCount = 0
-    for (const group of importedGroups) {
-      for (const title of [...group.steps].reverse()) {
-        const createdStep = await taskStore.createStep({ taskId: group.taskId, title })
-        if (createdStep) importedCount += 1
-      }
-    }
-
-    if (importedCount === totalSteps) {
-      statusMessage.value = `${importedCount} delsteg importerade till ${importedGroups.length} ${importedGroups.length === 1 ? 'uppgift' : 'uppgifter'}.`
-      stepImportJson.value = ''
-    } else {
-      stepImportError.value = `${totalSteps - importedCount} delsteg kunde inte sparas.`
-    }
-  } finally {
-    isImportingSteps.value = false
-  }
-}
-
-const copyTaskContext = async () => {
-  if (!taskContextJson.value) return
-
-  try {
-    await navigator.clipboard.writeText(taskContextJson.value)
-    statusMessage.value = 'Uppgiftskontext kopierad.'
-  } catch {
-    statusMessage.value = 'Uppgiftskontexten kunde inte kopieras.'
-  }
 }
 
 onMounted(() => void initialize())
@@ -590,37 +423,6 @@ onMounted(() => void initialize())
           </div>
         </section>
 
-        <section class="mt-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-5" aria-labelledby="step-context-heading">
-          <h2 id="step-context-heading" class="text-base font-semibold">Förbered delsteg med extern AI</h2>
-          <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Kopiera uppgiftens kontext och använd den i en extern AI. Kontrollera innehållet innan du delar det.</p>
-          <label class="mt-4 block text-sm font-medium" for="step-context-task">Uppgift</label>
-          <select id="step-context-task" v-model="selectedContextTaskId" class="mt-1 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-800">
-            <option v-for="task in tasksInCurrentList" :key="task.id" :value="task.id">{{ task.title }}</option>
-          </select>
-          <label class="mt-3 block text-sm font-medium" for="step-context-json">Uppgiftskontext</label>
-          <textarea id="step-context-json" class="mt-1 min-h-48 w-full resize-y rounded-md border border-slate-300 bg-slate-50 p-3 font-mono text-xs outline-none dark:border-slate-600 dark:bg-slate-800" :value="taskContextJson" readonly />
-          <button class="mt-3 inline-flex min-h-10 items-center gap-2 rounded-md border border-slate-300 px-4 text-sm font-medium hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:hover:bg-slate-800" type="button" :disabled="!taskContextJson" @click="copyTaskContext">
-            <Copy :size="16" aria-hidden="true" />Kopiera kontext
-          </button>
-          <p v-if="!tasksInCurrentList.length" class="mt-2 text-sm text-slate-500 dark:text-slate-400">Listan har inga uppgifter att dela kontext från.</p>
-
-          <div class="mt-5 border-t border-slate-200 pt-4 dark:border-slate-700">
-          <h3 class="text-base font-semibold">Importera delsteg</h3>
-          <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Klistra in AI:ns JSON-svar eller välj en JSON-fil. Uppgiftstiteln måste stämma exakt med en uppgift i listan.</p>
-          <label class="mt-4 block text-sm font-medium" for="step-import-json">JSON</label>
-          <textarea id="step-import-json" v-model="stepImportJson" class="mt-1 min-h-36 w-full resize-y rounded-md border border-slate-300 bg-white p-3 font-mono text-xs outline-none focus:border-[#2564cf] dark:border-slate-600 dark:bg-slate-800" placeholder='[{ "taskTitle": "Förbered nästa release", "steps": ["Samla ändringar"] }]' :disabled="isImportingSteps" />
-          <label class="mt-3 block text-sm font-medium" for="step-import-file">Eller välj en JSON-fil</label>
-          <input id="step-import-file" class="mt-1 block w-full text-sm text-slate-600 file:mr-3 file:min-h-9 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:text-sm file:font-medium dark:text-slate-300 dark:file:bg-slate-800" type="file" accept=".json,application/json" :disabled="isImportingSteps" @change="loadStepImportFile" />
-          <button class="mt-3 min-h-10 rounded-md bg-[#2564cf] px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50" type="button" :disabled="isImportingSteps || !stepImportJson.trim()" @click="importSteps">
-            {{ isImportingSteps ? 'Importerar...' : 'Importera delsteg' }}
-          </button>
-          <p v-if="stepImportError" class="mt-2 text-sm text-red-700 dark:text-red-300" role="alert">{{ stepImportError }}</p>
-          <div class="mt-4 border-t border-slate-200 pt-3 dark:border-slate-700">
-            <h3 class="text-sm font-medium">Exempel på JSON-format</h3>
-            <pre class="mt-2 overflow-x-auto rounded-md bg-slate-50 p-3 text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-200">{{ stepImportExample }}</pre>
-          </div>
-          </div>
-        </section>
       </template>
 
       <section v-else-if="isInitialized" class="rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100" role="alert">

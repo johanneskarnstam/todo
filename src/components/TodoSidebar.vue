@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { Archive, CalendarDays, Check, ChevronDown, FolderOpen, FolderPlus, MoreVertical, Plus, Settings, Star, Sun, Tags, X } from '@lucide/vue'
+import { Archive, CalendarDays, Check, ChevronDown, FolderOpen, FolderPlus, MoreVertical, PanelLeftClose, PanelLeftOpen, Plus, Settings, Star, Sun, Tags, X } from '@lucide/vue'
 import ListIcon from '@/components/ListIcon.vue'
 import type { Folder, List, SmartView } from '@/types'
 import { DEFAULT_LIST_ID } from '@/stores/listStore'
@@ -25,6 +25,7 @@ interface Props {
 
 interface Emits {
   (event: 'close'): void
+  (event: 'open'): void
   (event: 'select-list', listId: string): void
   (event: 'select-smart-view', view: SmartView): void
   (event: 'select-tag', tag: string): void
@@ -211,6 +212,18 @@ onUnmounted(() => window.removeEventListener('click', closeMoveMenuOnOutsideClic
 </script>
 
 <template>
+  <aside v-if="!open" class="hidden w-14 shrink-0 flex-col items-center border-r border-slate-200 bg-white py-3 dark:border-slate-700 dark:bg-slate-900 lg:flex" aria-label="Uppgiftsnavigering">
+    <button
+      class="grid size-9 place-items-center rounded-lg text-slate-500 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+      type="button"
+      aria-label="Expandera navigeringsmeny"
+      aria-controls="task-sidebar"
+      aria-expanded="false"
+      @click="emit('open')"
+    >
+      <PanelLeftOpen :size="19" aria-hidden="true" />
+    </button>
+  </aside>
   <Transition
     enter-active-class="transition-opacity duration-300 ease-out"
     enter-from-class="opacity-0"
@@ -238,6 +251,7 @@ onUnmounted(() => window.removeEventListener('click', closeMoveMenuOnOutsideClic
   >
     <aside
       v-show="open"
+      id="task-sidebar"
       class="fixed inset-y-0 left-0 z-[80] flex w-[340px] flex-col rounded-r-xl border-r border-slate-200 bg-white shadow-xl transition-[width] duration-300 ease-out dark:border-slate-700 dark:bg-slate-900 lg:static lg:z-auto lg:rounded-r-2xl lg:shadow-none"
       :class="open ? 'lg:w-[340px]' : 'lg:w-0 lg:overflow-hidden lg:border-transparent lg:px-0'"
       aria-label="Uppgiftsnavigering"
@@ -255,6 +269,19 @@ onUnmounted(() => window.removeEventListener('click', closeMoveMenuOnOutsideClic
           @click="emit('close')"
         >
           <X :size="20" :stroke-width="1.8" aria-hidden="true" />
+        </button>
+      </div>
+
+      <div class="mb-2 hidden h-9 items-center justify-end px-1 lg:flex">
+        <button
+          class="grid size-9 place-items-center rounded-lg text-slate-500 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+          type="button"
+          aria-label="Fäll ihop navigeringsmeny"
+          aria-controls="task-sidebar"
+          aria-expanded="true"
+          @click="emit('close')"
+        >
+          <PanelLeftClose :size="19" aria-hidden="true" />
         </button>
       </div>
 
