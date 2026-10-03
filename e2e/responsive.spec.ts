@@ -17,6 +17,10 @@ test('opens and closes the sidebar on mobile', async ({ page }) => {
   await sidebar.getByRole('button', { name: 'Stäng navigeringsmeny' }).click()
   await expect(sidebar).toBeHidden()
   await expect(page.locator('[data-sidebar-overlay]')).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Öppna navigeringsmeny' }).click()
+  await sidebar.getByRole('button', { name: /^Projekt/ }).click()
+  await expect(sidebar).toBeHidden()
 })
 
 test('opens and closes task details as a mobile panel', async ({ page }) => {
@@ -48,6 +52,19 @@ test.describe('tablet layout', () => {
 
 test.describe('desktop layout', () => {
   test.use({ viewport: { width: 1440, height: 900 } })
+
+  test('keeps the sidebar open after selecting a list', async ({ page }) => {
+    await page.goto('/')
+    const releaseCloseButton = page.getByRole('button', { name: 'Jag har sett detta' })
+    if (await releaseCloseButton.count()) await releaseCloseButton.click()
+
+    const sidebar = page.getByRole('complementary', { name: 'Uppgiftsnavigering' })
+    await sidebar.getByRole('button', { name: /^Projekt/ }).click()
+
+    await expect(page).toHaveURL(/\/lists\/local-projects$/)
+    await expect(sidebar).toBeVisible()
+    await expect(sidebar.getByRole('button', { name: 'Fäll ihop navigeringsmeny' })).toBeVisible()
+  })
 
   test('shows the sidebar and supports dark mode without overflow', async ({ page }) => {
     await page.goto('/')
