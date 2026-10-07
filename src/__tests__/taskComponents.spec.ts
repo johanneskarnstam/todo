@@ -247,31 +247,33 @@ describe('TaskRow', () => {
   })
 
   it('shows tags and task metadata below the title while keeping row actions separate', () => {
+    // Use today as dueDate so reminderDateText returns time-only (same-day display)
+    const today = new Date()
+    today.setHours(9, 0, 0, 0)
+    const todayStr = today.toISOString().slice(0, 10)
+    const reminderDate = new Date(today.getTime() - 10 * 60_000)
+    const reminderTime = reminderDate.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })
+
     const wrapper = mount(TaskRow, {
       props: {
         task: {
           ...task,
           important: true,
           myDay: true,
-          reminder: { offsetMinutes: 10 },
-          dueDate: '2026-09-24',
+          reminders: [{ mode: 'relative' as const, offsetMinutes: 10 }],
+          dueDate: `${todayStr}T09:00`,
           tags: ['jobb'],
           note: 'Use the blue paint.',
         },
       },
     })
     const metadata = wrapper.find('[aria-label="Taggar och uppgiftsmarkeringar"]')
-    const reminderTime = new Date('2026-09-24T08:50:00').toLocaleTimeString('sv-SE', {
-      hour: '2-digit',
-      minute: '2-digit',
-    })
 
     expect(metadata.exists()).toBe(true)
     expect(metadata.find('button[aria-label="Visa uppgifter med taggen #jobb"]').exists()).toBe(true)
     expect(metadata.text()).toContain('Stjärnmärkt')
     expect(metadata.text()).toContain('Min dag')
     expect(metadata.find('[aria-label="Anteckning finns"]').exists()).toBe(true)
-    expect(metadata.text()).toContain('24 sep. 2026')
     expect(metadata.text()).toContain(`Påminnelse ${reminderTime}`)
     expect(wrapper.find('[aria-label^="Påminnelse:"]').findAll('span')[0]?.text()).toBe(reminderTime)
     expect(wrapper.find('[aria-label="Stjärnmärkt"] svg').attributes('fill')).toBe('none')
@@ -292,7 +294,7 @@ describe('TaskRow', () => {
       props: {
         task: {
           ...task,
-          reminder: { offsetMinutes: 1440 },
+          reminders: [{ mode: 'relative' as const, offsetMinutes: 1440 }],
           dueDate: '2026-09-24',
         },
       },
@@ -603,18 +605,25 @@ describe('TaskDetailsPanel', () => {
     expect(wrapper.emitted('save-tags')).toEqual([[['home', 'lägenhet']]])
   })
 
-  it('emits a due time and reminder offset', async () => {
+  it('adds a reminder via ReminderEditor and emits save-reminders', async () => {
     const wrapper = mount(TaskDetailsPanel, {
       props: { task: { ...task, dueDate: '2026-10-01' }, steps },
     })
 
-    await wrapper.get('input[aria-label="Uppgiftens förfallotid"]').setValue('14:30')
-    await wrapper.get('button[aria-label="Påminnelse"]').trigger('click')
-    const oneHourOption = wrapper.findAll('[role="option"]').find((option) => option.text() === '1 timme före')
-    await oneHourOption?.trigger('click')
+    // Click "Lägg till påminnelse"
+    const addBtn = wrapper.findAll('button').find((btn) => btn.text().includes('Lägg till påminnelse'))
+    expect(addBtn).toBeDefined()
+    await addBtn!.trigger('click')
 
-    expect(wrapper.emitted('set-due-date')).toEqual([['2026-10-01T14:30']])
-    expect(wrapper.emitted('save-reminder')).toEqual([[{ mode: 'relative', offsetMinutes: 60 }]])
+    // ReminderEditor should now be visible (relative mode since dueDate exists)
+    expect(wrapper.find('[data-testid="reminder-editor"]').exists()).toBe(true)
+
+    // Select offset 60 minutes
+    await wrapper.find('#relative-reminder-offset').setValue('60')
+    const saveBtn = wrapper.findAll('button').find((btn) => btn.text().includes('Spara påminnelse'))
+    await saveBtn!.trigger('click')
+
+    expect(wrapper.emitted('save-reminders')).toEqual([[[{ mode: 'relative', offsetMinutes: 60 }]]])
   })
 
   it('emits a selected due date from the native date input', async () => {
