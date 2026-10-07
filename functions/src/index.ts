@@ -14,6 +14,7 @@ import {getApps, initializeApp} from "firebase-admin/app";
 import {getFirestore} from "firebase-admin/firestore";
 import {
   getReminderAt,
+  getTaskReminders,
   isReminderEligible,
   type ReminderTaskSnapshot,
 } from "./reminderJobs.js";
@@ -46,52 +47,70 @@ export const syncReminderJob = onDocumentWritten(
     const after = event.data?.after;
     const userId = event.params.userId;
     const taskId = event.params.taskId;
-    const jobReference = db.doc(`users/${userId}/reminderJobs/${taskId}`);
 
     if (!after?.exists) {
       const taskReference = db.doc(`users/${userId}/tasks/${taskId}`);
       if (!(await taskReference.get()).exists) {
-        await cancelReminderJob(jobReference);
+        for (let i = 0; i < 5; i++) {
+          const docId = i === 0 ? taskId : `${taskId}_${i}`;
+          await cancelReminderJob(
+            db.doc(`users/${userId}/reminderJobs/${docId}`),
+          );
+        }
         await db.recursiveDelete(taskReference);
       }
       return;
     }
 
     const task = after.data() as ReminderTaskSnapshot;
-    const reminderAt = getReminderAt(task);
-    if (!isReminderEligible(task) || !reminderAt) {
-      await cancelReminderJob(jobReference);
-      return;
-    }
-
-    const now = new Date().toISOString();
+    const reminders = getTaskReminders(task);
     const revision = after.updateTime?.toMillis().toString() ?? event.id;
-    const synchronized = await db.runTransaction(async (transaction) => {
-      const currentJob = await transaction.get(jobReference);
-      const currentRevision = currentJob.get("revision");
-      if (isOlderRevision(revision, currentRevision)) {
-        return false;
+    const now = new Date().toISOString();
+
+    for (let i = 0; i < 5; i++) {
+      const docId = i === 0 ? taskId : `${taskId}_${i}`;
+      const jobReference = db.doc(`users/${userId}/reminderJobs/${docId}`);
+
+      if (i >= reminders.length || !isReminderEligible(task, i)) {
+        await cancelReminderJob(jobReference, revision);
+        continue;
       }
 
-      transaction.set(jobReference, {
-        id: jobReference.id,
-        userId,
-        taskId,
-        revision,
-        reminderAt,
-        status: "pending",
-        attempts: 0,
-        createdAt: currentJob.get("createdAt") ?? now,
-        updatedAt: now,
-      });
-      return true;
-    });
+      const reminderAt = getReminderAt(task, i);
+      if (!reminderAt) {
+        await cancelReminderJob(jobReference, revision);
+        continue;
+      }
 
-    if (synchronized) {
-      logger.info("Reminder job synchronized", {
-        jobId: jobReference.id,
-        status: "pending",
+      const synchronized = await db.runTransaction(async (transaction) => {
+        const currentJob = await transaction.get(jobReference);
+        const currentRevision = currentJob.get("revision");
+        if (isOlderRevision(revision, currentRevision)) {
+          return false;
+        }
+
+        transaction.set(jobReference, {
+          id: jobReference.id,
+          userId,
+          taskId,
+          reminderIndex: i,
+          revision,
+          reminderAt,
+          status: "pending",
+          attempts: 0,
+          createdAt: currentJob.get("createdAt") ?? now,
+          updatedAt: now,
+        });
+        return true;
       });
+
+      if (synchronized) {
+        logger.info("Reminder job synchronized", {
+          jobId: jobReference.id,
+          status: "pending",
+          reminderIndex: i,
+        });
+      }
     }
   },
 );

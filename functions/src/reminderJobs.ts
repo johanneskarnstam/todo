@@ -77,30 +77,86 @@ export function isReminderTooOld(reminderAt: string, now: number): boolean {
  * @param {string} userId Firebase user ID.
  * @param {string} taskId Firestore task ID.
  * @param {string} revision Task revision identifier.
+ * @param {number} [reminderIndex] Optional reminder index.
  * @return {string} Stable reminder job document ID.
  */
 export function getReminderJobId(
   userId: string,
   taskId: string,
   revision: string,
+  reminderIndex?: number,
 ): string {
-  return [userId, taskId, revision].map(encodeURIComponent).join("_");
+  const parts = reminderIndex !== undefined && reminderIndex > 0 ?
+    [userId, taskId, String(reminderIndex), revision] :
+    [userId, taskId, revision];
+  return parts.map(encodeURIComponent).join("_");
+}
+
+/**
+ * Normalizes reminders from task snapshot data.
+ * @param {ReminderTaskSnapshot} task Task data.
+ * @return {TaskReminder[]} Array of valid reminders.
+ */
+export function getTaskReminders(
+  task: ReminderTaskSnapshot,
+): TaskReminder[] {
+  if (Array.isArray(task.reminders)) {
+    return task.reminders.filter((r): r is TaskReminder => {
+      if (!r || typeof r !== "object") return false;
+      if (r.mode === "absolute") {
+        return typeof r.at === "string" && r.at.length > 0 &&
+          typeof r.timeZone === "string" && r.timeZone.length > 0;
+      }
+      if (r.mode === "relative") {
+        return typeof r.offsetMinutes === "number" &&
+          Number.isFinite(r.offsetMinutes);
+      }
+      return false;
+    });
+  }
+
+  if (task.reminder && typeof task.reminder === "object") {
+    const raw = task.reminder as {offsetMinutes?: unknown};
+    if (typeof raw.offsetMinutes === "number" &&
+      Number.isFinite(raw.offsetMinutes)) {
+      return [{mode: "relative", offsetMinutes: raw.offsetMinutes}];
+    }
+  }
+
+  return [];
 }
 
 /**
  * Returns whether a task contains the fields required for a reminder job.
  * @param {ReminderTaskSnapshot} task Current task data.
+ * @param {number} [reminderIndex] Reminder index to check.
  * @return {boolean} Whether the task can produce a reminder job.
  */
 export function isReminderEligible(
   task: ReminderTaskSnapshot,
+  reminderIndex = 0,
 ): boolean {
-  if (
-    !task.dueDate ||
-    !task.reminder ||
-    task.completed ||
-    task.status === "completed"
-  ) {
+  if (task.completed || task.status === "completed") {
+    return false;
+  }
+
+  const reminders = getTaskReminders(task);
+  if (reminderIndex < 0 || reminderIndex >= reminders.length) {
+    return false;
+  }
+
+  const reminder = reminders[reminderIndex];
+  if (reminder.mode === "absolute") {
+    try {
+      new Intl.DateTimeFormat("en-US", {timeZone: reminder.timeZone}).format();
+    } catch {
+      return false;
+    }
+    const atDate = getDueDate(reminder.at, reminder.timeZone);
+    return atDate !== null;
+  }
+
+  if (!task.dueDate) {
     return false;
   }
 
@@ -116,25 +172,39 @@ export function isReminderEligible(
     }
   }
 
-  return true;
+  return getDueDate(task.dueDate, task.dueTimeZone) !== null;
 }
 
 /**
  * Calculates the reminder instant as an ISO timestamp.
  * @param {ReminderTaskSnapshot} task Current task data.
+ * @param {number} [reminderIndex] Reminder index to calculate.
  * @return {string | null} Reminder instant, or null for invalid data.
  */
-export function getReminderAt(task: ReminderTaskSnapshot): string | null {
-  if (!isReminderEligible(task) || !task.reminder || !task.dueDate) {
+export function getReminderAt(
+  task: ReminderTaskSnapshot,
+  reminderIndex = 0,
+): string | null {
+  if (!isReminderEligible(task, reminderIndex)) {
     return null;
   }
 
+  const reminders = getTaskReminders(task);
+  const reminder = reminders[reminderIndex];
+  if (!reminder) return null;
+
+  if (reminder.mode === "absolute") {
+    const atDate = getDueDate(reminder.at, reminder.timeZone);
+    return atDate ? atDate.toISOString() : null;
+  }
+
+  if (!task.dueDate) return null;
   const dueDate = getDueDate(task.dueDate, task.dueTimeZone);
   if (!dueDate) {
     return null;
   }
 
-  dueDate.setUTCMinutes(dueDate.getUTCMinutes() - task.reminder.offsetMinutes);
+  dueDate.setUTCMinutes(dueDate.getUTCMinutes() - reminder.offsetMinutes);
   return dueDate.toISOString();
 }
 

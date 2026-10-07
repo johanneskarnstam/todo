@@ -115,32 +115,32 @@ Commita efter varje fas med commit-meddelande på svenska. Merga till `main` nä
 
 **Mål:** Functions skapar ett `reminderJob`-dokument per påminnelse, hanterar absoluta tidpunkter och kräver inte `dueDate`.
 
-- [ ] **`functions/src/reminderJobs.ts`**
-  - [ ] Uppdatera `isReminderEligible(task, reminderIndex)`:
+- [x] **`functions/src/reminderJobs.ts`**
+  - [x] Uppdatera `isReminderEligible(task, reminderIndex)`:
     - Absolut påminnelse: kräver inte `dueDate`, bara att `at` är i framtiden
     - Relativ påminnelse: kräver fortfarande `dueDate` + `dueTimeZone`
     - Avsluta tidigt om `task.completed` eller `status === 'completed'`
-  - [ ] Uppdatera `getReminderAt(task, reminderIndex)`: returnerar ISO-sträng för den specifika påminnelsen
-  - [ ] Uppdatera `getReminderJobId()` att inkludera `reminderIndex` i ID:t (`{userId}_{taskId}_{reminderIndex}`)
-  - [ ] Lägg till `getNextReminderIndex(task)`: returnerar index för nästa väntande påminnelse (valfritt hjälpfunktion)
-- [ ] **`functions/src/index.ts`** – `syncReminderJob`-triggern
-  - [ ] Iterera alla index i `task.reminders` (0 till max 4)
-  - [ ] Skapa/uppdatera jobb för varje eligible påminnelse med rätt jobb-ID
-  - [ ] Avbryt jobb vars index inte längre finns i arrayen
-  - [ ] Använd Firestore-batch för att skriva alla jobb atomärt
-- [ ] **`functions/src/delivery.ts`** – `processReminderJob`
-  - [ ] Läs `reminderIndex` från jobbet
-  - [ ] Validera mot `task.reminders[reminderIndex]` (inte `task.reminder`)
-  - [ ] Anropa `getReminderAt(task, reminderIndex)` vid jämförelse med `initialJob.reminderAt`
-- [ ] **`functions/test/reminderJobs.test.mjs`** – uppdatera/lägg till tester:
-  - [ ] `isReminderEligible` med absolut påminnelse utan `dueDate` → true
-  - [ ] `isReminderEligible` med relativ påminnelse utan `dueDate` → false
-  - [ ] `getReminderAt` med absolut påminnelse → returnerar `at`-värdet direkt
-  - [ ] `getReminderAt` med gammalt `reminder`-fält (bakåtkompatibilitet) → konverteras korrekt
-  - [ ] Bakåtkompatibilitet: task med `reminder: { offsetMinutes: 10 }` (utan `mode`) → hanteras
-- [ ] Kör `npm run type-check && npm run lint` i `/functions`
-- [ ] Kör `npm test` i `/functions` – alla tester gröna
-- [ ] Commita: `feat: uppdatera Cloud Functions för multipla och absoluta påminnelser`
+  - [x] Uppdatera `getReminderAt(task, reminderIndex)`: returnerar ISO-sträng för den specifika påminnelsen
+  - [x] Uppdatera `getReminderJobId()` att inkludera `reminderIndex` i ID:t (`{userId}_{taskId}_{reminderIndex}`)
+  - [x] Lägg till `getNextReminderIndex(task)`: returnerar index för nästa väntande påminnelse (valfritt hjälpfunktion)
+- [x] **`functions/src/index.ts`** – `syncReminderJob`-triggern
+  - [x] Iterera alla index i `task.reminders` (0 till max 4)
+  - [x] Skapa/uppdatera jobb för varje eligible påminnelse med rätt jobb-ID
+  - [x] Avbryt jobb vars index inte längre finns i arrayen
+  - [x] Använd Firestore-batch för att skriva alla jobb atomärt
+- [x] **`functions/src/delivery.ts`** – `processReminderJob`
+  - [x] Läs `reminderIndex` från jobbet
+  - [x] Validera mot `task.reminders[reminderIndex]` (inte `task.reminder`)
+  - [x] Anropa `getReminderAt(task, reminderIndex)` vid jämförelse med `initialJob.reminderAt`
+- [x] **`functions/test/reminderJobs.test.mjs`** – uppdatera/lägg till tester:
+  - [x] `isReminderEligible` med absolut påminnelse utan `dueDate` → true
+  - [x] `isReminderEligible` med relativ påminnelse utan `dueDate` → false
+  - [x] `getReminderAt` med absolut påminnelse → returnerar `at`-värdet direkt
+  - [x] `getReminderAt` med gammalt `reminder`-fält (bakåtkompatibilitet) → konverteras korrekt
+  - [x] Bakåtkompatibilitet: task med `reminder: { offsetMinutes: 10 }` (utan `mode`) → hanteras
+- [x] Kör `npm run type-check && npm run lint` i `/functions`
+- [x] Kör `npm test` i `/functions` – alla tester gröna
+- [x] Commita: `feat: uppdatera Cloud Functions för multipla och absoluta påminnelser`
 
 ---
 

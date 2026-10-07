@@ -101,3 +101,59 @@ test("rejects an invalid timezone", () => {
     false,
   );
 });
+
+test("accepts an active task with absolute reminder without due date", () => {
+  const task = {
+    userId: "user-1",
+    taskId: "task-abs",
+    title: "Absolute reminder",
+    reminders: [
+      {
+        mode: "absolute",
+        at: "2026-10-15T09:00",
+        timeZone: "Europe/Stockholm",
+      },
+    ],
+  };
+  assert.equal(isReminderEligible(task), true);
+  assert.equal(getReminderAt(task), "2026-10-15T07:00:00.000Z");
+});
+
+test("rejects relative reminder when due date is missing", () => {
+  const task = {
+    userId: "user-1",
+    taskId: "task-rel",
+    title: "Relative reminder without due date",
+    reminders: [{mode: "relative", offsetMinutes: 10}],
+  };
+  assert.equal(isReminderEligible(task), false);
+  assert.equal(getReminderAt(task), null);
+});
+
+test("supports multiple reminders by index", () => {
+  const task = {
+    userId: "user-1",
+    taskId: "task-multi",
+    title: "Multi reminder",
+    dueDate: "2026-10-01",
+    dueTimeZone: "Europe/Stockholm",
+    reminders: [
+      {mode: "relative", offsetMinutes: 60},
+      {mode: "absolute", at: "2026-09-30T12:00", timeZone: "Europe/Stockholm"},
+    ],
+  };
+  assert.equal(isReminderEligible(task, 0), true);
+  assert.equal(getReminderAt(task, 0), "2026-10-01T06:00:00.000Z");
+  assert.equal(isReminderEligible(task, 1), true);
+  assert.equal(getReminderAt(task, 1), "2026-09-30T10:00:00.000Z");
+  assert.equal(isReminderEligible(task, 2), false);
+  assert.equal(getReminderAt(task, 2), null);
+});
+
+test("creates distinct idempotency ID when reminderIndex > 0", () => {
+  assert.equal(
+    getReminderJobId("user/1", "task 1", "revision-2", 1),
+    "user%2F1_task%201_1_revision-2",
+  );
+});
+

@@ -84,9 +84,10 @@ async function processReminderJob(
     const task = taskSnapshot.data() as ReminderTaskSnapshot | undefined;
     const currentRevision = taskSnapshot.updateTime?.toMillis().toString();
 
+    const reminderIndex = initialJob.reminderIndex ?? 0;
     if (!task || currentRevision !== initialJob.revision ||
-    !isReminderEligible(task) ||
-    getReminderAt(task) !== initialJob.reminderAt) {
+      !isReminderEligible(task, reminderIndex) ||
+      getReminderAt(task, reminderIndex) !== initialJob.reminderAt) {
       await markJob(jobReference, "cancelled", "task_changed");
       return;
     }
