@@ -161,6 +161,7 @@ test.describe('Flexibla påminnelser', () => {
 
     const task = page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' })
     await expect(task.getByRole('img', { name: /Påminnelse/ })).toBeVisible()
-    await expect(task.getByText('+1', { exact: false })).toBeVisible()
+    // Scope to xl:hidden span (synlig under xl-breakpoint) för att undvika strict mode
+    await expect(task.locator('span.xl\\:hidden').filter({ hasText: '+1' })).toBeVisible()
   })
 })

@@ -62,7 +62,7 @@ test('opens task details from a task row', async ({ page }) => {
     details.getByRole('button', { name: /Min dag/ }).locator('span').first(),
     details.getByText('Förfallodatum', { exact: true }),
     details.getByText('Förfallotid', { exact: true }),
-    details.getByText('Påminnelse', { exact: true }),
+    details.getByText('Påminnelser', { exact: true }),
   ]
   const planningFontSizes = await Promise.all(planningLabels.map((label) => label.evaluate((element) => getComputedStyle(element).fontSize)))
   expect(new Set(planningFontSizes).size).toBe(1)
@@ -490,6 +490,8 @@ test('adds a tag and uses a quick due-date preset', async ({ page }) => {
   expect(timePickerTriggered).toBe(true)
   await dueTimeInput.fill('14:30')
   await details.getByRole('button', { name: 'Lägg till påminnelse' }).click()
+  const reminderEditor = details.locator('[data-testid="reminder-editor"]')
+  await expect(reminderEditor).toBeVisible()
   await details.getByLabel('Påminnelsedatum').fill('2026-12-01')
   await details.getByLabel('Påminnelsetid').fill('09:00')
   await details.getByRole('button', { name: 'Spara påminnelse' }).click()
