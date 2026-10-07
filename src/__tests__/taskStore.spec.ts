@@ -262,7 +262,7 @@ describe('useTaskStore', () => {
 
   it('persists optional task fields when creating a task', async () => {
     const store = useTaskStore()
-    const reminder = { offsetMinutes: 60 as const }
+    const reminder = { mode: 'relative' as const, offsetMinutes: 60 as const }
 
     await store.createTask({
       listId: 'list-1',
@@ -283,7 +283,7 @@ describe('useTaskStore', () => {
       note: 'Check the attached notes',
       dueDate: '2026-10-01',
       dueTimeZone: 'Europe/Stockholm',
-      reminder,
+      reminders: [reminder],
       tags: ['work-tag', 'review'],
       important: true,
       myDay: true,
@@ -296,7 +296,7 @@ describe('useTaskStore', () => {
         note: 'Check the attached notes',
         dueDate: '2026-10-01',
         dueTimeZone: 'Europe/Stockholm',
-        reminder,
+        reminders: [reminder],
         tags: ['work-tag', 'review'],
         important: true,
         myDay: true,
@@ -499,6 +499,56 @@ describe('useTaskStore', () => {
     expect(store.tasks).toHaveLength(0)
     expect(store.activeTaskId).toBe(null)
     expect(firestoreMocks.deleteDoc).toHaveBeenCalled()
+  })
+
+  it('updates task reminders and cleans up legacy reminder field', async () => {
+    const createdAt = Timestamp.now()
+    firestoreMocks.getDocs.mockResolvedValueOnce(
+      snapshot([
+        taskDocument('task-remind-1', {
+          listId: 'list-1',
+          title: 'Remind me',
+          completed: false,
+          important: false,
+          myDay: false,
+          dueDate: '2026-10-15',
+          reminder: { offsetMinutes: 60 },
+          createdAt,
+        }),
+      ]),
+    )
+    const store = useTaskStore()
+    await store.fetchTasks()
+
+    expect(store.tasks.find((t) => t.id === 'task-remind-1')?.reminders).toEqual([
+      { mode: 'relative', offsetMinutes: 60 },
+    ])
+
+    await store.updateTask('task-remind-1', {
+      reminders: [
+        { mode: 'relative', offsetMinutes: 10 },
+        { mode: 'absolute', at: '2026-10-14T10:00', timeZone: 'Europe/Stockholm' },
+      ],
+    })
+
+    const updated = store.tasks.find((t) => t.id === 'task-remind-1')
+    expect(updated?.reminders).toHaveLength(2)
+    expect(firestoreMocks.updateDoc).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        reminders: [
+          { mode: 'relative', offsetMinutes: 10 },
+          { mode: 'absolute', at: '2026-10-14T10:00', timeZone: 'Europe/Stockholm' },
+        ],
+      }),
+    )
+
+    // Clear due date: relative reminder should be removed, absolute retained
+    store.setDueDate('task-remind-1', '')
+    expect(updated?.dueDate).toBeUndefined()
+    expect(updated?.reminders).toEqual([
+      { mode: 'absolute', at: '2026-10-14T10:00', timeZone: 'Europe/Stockholm' },
+    ])
   })
 
   it('moves a task to the end of another list', async () => {

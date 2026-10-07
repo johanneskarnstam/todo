@@ -15,7 +15,7 @@ import { usePushNotifications } from '@/composables/usePushNotifications'
 import { useReminderNotifications } from '@/composables/useReminderNotifications'
 import { useTheme } from '@/composables/useTheme'
 import { useAppUpdate } from '@/composables/useAppUpdate'
-import type { List, TaskPriority, TaskReminder, TaskStatus } from '@/types'
+import type { List, RelativeReminder, TaskPriority, TaskStatus } from '@/types'
 import { normalizeTag, normalizeTags } from '@/utils/taskTags'
 import { isTaskPriority } from '@/utils/taskPriority'
 import { releaseNotes } from '@/releaseNotes'
@@ -31,7 +31,7 @@ interface ImportedTask {
   myDay?: boolean
   dueDate?: string
   dueTimeZone?: string
-  reminder?: TaskReminder | null
+  reminder?: RelativeReminder | null
   note?: string
   tags?: string[]
   archived?: boolean
@@ -40,7 +40,7 @@ interface ImportedTask {
 const isJsonObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
-const isReminderOffset = (value: unknown): value is TaskReminder['offsetMinutes'] =>
+const isReminderOffset = (value: unknown): value is RelativeReminder['offsetMinutes'] =>
   value === 0 || value === 10 || value === 60 || value === 1440
 
 const isValidDueDate = (value: string) => {
@@ -348,12 +348,12 @@ const importTasks = async () => {
       return
     }
 
-    let reminder: TaskReminder | null | undefined
+    let reminder: RelativeReminder | null | undefined
     if ('reminder' in row) {
       if (row.reminder === null) {
         reminder = null
       } else if (isJsonObject(row.reminder) && isReminderOffset(row.reminder.offsetMinutes)) {
-        reminder = { offsetMinutes: row.reminder.offsetMinutes }
+        reminder = { mode: 'relative', offsetMinutes: row.reminder.offsetMinutes }
       } else {
         importError.value = `Fältet reminder i uppgift ${index + 1} måste ha offsetMinutes 0, 10, 60 eller 1440.`
         return

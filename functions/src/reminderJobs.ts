@@ -18,13 +18,29 @@ export function isReminderDeliveryEnabled(): boolean {
   return process.env.PUSH_REMINDERS_ENABLED === "true";
 }
 
+export type ReminderMode = "relative" | "absolute";
+
+export interface RelativeReminder {
+  mode: "relative";
+  offsetMinutes: number;
+}
+
+export interface AbsoluteReminder {
+  mode: "absolute";
+  at: string;
+  timeZone: string;
+}
+
+export type TaskReminder = RelativeReminder | AbsoluteReminder;
+
 export interface ReminderTaskSnapshot {
   userId: string;
   taskId: string;
   title: string;
   dueDate?: string | Timestamp | null;
   dueTimeZone?: string | null;
-  reminder?: {offsetMinutes: 0 | 10 | 60 | 1440} | null;
+  reminder?: {offsetMinutes: 0 | 10 | 60 | 1440} | RelativeReminder | null;
+  reminders?: TaskReminder[] | null;
   completed?: boolean;
   status?: "todo" | "inProgress" | "completed";
 }
@@ -33,6 +49,7 @@ export interface ReminderJob {
   id: string;
   userId: string;
   taskId: string;
+  reminderIndex?: number;
   revision: string;
   reminderAt: string;
   status: ReminderJobStatus;

@@ -12,7 +12,7 @@ import { useListStore } from '@/stores/listStore'
 import { useTaskStore } from '@/stores/taskStore'
 import { useToastStore } from '@/stores/toastStore'
 import { useTheme } from '@/composables/useTheme'
-import type { List, Task, TaskPriorityFilterValue, TaskReminder } from '@/types'
+import type { List, RelativeReminder, Task, TaskPriorityFilterValue } from '@/types'
 import { isTaskCompleted } from '@/utils/taskStatus'
 import { sortTasksForMode } from '@/utils/taskSorting'
 import { countTaskPriorities, filterTasksByPriority } from '@/utils/taskPriority'
@@ -110,7 +110,7 @@ const handleSaveStepTitle = (stepId: string, title: string) => {
   void taskStore.updateStep(stepId, title)
 }
 
-const handleSaveReminder = async (taskId: string, reminder: TaskReminder | null) => {
+const handleSaveReminder = async (taskId: string, reminder: RelativeReminder | null) => {
   const updatePromise = taskStore.updateTask(taskId, { reminder })
   if (reminder) {
     const pushSetup = await enablePushForReminder()

@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { ArrowLeft, Bell, CalendarDays, Check, ChevronDown, Clock, Copy, Expand, Shrink, Sun } from '@lucide/vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
-import type { Step, Task, TaskPriority, TaskReminder } from '@/types'
+import type { RelativeReminder, Step, Task, TaskPriority } from '@/types'
 import { normalizeTag, normalizeTags } from '@/utils/taskTags'
 import { getTaskPriority, isTaskPriority } from '@/utils/taskPriority'
 import { useDragReorder } from '@/composables/useDragReorder'
@@ -27,7 +27,7 @@ interface Emits {
   (event: 'toggle-my-day'): void
   (event: 'set-priority', priority: TaskPriority): void
   (event: 'set-due-date', dueDate: string): void
-  (event: 'save-reminder', reminder: TaskReminder | null): void
+  (event: 'save-reminder', reminder: RelativeReminder | null): void
   (event: 'save-note', note: string): void
   (event: 'save-tags', tags: string[]): void
   (event: 'select-tag', tag: string): void
@@ -315,7 +315,7 @@ const saveReminder = () => {
 
   const offset = Number(reminderOffset.value)
   if (![0, 10, 60, 120, 1440].includes(offset)) return
-  emit('save-reminder', { offsetMinutes: offset as TaskReminder['offsetMinutes'] })
+  emit('save-reminder', { mode: 'relative', offsetMinutes: offset as RelativeReminder['offsetMinutes'] })
 }
 
 const selectReminder = (value: string) => {

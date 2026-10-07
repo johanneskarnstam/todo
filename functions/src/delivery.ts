@@ -231,7 +231,7 @@ async function markJob(
 
 /**
  * Removes FCM tokens that Firebase reports as permanently invalid.
- * @param {FirebaseFirestore.QueryDocumentSnapshot[]} devices Device documents.
+ * @param {Array} devicesByToken Device documents grouped by token.
  * @param {SendResponse[]} responses FCM response entries.
  * @return {Promise<void>} Completion promise.
  */

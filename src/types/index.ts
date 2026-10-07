@@ -31,8 +31,26 @@ export interface List {
   taskStatusMode?: TaskStatusMode
 }
 
-export interface TaskReminder {
-  offsetMinutes: 0 | 10 | 60 | 1440
+export type ReminderMode = 'relative' | 'absolute'
+
+export type ReminderOffset = 0 | 10 | 60 | 120 | 1440
+
+export interface RelativeReminder {
+  mode: 'relative'
+  offsetMinutes: ReminderOffset | number
+}
+
+export interface AbsoluteReminder {
+  mode: 'absolute'
+  at: string
+  timeZone: string
+}
+
+export type TaskReminder = RelativeReminder | AbsoluteReminder
+
+export interface LegacyTaskReminder {
+  mode?: 'relative'
+  offsetMinutes: ReminderOffset | number
 }
 
 export interface Task {
@@ -45,7 +63,8 @@ export interface Task {
   myDay: boolean
   dueDate?: string | Timestamp
   dueTimeZone?: string
-  reminder?: TaskReminder | null
+  reminder?: LegacyTaskReminder | null
+  reminders?: TaskReminder[]
   note?: string
   tags?: string[]
   createdAt: Timestamp

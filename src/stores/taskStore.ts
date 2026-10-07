@@ -19,12 +19,15 @@ import { isMockAuthEnabled, MOCK_USER_ID } from '@/devMode'
 import { useListStore } from '@/stores/listStore'
 import { useToastStore } from '@/stores/toastStore'
 import { isBrowserOffline } from '@/composables/useNetworkStatus'
-import type { SmartView, Step, StepCount, Task, TaskPriority, TaskReminder, TaskStatus, TaskStatusMode, TaskView } from '@/types'
+import type { LegacyTaskReminder, SmartView, Step, StepCount, Task, TaskPriority, TaskReminder, TaskStatus, TaskStatusMode, TaskView } from '@/types'
 import { sortTasksForMode } from '@/utils/taskSorting'
 import { countTaskPriorities, getTaskPriority, isImportantPriority, normalizeTaskPriority } from '@/utils/taskPriority'
 import { normalizeTags } from '@/utils/taskTags'
 import { vibrateOnTaskCompletion } from '@/utils/deviceFeedback'
 import { getTaskStatus, isTaskCompleted, isTaskStatusAllowed, taskStatusToCompleted } from '@/utils/taskStatus'
+import { normalizeTask, normalizeTaskReminders } from '@/utils/taskNormalization'
+
+const prepareTask = (task: Task): Task => normalizeTask(normalizeTaskPriority(task))
 
 interface NewTaskInput {
   listId: string
@@ -36,7 +39,8 @@ interface NewTaskInput {
   myDay?: boolean
   dueDate?: string
   dueTimeZone?: string
-  reminder?: TaskReminder | null
+  reminder?: LegacyTaskReminder | null
+  reminders?: TaskReminder[]
   note?: string
   tags?: string[]
   archived?: boolean
@@ -67,7 +71,7 @@ const readMockTasks = (): Task[] | null => {
     const storedTasks = localStorage.getItem(mockTasksStorageKey)
     if (!storedTasks) return null
 
-    return JSON.parse(storedTasks).map((task: Task & { createdAt: number }) => normalizeTaskPriority({
+    return JSON.parse(storedTasks).map((task: Task & { createdAt: number }) => prepareTask({
       ...task,
       createdAt: Timestamp.fromMillis(task.createdAt),
     })) as Task[]
@@ -249,7 +253,7 @@ export const useTaskStore = defineStore('tasks', () => {
         { id: 'local-task-2', listId: '__default__', title: 'Kontrollera mobilvyn', completed: false, important: false, myDay: false, order: 1, createdAt },
         { id: 'local-task-3', listId: 'local-projects', title: 'Förbered nästa release', completed: false, important: false, myDay: false, order: 0, createdAt },
       ] satisfies Task[]
-      tasks.value = sortTasks((readMockTasks() ?? initialTasks).map(normalizeTaskPriority))
+      tasks.value = sortTasks((readMockTasks() ?? initialTasks).map(prepareTask))
       if (!readMockTasks()) persistMockTasks(tasks.value)
       isLoaded.value = true
       return
@@ -259,7 +263,7 @@ export const useTaskStore = defineStore('tasks', () => {
       const read = isBrowserOffline() ? getDocsFromCache : getDocs
       const snapshot = await read(userCollection())
       tasks.value = sortTasks(snapshot.docs.map((task) =>
-        normalizeTaskPriority({ id: task.id, ...task.data() } as Task),
+        prepareTask({ id: task.id, ...task.data() } as Task),
       ))
       isLoaded.value = true
       await fetchAllSteps(tasks.value)
@@ -267,7 +271,7 @@ export const useTaskStore = defineStore('tasks', () => {
       try {
         const cachedSnapshot = await getDocsFromCache(userCollection())
         tasks.value = sortTasks(cachedSnapshot.docs.map((task) =>
-          normalizeTaskPriority({ id: task.id, ...task.data() } as Task),
+          prepareTask({ id: task.id, ...task.data() } as Task),
         ))
         isLoaded.value = true
         await fetchAllSteps(tasks.value)
@@ -311,6 +315,12 @@ export const useTaskStore = defineStore('tasks', () => {
       : newTasksFirst
         ? Math.min(...listTasks.map((task) => task.order ?? 0)) - 1
         : Math.max(...listTasks.map((task) => task.order ?? -1)) + 1
+    const resolvedReminders: TaskReminder[] = input.reminders !== undefined
+      ? normalizeTaskReminders({ reminders: input.reminders })
+      : input.reminder !== undefined
+        ? normalizeTaskReminders({ reminder: input.reminder })
+        : []
+
     const optimisticTask: Task = {
       id: optimisticId,
       listId: input.listId,
@@ -323,9 +333,9 @@ export const useTaskStore = defineStore('tasks', () => {
       createdAt: Timestamp.now(),
       order: taskOrder,
       archived: input.archived ?? false,
+      reminders: resolvedReminders,
       ...(input.dueDate ? { dueDate: input.dueDate } : {}),
       ...(input.dueTimeZone ? { dueTimeZone: input.dueTimeZone } : {}),
-      ...(input.reminder !== undefined ? { reminder: input.reminder } : {}),
       ...(input.note !== undefined ? { note: input.note } : {}),
       ...(input.tags ? { tags: normalizeTags(input.tags) } : {}),
     }
@@ -350,9 +360,9 @@ export const useTaskStore = defineStore('tasks', () => {
         order: optimisticTask.order,
         archived: optimisticTask.archived,
         createdAt: serverTimestamp(),
+        reminders: resolvedReminders,
         ...(optimisticTask.dueDate ? { dueDate: optimisticTask.dueDate } : {}),
         ...(optimisticTask.dueTimeZone ? { dueTimeZone: optimisticTask.dueTimeZone } : {}),
-        ...(optimisticTask.reminder !== undefined ? { reminder: optimisticTask.reminder } : {}),
         ...(optimisticTask.note !== undefined ? { note: optimisticTask.note } : {}),
         ...(optimisticTask.tags ? { tags: optimisticTask.tags } : {}),
       }))
@@ -368,7 +378,7 @@ export const useTaskStore = defineStore('tasks', () => {
 
   const updateTask = async (
     taskId: string,
-    updates: Partial<Pick<Task, 'completed' | 'status' | 'important' | 'priority' | 'myDay' | 'title' | 'dueDate' | 'dueTimeZone' | 'note' | 'tags' | 'order' | 'archived'>> & { reminder?: TaskReminder | null },
+    updates: Partial<Pick<Task, 'completed' | 'status' | 'important' | 'priority' | 'myDay' | 'title' | 'dueDate' | 'dueTimeZone' | 'note' | 'tags' | 'order' | 'archived'>> & { reminder?: LegacyTaskReminder | null; reminders?: TaskReminder[] },
   ) => {
     const currentTask = tasks.value.find((task) => task.id === taskId)
     if (!currentTask) return
@@ -379,13 +389,29 @@ export const useTaskStore = defineStore('tasks', () => {
     } else if (updates.important !== undefined) {
       normalizedUpdates.priority = updates.important ? 'high' : 'normal'
     }
-    const previousTask = { ...currentTask }
+    const firestoreUpdates: Record<string, unknown> = { ...normalizedUpdates }
+
+    if (updates.reminders !== undefined || updates.reminder !== undefined) {
+      const nextReminders = updates.reminders !== undefined
+        ? normalizeTaskReminders({ reminders: updates.reminders })
+        : normalizeTaskReminders({ reminder: updates.reminder })
+      normalizedUpdates.reminders = nextReminders
+      firestoreUpdates.reminders = nextReminders
+      firestoreUpdates.reminder = deleteField()
+      delete (normalizedUpdates as { reminder?: unknown }).reminder
+    }
+
+    const previousTask = { ...currentTask, reminders: [...(currentTask.reminders ?? [])] }
     Object.assign(currentTask, normalizedUpdates)
+    if (normalizedUpdates.reminders !== undefined) {
+      currentTask.reminders = normalizedUpdates.reminders
+      currentTask.reminder = null
+    }
     error.value = null
     if (isMockAuthEnabled) persistMockTasks(tasks.value)
 
     try {
-      await trackWrite(() => updateDoc(doc(userCollection(), taskId), normalizedUpdates))
+      await trackWrite(() => updateDoc(doc(userCollection(), taskId), firestoreUpdates))
     } catch (updateError) {
       tasks.value = tasks.value.map((task) => (task.id === taskId ? previousTask : task))
       reportWriteError(updateError, 'Uppgiften kunde inte uppdateras.')
@@ -442,19 +468,27 @@ export const useTaskStore = defineStore('tasks', () => {
     const previousDueDate = task.dueDate
     const previousDueTimeZone = task.dueTimeZone
     const previousReminder = task.reminder
+    const previousReminders = [...(task.reminders ?? [])]
+
+    const remainingReminders = previousReminders.filter((r) => r.mode === 'absolute')
+
     delete task.dueDate
     delete task.dueTimeZone
     task.reminder = null
+    task.reminders = remainingReminders
     error.value = null
+    if (isMockAuthEnabled) persistMockTasks(tasks.value)
 
     void trackWrite(() => updateDoc(doc(userCollection(), taskId), {
       dueDate: deleteField(),
       dueTimeZone: deleteField(),
-      reminder: null,
+      reminder: deleteField(),
+      reminders: remainingReminders,
     })).catch((clearError: unknown) => {
       if (previousDueDate) task.dueDate = previousDueDate
       if (previousDueTimeZone) task.dueTimeZone = previousDueTimeZone
       task.reminder = previousReminder
+      task.reminders = previousReminders
       reportWriteError(clearError, 'Förfallodatumet kunde inte tas bort.')
     })
   }

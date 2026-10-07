@@ -614,7 +614,7 @@ describe('TaskDetailsPanel', () => {
     await oneHourOption?.trigger('click')
 
     expect(wrapper.emitted('set-due-date')).toEqual([['2026-10-01T14:30']])
-    expect(wrapper.emitted('save-reminder')).toEqual([[{ offsetMinutes: 60 }]])
+    expect(wrapper.emitted('save-reminder')).toEqual([[{ mode: 'relative', offsetMinutes: 60 }]])
   })
 
   it('emits a selected due date from the native date input', async () => {

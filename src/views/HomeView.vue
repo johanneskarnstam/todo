@@ -19,7 +19,7 @@ import { usePreferences, type TaskSortPreference } from '@/composables/usePrefer
 import { sortTasksForMode } from '@/utils/taskSorting'
 import { copyRouteLink } from '@/utils/shareLink'
 import { isTaskCompleted } from '@/utils/taskStatus'
-import type { ListSortMode, SmartView, TaskPriorityFilterValue, TaskReminder } from '@/types'
+import type { ListSortMode, RelativeReminder, SmartView, TaskPriorityFilterValue } from '@/types'
 import { filterTasksByPriority } from '@/utils/taskPriority'
 
 const isSidebarOpen = ref(typeof window === 'undefined' ? true : window.innerWidth >= 1024)
@@ -531,7 +531,7 @@ const handleSetDueDate = async (taskId: string, dueDate: string) => {
   taskStore.setDueDate(taskId, dueDate)
 }
 
-const handleSaveReminder = async (taskId: string, reminder: TaskReminder | null) => {
+const handleSaveReminder = async (taskId: string, reminder: RelativeReminder | null) => {
   const updatePromise = taskStore.updateTask(taskId, { reminder })
   if (reminder) {
     const pushSetup = await enablePushForReminder()
