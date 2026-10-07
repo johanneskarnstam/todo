@@ -159,9 +159,10 @@ test.describe('Flexibla påminnelser', () => {
 
     await details.getByRole('button', { name: 'Stäng uppgiftsdetaljer' }).click()
 
+    // Kontrollera att påminnelsechippen innehåller +1-märket (oberoende av viewport)
     const task = page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' })
-    await expect(task.getByRole('img', { name: /Påminnelse/ })).toBeVisible()
-    // Scope to xl:hidden span (synlig under xl-breakpoint) för att undvika strict mode
-    await expect(task.locator('span.xl\\:hidden').filter({ hasText: '+1' })).toBeVisible()
+    const reminderChip = task.getByRole('img', { name: /Påminnelse/ })
+    await expect(reminderChip).toBeVisible()
+    await expect(reminderChip).toContainText('+1')
   })
 })
