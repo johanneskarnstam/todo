@@ -227,10 +227,10 @@ Commita efter varje fas med commit-meddelande på svenska. Merga till `main` nä
 
 ## Fas 7 – Versionsuppdatering och merge
 
-- [ ] Öka version i `package.json` (MINOR – ny bakåtkompatibel funktion): `x.Y.0`
-- [ ] Kör `npm run validate` en sista gång
-- [ ] `git checkout main && git merge feature/flexibla-paminnelser`
-- [ ] `git branch -d feature/flexibla-paminnelser`
+- [x] Öka version i `package.json` (MINOR – ny bakåtkompatibel funktion): `x.Y.0`
+- [x] Kör `npm run validate` en sista gång
+- [x] `git checkout main && git merge feature/flexibla-paminnelser`
+- [x] `git branch -d feature/flexibla-paminnelser`
 
 ---
 
