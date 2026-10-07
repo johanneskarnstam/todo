@@ -196,32 +196,32 @@ Commita efter varje fas med commit-meddelande på svenska. Merga till `main` nä
 
 ### Enhetstester (Vitest)
 
-- [ ] **`src/__tests__/taskNormalization.test.ts`** (skapades i Fas 2, komplettera):
-  - [ ] Gammalt dokument med `reminder: { offsetMinutes: 60 }` → `reminders: [{ mode: 'relative', offsetMinutes: 60 }]`
-  - [ ] Dokument med `reminders: [...]` → passeras igenom oförändrat
-  - [ ] Dokument utan vare sig fält → `reminders: []`
-  - [ ] Ogiltiga värden i `reminders`-arrayen → filtreras bort
-- [ ] **`src/__tests__/ReminderEditor.test.ts`**:
-  - [ ] Renderas utan `dueDate` → endast absolut läge är valbart (relativt är inaktiverat/dolts)
-  - [ ] Renderas med `dueDate` → både relativt och absolut läge kan väljas
-  - [ ] Välj datum i det förflutna → spara-knapp disabled
-  - [ ] Giltigt val → `update:modelValue` emitteras korrekt
+- [x] **`src/__tests__/taskNormalization.test.ts`** (skapades i Fas 2, komplettera):
+  - [x] Gammalt dokument med `reminder: { offsetMinutes: 60 }` → `reminders: [{ mode: 'relative', offsetMinutes: 60 }]`
+  - [x] Dokument med `reminders: [...]` → passeras igenom oförändrat
+  - [x] Dokument utan vare sig fält → `reminders: []`
+  - [x] Ogiltiga värden i `reminders`-arrayen → filtreras bort
+- [x] **`src/__tests__/ReminderEditor.test.ts`**:
+  - [x] Renderas utan `dueDate` → endast absolut läge är valbart (relativt är inaktiverat/dolts)
+  - [x] Renderas med `dueDate` → både relativt och absolut läge kan väljas
+  - [x] Välj datum i det förflutna → spara-knapp disabled
+  - [x] Giltigt val → `update:modelValue` emitteras korrekt
 
 ### E2E-tester (Playwright)
 
-- [ ] **`e2e/reminders.spec.ts`** (ny fil eller utöka befintlig):
-  - [ ] Öppna en task utan deadline → påminnelsesektionen är synlig och tillåter absolut påminnelse
-  - [ ] Lägg till absolut påminnelse → visas i listan med korrekt datum/tid
-  - [ ] Uppgift utan deadline → relativt alternativ kan inte väljas
-  - [ ] Lägg till deadline och därefter relativ påminnelse → beräknad tid visas
-  - [ ] Ta bort deadline från uppgift med relativ och absolut påminnelse → relativ rensas, absolut finns kvar
-  - [ ] Lägg till två påminnelser → båda visas i `TaskDetailsPanel`
-  - [ ] Ta bort en påminnelse → listan uppdateras optimistiskt
-  - [ ] Task med gammalt `reminder`-format (mockas via mock-auth-data) → normaliseras och visas korrekt
-  - [ ] Kan inte lägga till fler än 5 påminnelser ("Lägg till"-knapp dold vid 5 påminnelser)
+- [x] **`e2e/reminders.spec.ts`** (ny fil eller utöka befintlig):
+  - [x] Öppna en task utan deadline → påminnelsesektionen är synlig och tillåter absolut påminnelse
+  - [x] Lägg till absolut påminnelse → visas i listan med korrekt datum/tid
+  - [x] Uppgift utan deadline → relativt alternativ kan inte väljas
+  - [x] Lägg till deadline och därefter relativ påminnelse → beräknad tid visas
+  - [x] Ta bort deadline från uppgift med relativ och absolut påminnelse → relativ rensas, absolut finns kvar
+  - [x] Lägg till två påminnelser → båda visas i `TaskDetailsPanel`
+  - [x] Ta bort en påminnelse → listan uppdateras optimistiskt
+  - [x] Task med gammalt `reminder`-format (mockas via mock-auth-data) → normaliseras och visas korrekt
+  - [x] Kan inte lägga till fler än 5 påminnelser ("Lägg till"-knapp dold vid 5 påminnelser)
 
-- [ ] Kör `npm run validate` – alla kontroller gröna
-- [ ] Commita: `feat: lägg till flexibla och multipla påminnelser`
+- [x] Kör `npm run validate` – alla kontroller gröna
+- [x] Commita: `feat: lägg till flexibla och multipla påminnelser`
 
 ---
 
