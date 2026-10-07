@@ -150,43 +150,43 @@ Commita efter varje fas med commit-meddelande på svenska. Merga till `main` nä
 
 ### 5a – Ny komponent `ReminderEditor.vue`
 
-- [ ] **Skapa `src/components/ReminderEditor.vue`**
-  - [ ] Props: `modelValue: TaskReminder | null`, `dueDate: string`
-  - [ ] Emit: `update:modelValue`, `cancel`
-  - [ ] Lägesval: Om `dueDate` saknas är endast "Absolut" tillgängligt (relativt alternativ är inaktiverat/dolts). Om `dueDate` finns kan användaren växla mellan "Relativ" och "Absolut".
-  - [ ] **Relativt läge (endast tillgängligt om deadline finns):**
+- [x] **Skapa `src/components/ReminderEditor.vue`**
+  - [x] Props: `modelValue: TaskReminder | null`, `dueDate: string`
+  - [x] Emit: `update:modelValue`, `cancel`
+  - [x] Lägesval: Om `dueDate` saknas är endast "Absolut" tillgängligt (relativt alternativ är inaktiverat/dolts). Om `dueDate` finns kan användaren växla mellan "Relativ" och "Absolut".
+  - [x] **Relativt läge (endast tillgängligt om deadline finns):**
     - Dropdown med alternativen: Vid förfallotid (0), 10 min före, 1 timme före, 2 timmar före, 1 dag före
-  - [ ] **Absolut läge (alltid tillgängligt):**
+  - [x] **Absolut läge (alltid tillgängligt):**
     - `<input type="date" id="reminder-date">` + `<input type="time" id="reminder-time">`
     - Visa IANA-zon (hämta med `Intl.DateTimeFormat().resolvedOptions().timeZone`)
     - Validering: tidpunkten måste vara i framtiden
-  - [ ] Spara-knapp disabled om ogiltigt val
-  - [ ] `data-testid="reminder-editor"`
+  - [x] Spara-knapp disabled om ogiltigt val
+  - [x] `data-testid="reminder-editor"`
 
 ### 5b – Uppdatera `TaskDetailsPanel.vue`
 
-- [ ] Ta bort villkoret `!props.task.dueDate` som blockerar påminnelsesektionen (rad 311, 335)
-- [ ] Ersätt befintlig reminder-dropdown med en lista av aktiva påminnelser:
-  - [ ] `v-for="(reminder, index) in task.reminders"` med ta-bort-knapp per rad
-  - [ ] Visa beräknad tidpunkt för relativa påminnelser (befintlig `reminderDateText`-logik, anpassad)
-  - [ ] Visa `at`-värdet formaterat för absoluta påminnelser
-- [ ] "Lägg till påminnelse"-knapp som öppnar `ReminderEditor` inline (dold om `reminders.length >= 5`)
-- [ ] Spara ny påminnelse: emit `'save-reminders'` med uppdaterad array
-- [ ] Ta bort påminnelse: emit `'save-reminders'` med filtrerad array
-- [ ] Uppdatera `emit`-definitionen: ta bort `'save-reminder'`, lägg till `'save-reminders'`
+- [x] Ta bort villkoret `!props.task.dueDate` som blockerar påminnelsesektionen (rad 311, 335)
+- [x] Ersätt befintlig reminder-dropdown med en lista av aktiva påminnelser:
+  - [x] `v-for="(reminder, index) in task.reminders"` med ta-bort-knapp per rad
+  - [x] Visa beräknad tidpunkt för relativa påminnelser (befintlig `reminderDateText`-logik, anpassad)
+  - [x] Visa `at`-värdet formaterat för absoluta påminnelser
+- [x] "Lägg till påminnelse"-knapp som öppnar `ReminderEditor` inline (dold om `reminders.length >= 5`)
+- [x] Spara ny påminnelse: emit `'save-reminders'` med uppdaterad array
+- [x] Ta bort påminnelse: emit `'save-reminders'` med filtrerad array
+- [x] Uppdatera `emit`-definitionen: ta bort `'save-reminder'`, lägg till `'save-reminders'`
 
 ### 5c – Uppdatera `TaskRow.vue`
 
-- [ ] Visa den närmaste påminnelsen som chip/ikon (befintlig logik anpassad)
-- [ ] Om `reminders.length > 1` visa `+N` brevid ikonen
-- [ ] Uppdatera `reminderDateText` computed: iterera `reminders` och returnera närmaste
+- [x] Visa den närmaste påminnelsen som chip/ikon (befintlig logik anpassad)
+- [x] Om `reminders.length > 1` visa `+N` brevid ikonen
+- [x] Uppdatera `reminderDateText` computed: iterera `reminders` och returnera närmaste
 
 ### 5d – Uppdatera vyn/föräldern som hanterar emits
 
-- [ ] Hitta var `'save-reminder'`-eventet tas emot (troligen `TaskView.vue` eller liknande)
-- [ ] Byt till `'save-reminders'` och anropa `taskStore.updateTask(taskId, { reminders })`
+- [x] Hitta var `'save-reminder'`-eventet tas emot (troligen `TaskView.vue` eller liknande)
+- [x] Byt till `'save-reminders'` och anropa `taskStore.updateTask(taskId, { reminders })`
 
-- [ ] Kör `npm run type-check && npm run lint` – inga fel
+- [x] Kör `npm run type-check && npm run lint` – inga fel
 
 ---
 

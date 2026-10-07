@@ -12,7 +12,7 @@ import { useListStore } from '@/stores/listStore'
 import { useTaskStore } from '@/stores/taskStore'
 import { useToastStore } from '@/stores/toastStore'
 import { useTheme } from '@/composables/useTheme'
-import type { List, RelativeReminder, Task, TaskPriorityFilterValue } from '@/types'
+import type { List, Task, TaskPriorityFilterValue, TaskReminder } from '@/types'
 import { isTaskCompleted } from '@/utils/taskStatus'
 import { sortTasksForMode } from '@/utils/taskSorting'
 import { countTaskPriorities, filterTasksByPriority } from '@/utils/taskPriority'
@@ -110,9 +110,9 @@ const handleSaveStepTitle = (stepId: string, title: string) => {
   void taskStore.updateStep(stepId, title)
 }
 
-const handleSaveReminder = async (taskId: string, reminder: RelativeReminder | null) => {
-  const updatePromise = taskStore.updateTask(taskId, { reminder })
-  if (reminder) {
+const handleSaveReminders = async (taskId: string, reminders: TaskReminder[]) => {
+  const updatePromise = taskStore.updateTask(taskId, { reminders })
+  if (reminders.length > 0) {
     const pushSetup = await enablePushForReminder()
     if (pushSetup === 'disabled') toastStore.show('Påminnelsen sparas, men pushaviseringar är avstängda i inställningarna.')
     if (pushSetup === 'unavailable') toastStore.show('Påminnelsen sparas, men den här enheten kunde inte registreras för pushaviseringar.')
@@ -376,7 +376,7 @@ onUnmounted(() => desktopMediaQuery?.removeEventListener('change', syncDesktopVi
       @toggle-my-day="taskStore.toggleMyDay(taskStore.activeTaskId!)"
       @set-priority="taskStore.updateTask(taskStore.activeTaskId!, { priority: $event })"
       @set-due-date="taskStore.setDueDate(taskStore.activeTaskId!, $event)"
-      @save-reminder="handleSaveReminder(taskStore.activeTaskId!, $event)"
+      @save-reminders="handleSaveReminders(taskStore.activeTaskId!, $event)"
       @save-note="taskStore.saveNote(taskStore.activeTaskId!, $event)"
       @save-tags="taskStore.updateTask(taskStore.activeTaskId!, { tags: $event })"
       @select-tag="handleSelectTag"

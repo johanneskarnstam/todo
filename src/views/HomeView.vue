@@ -19,7 +19,7 @@ import { usePreferences, type TaskSortPreference } from '@/composables/usePrefer
 import { sortTasksForMode } from '@/utils/taskSorting'
 import { copyRouteLink } from '@/utils/shareLink'
 import { isTaskCompleted } from '@/utils/taskStatus'
-import type { ListSortMode, RelativeReminder, SmartView, TaskPriorityFilterValue } from '@/types'
+import type { ListSortMode, SmartView, TaskPriorityFilterValue, TaskReminder } from '@/types'
 import { filterTasksByPriority } from '@/utils/taskPriority'
 
 const isSidebarOpen = ref(typeof window === 'undefined' ? true : window.innerWidth >= 1024)
@@ -531,9 +531,9 @@ const handleSetDueDate = async (taskId: string, dueDate: string) => {
   taskStore.setDueDate(taskId, dueDate)
 }
 
-const handleSaveReminder = async (taskId: string, reminder: RelativeReminder | null) => {
-  const updatePromise = taskStore.updateTask(taskId, { reminder })
-  if (reminder) {
+const handleSaveReminders = async (taskId: string, reminders: TaskReminder[]) => {
+  const updatePromise = taskStore.updateTask(taskId, { reminders })
+  if (reminders.length > 0) {
     const pushSetup = await enablePushForReminder()
     if (pushSetup === 'disabled') toastStore.show('Påminnelsen sparas, men pushaviseringar är avstängda i inställningarna.')
     if (pushSetup === 'unavailable') toastStore.show('Påminnelsen sparas, men den här enheten kunde inte registreras för pushaviseringar.')
@@ -862,7 +862,7 @@ watch(
         @toggle-my-day="taskStore.toggleMyDay(taskStore.activeTaskId!)"
         @set-priority="taskStore.updateTask(taskStore.activeTaskId!, { priority: $event })"
         @set-due-date="handleSetDueDate(taskStore.activeTaskId!, $event)"
-        @save-reminder="handleSaveReminder(taskStore.activeTaskId!, $event)"
+        @save-reminders="handleSaveReminders(taskStore.activeTaskId!, $event)"
         @save-note="taskStore.saveNote(taskStore.activeTaskId!, $event)"
         @save-tags="taskStore.updateTask(taskStore.activeTaskId!, { tags: $event })"
         @select-tag="handleSelectTag"

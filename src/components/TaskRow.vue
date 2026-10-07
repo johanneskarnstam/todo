@@ -215,26 +215,41 @@ const dueDateText = computed(() => {
   })
 })
 const reminderDateText = computed(() => {
-  if (!props.task.dueDate || !props.task.reminder) return ''
+  const reminders = props.task.reminders
+  if (!reminders?.length) return ''
 
-  const dueDate = typeof props.task.dueDate === 'string'
-    ? new Date(/^\d{4}-\d{2}-\d{2}$/.test(props.task.dueDate) ? `${props.task.dueDate}T09:00:00` : props.task.dueDate)
-    : props.task.dueDate.toDate()
-  if (Number.isNaN(dueDate.getTime())) return ''
+  // Find the earliest upcoming reminder to display
+  let earliest: Date | null = null
 
-  const reminderDate = new Date(dueDate.getTime() - props.task.reminder.offsetMinutes * 60_000)
-  const dateText = reminderDate.toLocaleDateString('sv-SE', {
-    day: 'numeric',
-    month: 'short',
-  }).replace('.', '')
-  const timeText = reminderDate.toLocaleTimeString('sv-SE', {
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-  return reminderDate.toDateString() === dueDate.toDateString()
-    ? timeText
-    : `${dateText} ${timeText}`
+  for (const r of reminders) {
+    let d: Date | null = null
+    if (r.mode === 'absolute') {
+      d = new Date(r.at)
+    } else if (r.mode === 'relative' && props.task.dueDate) {
+      const due = typeof props.task.dueDate === 'string'
+        ? new Date(/^\d{4}-\d{2}-\d{2}$/.test(props.task.dueDate) ? `${props.task.dueDate}T09:00:00` : props.task.dueDate)
+        : props.task.dueDate.toDate()
+      if (!Number.isNaN(due.getTime())) {
+        d = new Date(due.getTime() - r.offsetMinutes * 60_000)
+      }
+    }
+    if (d && !Number.isNaN(d.getTime()) && (earliest === null || d < earliest)) {
+      earliest = d
+    }
+  }
+
+  if (!earliest) return ''
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const reminderDay = new Date(earliest)
+  reminderDay.setHours(0, 0, 0, 0)
+  const timeText = earliest.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })
+  if (reminderDay.getTime() === today.getTime()) return timeText
+  const dateText = earliest.toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' }).replace('.', '')
+  return `${dateText} ${timeText}`
 })
+
+const reminderCount = computed(() => props.task.reminders?.length ?? 0)
 </script>
 
 <template>
@@ -321,7 +336,7 @@ const reminderDateText = computed(() => {
           </div>
 
           <div
-            v-if="task.tags?.length || getTaskPriority(task) !== 'normal' || task.myDay || task.dueDate || task.note?.trim() || (task.reminder && getTaskStatus(task) !== 'completed')"
+            v-if="task.tags?.length || getTaskPriority(task) !== 'normal' || task.myDay || task.dueDate || task.note?.trim() || (task.reminders?.length && getTaskStatus(task) !== 'completed')"
             class="mt-1 flex min-w-0 flex-nowrap items-center gap-x-2 overflow-x-auto whitespace-nowrap text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2564cf] lg:flex-wrap lg:gap-x-3 lg:overflow-visible lg:whitespace-normal"
             role="group"
             aria-label="Taggar och uppgiftsmarkeringar"
@@ -361,10 +376,10 @@ const reminderDateText = computed(() => {
                 <CalendarDays :size="14" aria-hidden="true" />
                 <span class="hidden lg:inline">{{ dueDateText }}</span>
               </span>
-              <span v-if="task.reminder && getTaskStatus(task) !== 'completed'" class="inline-flex items-center gap-1.5 whitespace-nowrap text-slate-600 dark:text-slate-300" role="img" :aria-label="reminderDateText ? `Påminnelse: ${reminderDateText}` : 'Påminnelse inställd'" :title="reminderDateText ? `Påminnelse: ${reminderDateText}` : 'Påminnelse inställd'">
+              <span v-if="reminderCount > 0 && getTaskStatus(task) !== 'completed'" class="inline-flex items-center gap-1.5 whitespace-nowrap text-slate-600 dark:text-slate-300" role="img" :aria-label="reminderDateText ? `Påminnelse: ${reminderDateText}` : 'Påminnelse inställd'" :title="reminderDateText ? `Påminnelse: ${reminderDateText}` : 'Påminnelse inställd'">
                 <Bell :size="14" aria-hidden="true" />
-                <span class="xl:hidden">{{ reminderDateText || 'Påminnelse' }}</span>
-                <span class="hidden xl:inline">{{ reminderDateText ? `Påminnelse ${reminderDateText}` : 'Påminnelse inställd' }}</span>
+                <span class="xl:hidden">{{ reminderDateText || 'Påminnelse' }}<template v-if="reminderCount > 1"> +{{ reminderCount - 1 }}</template></span>
+                <span class="hidden xl:inline">{{ reminderDateText ? `Påminnelse ${reminderDateText}` : 'Påminnelse inställd' }}<template v-if="reminderCount > 1"> +{{ reminderCount - 1 }}</template></span>
               </span>
             </div>
           </div>
