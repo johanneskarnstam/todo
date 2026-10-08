@@ -35,7 +35,7 @@ Before marking a task as complete or finalizing code changes, you **MUST** run t
 ## 4. Git Workflow & Commit Rules
 Always work on dedicated feature branches for new features or fixes:
 1. **Create Branch:** `git checkout -b feature/brief-description`
-2. **Develop & Validate:** Write code and ensure the validation passes 100%.
+2. **Develop & Validate:** Write code and run the project's local validation. Feature branches must run the complete CI validation suite, including tests and build, but must not deploy.
 3. **Update Version:** Update the version in `package.json` according to SemVer rules *before* committing.
 4. **Commit (MUST be in Swedish):**
    - Format: `<type>: <beskrivning på svenska>`
@@ -43,7 +43,8 @@ Always work on dedicated feature branches for new features or fixes:
    - Execution:
      `git add .`
      `git commit -m "feat: din beskrivning på svenska"`
-5. **Merge:** Switch to main (`git checkout main`), merge the branch (`git merge feature/...`), and then delete the feature branch.
+5. **Push & Verify:** Push the feature branch (`git push -u origin feature/brief-description`) and confirm its full CI validation passes before merging. Feature branch CI runs all validation and tests; deployment is only for `main`.
+6. **Merge & Deploy:** Merge the validated feature branch into `main` (preferably through a pull request), then push the updated `main` branch. The `main` deployment workflow runs after the push. Delete the feature branch after the merge.
 
 ## 5. Versioning (SemVer)
 The version in `package.json` **MUST** be incremented automatically by the AI agent when all tests pass and changes are ready to be committed in the feature branch.
