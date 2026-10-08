@@ -83,17 +83,19 @@ const stepImportExample = computed(() => JSON.stringify({
   steps: ['Delsteg 1', 'Delsteg 2'],
 }, null, 2))
 const taskContextJson = computed(() => {
-  const context = JSON.stringify({
-    title: props.task.title,
-    note: note.value,
-    expectedResponseFormat: { steps: ['Delsteg 1', 'Delsteg 2'] },
+  const exampleJson = JSON.stringify({
+    expectedResponseFormat: {
+      steps: ['Delsteg 1', 'Delsteg 2'],
+    },
   }, null, 2)
 
   return [
     'Skapa konkreta delsteg för uppgiften nedan. Använd anteckningen som stöd och formulera varje steg som en tydlig åtgärd. Låt mig kunna kopiera ut resultaten direkt. Skriv endast JSON, inga förklaringar eller kommentarer.',
-    'Förväntat svarsformat är JSON. Returnera endast giltig JSON enligt noden expectedResponseFormat. Inget annat får returneras.',
+    'Förväntat svarsformat är JSON. Returnera endast giltig JSON enligt noden expectedResponseFormat nedan. Inget annat får returneras.',
     '',
-    context,
+    `Titel: ${JSON.stringify(props.task.title)}`,
+    `Anteckning: ${JSON.stringify(note.value)}`,
+    exampleJson,
   ].join('\n')
 })
 

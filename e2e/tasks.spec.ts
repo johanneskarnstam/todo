@@ -230,16 +230,20 @@ test('prepares and imports subtasks from the task details panel', async ({ page 
   await expect(details.getByRole('textbox', { name: 'Uppgiftskontext' })).toHaveCount(0)
   await stepToolsToggle.click()
 
-  const expectedContext = {
-    title: 'Förbered nästa release',
-    note: 'Testa bygget innan publicering.',
-    expectedResponseFormat: { steps: ['Delsteg 1', 'Delsteg 2'] },
-  }
   const expectedInstructions = [
     'Skapa konkreta delsteg för uppgiften nedan. Använd anteckningen som stöd och formulera varje steg som en tydlig åtgärd. Låt mig kunna kopiera ut resultaten direkt. Skriv endast JSON, inga förklaringar eller kommentarer.',
-    'Förväntat svarsformat är JSON. Returnera endast giltig JSON enligt noden expectedResponseFormat. Inget annat får returneras.',
+    'Förväntat svarsformat är JSON. Returnera endast giltig JSON enligt noden expectedResponseFormat nedan. Inget annat får returneras.',
   ].join('\n')
-  const expectedCopiedContext = `${expectedInstructions}\n\n${JSON.stringify(expectedContext, null, 2)}`
+  const expectedExampleJson = JSON.stringify({
+    expectedResponseFormat: { steps: ['Delsteg 1', 'Delsteg 2'] },
+  }, null, 2)
+  const expectedCopiedContext = [
+    expectedInstructions,
+    '',
+    'Titel: "Förbered nästa release"',
+    'Anteckning: "Testa bygget innan publicering."',
+    expectedExampleJson,
+  ].join('\n')
   const contextInput = details.getByRole('textbox', { name: 'Uppgiftskontext' })
   await expect(contextInput).toHaveValue(expectedCopiedContext)
   await details.getByRole('button', { name: 'Kopiera kontext' }).click()

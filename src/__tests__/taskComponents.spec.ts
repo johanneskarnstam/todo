@@ -518,22 +518,28 @@ describe('TaskDetailsPanel', () => {
     expect(wrapper.find('#step-tools-panel').exists()).toBe(false)
   })
 
-  it('copies only title, note, and expected response format in task context', async () => {
-    const wrapper = mount(TaskDetailsPanel, { props: { task: { ...task, note: 'Keep this note' }, steps } })
+  it('puts task title and note before the example JSON in task context', async () => {
+    const wrapper = mount(TaskDetailsPanel, {
+      props: { task: { ...task, title: 'Inför Bodø', note: 'Jag ska resa och fiska.' }, steps },
+    })
     await wrapper.get('#step-tools-toggle').trigger('click')
 
     const contextValue = (wrapper.get('[aria-label="Uppgiftskontext"]').element as HTMLTextAreaElement).value
-    const [instructions, contextJson] = contextValue.split('\n\n')
-    expect(instructions).toBe([
+    expect(contextValue).toBe([
       'Skapa konkreta delsteg för uppgiften nedan. Använd anteckningen som stöd och formulera varje steg som en tydlig åtgärd. Låt mig kunna kopiera ut resultaten direkt. Skriv endast JSON, inga förklaringar eller kommentarer.',
-      'Förväntat svarsformat är JSON. Returnera endast giltig JSON enligt noden expectedResponseFormat. Inget annat får returneras.',
+      'Förväntat svarsformat är JSON. Returnera endast giltig JSON enligt noden expectedResponseFormat nedan. Inget annat får returneras.',
+      '',
+      'Titel: "Inför Bodø"',
+      'Anteckning: "Jag ska resa och fiska."',
+      '{',
+      '  "expectedResponseFormat": {',
+      '    "steps": [',
+      '      "Delsteg 1",',
+      '      "Delsteg 2"',
+      '    ]',
+      '  }',
+      '}',
     ].join('\n'))
-    const context = JSON.parse(contextJson ?? '') as Record<string, unknown>
-    expect(context).toEqual({
-      title: task.title,
-      note: 'Keep this note',
-      expectedResponseFormat: { steps: ['Delsteg 1', 'Delsteg 2'] },
-    })
   })
 
   it('imports JSON subtasks for the current task in the requested order', async () => {
