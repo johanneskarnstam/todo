@@ -66,6 +66,9 @@ export interface Task {
   reminder?: LegacyTaskReminder | null
   reminders?: TaskReminder[]
   note?: string
+  externalUrls?: string[]
+  externalUrl?: string
+  relatedTaskIds?: string[]
   tags?: string[]
   createdAt: Timestamp
   order?: number

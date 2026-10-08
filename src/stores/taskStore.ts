@@ -2,6 +2,8 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import {
   addDoc,
+  arrayRemove,
+  arrayUnion,
   collection,
   deleteField,
   deleteDoc,
@@ -378,7 +380,7 @@ export const useTaskStore = defineStore('tasks', () => {
 
   const updateTask = async (
     taskId: string,
-    updates: Partial<Pick<Task, 'completed' | 'status' | 'important' | 'priority' | 'myDay' | 'title' | 'dueDate' | 'dueTimeZone' | 'note' | 'tags' | 'order' | 'archived'>> & { reminder?: LegacyTaskReminder | null; reminders?: TaskReminder[] },
+    updates: Partial<Pick<Task, 'completed' | 'status' | 'important' | 'priority' | 'myDay' | 'title' | 'dueDate' | 'dueTimeZone' | 'note' | 'externalUrl' | 'tags' | 'order' | 'archived'>> & { reminder?: LegacyTaskReminder | null; reminders?: TaskReminder[] },
   ) => {
     const currentTask = tasks.value.find((task) => task.id === taskId)
     if (!currentTask) return
@@ -417,6 +419,84 @@ export const useTaskStore = defineStore('tasks', () => {
       reportWriteError(updateError, 'Uppgiften kunde inte uppdateras.')
     }
   }
+
+  const saveExternalUrls = async (taskId: string, urls: string[]) => {
+    const task = tasks.value.find((item) => item.id === taskId)
+    if (!task) return
+
+    const nextUrls = [...new Set(urls.map((url) => url.trim()).filter(Boolean))]
+    const currentUrls = [...new Set(task.externalUrls ?? (task.externalUrl ? [task.externalUrl] : []))]
+    if (nextUrls.length === currentUrls.length && nextUrls.every((url, index) => url === currentUrls[index])) return
+
+    const previousUrls = task.externalUrls
+    const previousUrl = task.externalUrl
+    if (nextUrls.length) task.externalUrls = nextUrls
+    else delete task.externalUrls
+    delete task.externalUrl
+    error.value = null
+    if (isMockAuthEnabled) persistMockTasks(tasks.value)
+
+    try {
+      await trackWrite(() => updateDoc(doc(userCollection(), taskId), {
+        externalUrls: nextUrls.length ? nextUrls : deleteField(),
+        externalUrl: deleteField(),
+      }))
+    } catch (saveError) {
+      if (previousUrls) task.externalUrls = previousUrls
+      else delete task.externalUrls
+      if (previousUrl) task.externalUrl = previousUrl
+      reportWriteError(saveError, 'De externa länkarna kunde inte sparas.')
+    }
+  }
+
+  const changeTaskLink = async (taskId: string, linkedTaskId: string, shouldLink: boolean) => {
+    if (taskId === linkedTaskId) return
+    const task = tasks.value.find((item) => item.id === taskId)
+    const linkedTask = tasks.value.find((item) => item.id === linkedTaskId)
+    if (!task || !linkedTask) return
+
+    const previousTaskLinks = [...(task.relatedTaskIds ?? [])]
+    const previousLinkedTaskLinks = [...(linkedTask.relatedTaskIds ?? [])]
+    const nextTaskLinks = shouldLink
+      ? [...new Set([...previousTaskLinks, linkedTaskId])]
+      : previousTaskLinks.filter((id) => id !== linkedTaskId)
+    const nextLinkedTaskLinks = shouldLink
+      ? [...new Set([...previousLinkedTaskLinks, taskId])]
+      : previousLinkedTaskLinks.filter((id) => id !== taskId)
+    if (
+      nextTaskLinks.length === previousTaskLinks.length &&
+      nextLinkedTaskLinks.length === previousLinkedTaskLinks.length
+    ) return
+
+    if (nextTaskLinks.length) task.relatedTaskIds = nextTaskLinks
+    else delete task.relatedTaskIds
+    if (nextLinkedTaskLinks.length) linkedTask.relatedTaskIds = nextLinkedTaskLinks
+    else delete linkedTask.relatedTaskIds
+    error.value = null
+    if (isMockAuthEnabled) {
+      persistMockTasks(tasks.value)
+      return
+    }
+
+    try {
+      const batch = writeBatch(db)
+      const transform = shouldLink ? arrayUnion : arrayRemove
+      batch.update(doc(userCollection(), taskId), { relatedTaskIds: transform(linkedTaskId) })
+      batch.update(doc(userCollection(), linkedTaskId), { relatedTaskIds: transform(taskId) })
+      await trackWrite(() => batch.commit())
+    } catch (linkError) {
+      if (previousTaskLinks.length) task.relatedTaskIds = previousTaskLinks
+      else delete task.relatedTaskIds
+      if (previousLinkedTaskLinks.length) linkedTask.relatedTaskIds = previousLinkedTaskLinks
+      else delete linkedTask.relatedTaskIds
+      reportWriteError(linkError, 'Uppgifterna kunde inte länkas.')
+    }
+  }
+
+  const linkTasks = (taskId: string, linkedTaskId: string) =>
+    changeTaskLink(taskId, linkedTaskId, true)
+  const unlinkTasks = (taskId: string, linkedTaskId: string) =>
+    changeTaskLink(taskId, linkedTaskId, false)
 
   const toggleCompleted = (taskId: string) => {
     const task = tasks.value.find((item) => item.id === taskId)
@@ -605,10 +685,18 @@ export const useTaskStore = defineStore('tasks', () => {
     if (tasks.value.some((item) => item.id === task.id)) return
     tasks.value.splice(Math.min(index, tasks.value.length), 0, task)
     tasks.value = sortTasks(tasks.value)
+    const linkedTasks = tasks.value.filter((item) => item.id !== task.id && task.relatedTaskIds?.includes(item.id))
+    const previousLinks = linkedTasks.map((item): [string, string[]] => [item.id, [...(item.relatedTaskIds ?? [])]])
+    for (const linkedTask of linkedTasks) {
+      linkedTask.relatedTaskIds = [...new Set([...(linkedTask.relatedTaskIds ?? []), task.id])]
+    }
 
     try {
-      if (!isMockAuthEnabled) {
-        await trackWrite(() => setDoc(doc(userCollection(), task.id), {
+      if (isMockAuthEnabled) {
+        persistMockTasks(tasks.value)
+      } else {
+        const batch = writeBatch(db)
+        batch.set(doc(userCollection(), task.id), {
           listId: task.listId,
           title: task.title,
           completed: task.completed,
@@ -619,13 +707,27 @@ export const useTaskStore = defineStore('tasks', () => {
           archived: task.archived ?? false,
           ...(task.dueDate ? { dueDate: task.dueDate } : {}),
           ...(task.note ? { note: task.note } : {}),
+          ...(task.externalUrls?.length ? { externalUrls: task.externalUrls } : {}),
+          ...(task.externalUrl ? { externalUrl: task.externalUrl } : {}),
+          ...(task.relatedTaskIds?.length ? { relatedTaskIds: task.relatedTaskIds } : {}),
           ...(task.tags?.length ? { tags: task.tags } : {}),
           order: task.order,
           createdAt: task.createdAt,
-        }))
+        })
+        for (const linkedTask of linkedTasks) {
+          batch.update(doc(userCollection(), linkedTask.id), { relatedTaskIds: arrayUnion(task.id) })
+        }
+        await trackWrite(() => batch.commit())
       }
     } catch (restoreError) {
       tasks.value = tasks.value.filter((item) => item.id !== task.id)
+      for (const [linkedTaskId, relatedTaskIds] of previousLinks) {
+        const linkedTask = tasks.value.find((item) => item.id === linkedTaskId)
+        if (linkedTask) {
+          if (relatedTaskIds.length) linkedTask.relatedTaskIds = relatedTaskIds
+          else delete linkedTask.relatedTaskIds
+        }
+      }
       reportWriteError(restoreError, 'Uppgiften kunde inte återställas.')
     }
   }
@@ -635,15 +737,35 @@ export const useTaskStore = defineStore('tasks', () => {
     if (taskIndex < 0) return
 
     const [deletedTask] = tasks.value.splice(taskIndex, 1)
+    const linkedTasks = tasks.value.filter((task) => task.relatedTaskIds?.includes(taskId))
+    const previousLinks = new Map(linkedTasks.map((task) => [task.id, [...(task.relatedTaskIds ?? [])]]))
+    for (const linkedTask of linkedTasks) {
+      linkedTask.relatedTaskIds = linkedTask.relatedTaskIds?.filter((id) => id !== taskId)
+      if (!linkedTask.relatedTaskIds?.length) delete linkedTask.relatedTaskIds
+    }
     error.value = null
 
     try {
-      await trackWrite(() => deleteDoc(doc(userCollection(), taskId)))
+      if (isMockAuthEnabled) {
+        persistMockTasks(tasks.value)
+      } else {
+        const batch = writeBatch(db)
+        for (const linkedTask of linkedTasks) {
+          batch.update(doc(userCollection(), linkedTask.id), { relatedTaskIds: arrayRemove(taskId) })
+        }
+        batch.delete(doc(userCollection(), taskId))
+        await trackWrite(() => batch.commit())
+      }
       allSteps.value = allSteps.value.filter((step) => step.taskId !== taskId)
       if (activeTaskId.value === taskId) setActiveTask(null)
       toastStore.showAction('Uppgift borttagen', 'Ångra', () => void restoreTask(deletedTask, taskIndex))
     } catch (deleteError) {
       tasks.value = sortTasks([...tasks.value, deletedTask])
+      for (const linkedTask of linkedTasks) {
+        const relatedTaskIds = previousLinks.get(linkedTask.id) ?? []
+        if (relatedTaskIds.length) linkedTask.relatedTaskIds = relatedTaskIds
+        else delete linkedTask.relatedTaskIds
+      }
       reportWriteError(deleteError, 'Uppgiften kunde inte tas bort.')
     }
   }
@@ -783,6 +905,9 @@ export const useTaskStore = defineStore('tasks', () => {
     createTask,
     createStep,
     updateTask,
+    saveExternalUrls,
+    linkTasks,
+    unlinkTasks,
     toggleCompleted,
     setTaskStatus,
     archiveCompletedTasksForList,

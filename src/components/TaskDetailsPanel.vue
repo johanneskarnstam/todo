@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { ArrowLeft, Bell, CalendarDays, Check, ChevronDown, Clock, Copy, Expand, Plus, Shrink, Sun, Trash2 } from '@lucide/vue'
+import { ArrowLeft, Bell, CalendarDays, Check, ChevronDown, Clock, Copy, Expand, ExternalLink, Link2, Plus, Shrink, Sun, Trash2, X } from '@lucide/vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import ReminderEditor from '@/components/ReminderEditor.vue'
-import type { Step, Task, TaskPriority, TaskReminder } from '@/types'
+import type { List, Step, Task, TaskPriority, TaskReminder } from '@/types'
 import { normalizeTag, normalizeTags } from '@/utils/taskTags'
 import { getTaskPriority, isTaskPriority } from '@/utils/taskPriority'
 import { useDragReorder } from '@/composables/useDragReorder'
@@ -13,6 +13,8 @@ interface Props {
   steps: Step[]
   expanded?: boolean
   availableTags?: string[]
+  availableTasks?: Task[]
+  availableLists?: List[]
 }
 
 interface Emits {
@@ -30,6 +32,10 @@ interface Emits {
   (event: 'set-due-date', dueDate: string): void
   (event: 'save-reminders', reminders: TaskReminder[]): void
   (event: 'save-note', note: string): void
+  (event: 'save-external-urls', urls: string[]): void
+  (event: 'link-task', taskId: string): void
+  (event: 'unlink-task', taskId: string): void
+  (event: 'open-linked-task', taskId: string): void
   (event: 'save-tags', tags: string[]): void
   (event: 'select-tag', tag: string): void
   (event: 'delete-task'): void
@@ -47,6 +53,10 @@ const setExpanded = (expanded: boolean) => {
 
 const title = ref(props.task.title)
 const note = ref(props.task.note ?? '')
+const externalUrlDraft = ref('')
+const externalUrlError = ref('')
+const linkSearch = ref('')
+const isLinkTaskDialogOpen = ref(false)
 const tagTitle = ref('')
 const stepTitle = ref('')
 const isStepToolsExpanded = ref(false)
@@ -102,14 +112,23 @@ watch(
   () => {
     title.value = props.task.title
     note.value = props.task.note ?? ''
+    externalUrlDraft.value = ''
+    externalUrlError.value = ''
+    linkSearch.value = ''
+    isLinkTaskDialogOpen.value = false
     tags.value = normalizeTags(props.task.tags ?? [])
     showReminderEditor.value = false
-    setExpanded(false)
+    if (props.expanded === undefined) setExpanded(false)
     isStepToolsExpanded.value = false
     stepImportJson.value = ''
     stepImportError.value = ''
     stepImportStatus.value = ''
   },
+)
+
+watch(
+  () => [props.task.externalUrls, props.task.externalUrl],
+  () => { externalUrlError.value = '' },
 )
 
 const saveTitle = () => {
@@ -170,6 +189,57 @@ const saveNote = () => {
   if (note.value !== (props.task.note ?? '')) emit('save-note', note.value)
 }
 
+const externalUrls = computed(() => {
+  const savedUrls = props.task.externalUrls ?? (props.task.externalUrl ? [props.task.externalUrl] : [])
+  return [...new Set(savedUrls)].filter(isSafeExternalUrl)
+})
+const displayExternalUrl = (url: string) => url.length > 30 ? `${url.slice(0, 27)}...` : url
+function isSafeExternalUrl(value: string): boolean {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+const addExternalUrl = () => {
+  const nextUrl = externalUrlDraft.value.trim()
+  let parsedUrl: URL
+  try {
+    parsedUrl = new URL(nextUrl)
+  } catch {
+    externalUrlError.value = 'Ange en giltig URL som börjar med https:// eller http://.'
+    return
+  }
+  if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+    externalUrlError.value = 'Ange en giltig URL som börjar med https:// eller http://.'
+    return
+  }
+  if (externalUrls.value.includes(parsedUrl.href)) {
+    externalUrlError.value = 'Den här länken finns redan.'
+    return
+  }
+
+  emit('save-external-urls', [...externalUrls.value, parsedUrl.href])
+  externalUrlDraft.value = ''
+  externalUrlError.value = ''
+}
+const removeExternalUrl = (url: string) => {
+  emit('save-external-urls', externalUrls.value.filter((savedUrl) => savedUrl !== url))
+}
+
+const linkedTasks = computed(() => (props.task.relatedTaskIds ?? [])
+  .map((taskId) => props.availableTasks?.find((item) => item.id === taskId))
+  .filter((item): item is Task => Boolean(item)))
+const linkableTasks = computed(() => {
+  const query = linkSearch.value.trim().toLocaleLowerCase()
+  const linkedIds = new Set(props.task.relatedTaskIds ?? [])
+  return (props.availableTasks ?? [])
+    .filter((item) => item.id !== props.task.id && !linkedIds.has(item.id))
+    .filter((item) => !query || item.title.toLocaleLowerCase().includes(query))
+})
+const taskListName = (task: Task) =>
+  props.availableLists?.find((list) => list.id === task.listId)?.name ?? 'Okänd lista'
 const loadStepImportFile = async (event: Event) => {
   const input = event.currentTarget as HTMLInputElement
   const file = input.files?.[0]
@@ -578,10 +648,53 @@ const saveStepTitle = () => {
         </div>
       </section>
 
+      <section class="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-900" aria-labelledby="linked-tasks-heading">
+        <div class="mb-2 flex items-center justify-between gap-3">
+          <h2 id="linked-tasks-heading" class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Länkade uppgifter</h2>
+          <button class="inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 text-sm font-medium text-[#2564cf] hover:bg-blue-50 dark:hover:bg-blue-950/40" type="button" @click="isLinkTaskDialogOpen = true">
+            <Link2 :size="15" aria-hidden="true" />Länka uppgift
+          </button>
+        </div>
+        <ul v-if="linkedTasks.length" class="space-y-1">
+          <li v-for="linkedTask in linkedTasks" :key="linkedTask.id" class="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800">
+            <button class="min-w-0 flex-1 text-left" type="button" :aria-label="`Öppna länkad uppgift: ${linkedTask.title}`" @click="emit('open-linked-task', linkedTask.id)">
+              <span class="block truncate text-sm text-slate-700 dark:text-slate-200">{{ linkedTask.title }}</span>
+              <span class="block truncate text-xs text-slate-500 dark:text-slate-400">{{ taskListName(linkedTask) }}</span>
+            </button>
+            <button class="grid size-8 shrink-0 place-items-center rounded-md text-slate-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-700" type="button" :aria-label="`Ta bort länk till: ${linkedTask.title}`" @click="emit('unlink-task', linkedTask.id)">
+              <X :size="15" aria-hidden="true" />
+            </button>
+          </li>
+        </ul>
+        <p v-else class="text-sm text-slate-500 dark:text-slate-400">Inga länkade uppgifter.</p>
+      </section>
+
       <section class="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-900" aria-labelledby="notes-heading">
         <h2 id="notes-heading" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Anteckningar</h2>
         <label class="sr-only" for="task-note">Anteckningar</label>
         <textarea id="task-note" v-model="note" class="min-h-28 w-full resize-y rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-700 outline-none transition focus:border-[#2564cf] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200" placeholder="Lägg till en anteckning" @blur="saveNote" />
+      </section>
+
+      <section class="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-900" aria-labelledby="external-link-heading">
+        <h2 id="external-link-heading" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Extern länk</h2>
+        <ul v-if="externalUrls.length" class="mb-3 space-y-1">
+          <li v-for="url in externalUrls" :key="url" class="flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800">
+            <a class="inline-flex min-w-0 flex-1 items-center gap-1 truncate text-sm text-[#2564cf] hover:underline" :href="url" target="_blank" rel="noopener noreferrer" :title="url" :aria-label="`Öppna extern länk: ${url}`">
+              <span class="truncate">{{ displayExternalUrl(url) }}</span><ExternalLink class="shrink-0" :size="14" aria-hidden="true" />
+            </a>
+            <button class="grid size-8 shrink-0 place-items-center rounded-md text-slate-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-700" type="button" :aria-label="`Ta bort extern länk: ${url}`" @click="removeExternalUrl(url)">
+              <X :size="15" aria-hidden="true" />
+            </button>
+          </li>
+        </ul>
+        <form class="flex gap-2" @submit.prevent="addExternalUrl">
+          <label class="sr-only" for="task-external-url">URL</label>
+          <input id="task-external-url" v-model="externalUrlDraft" class="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-[#2564cf] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200" type="url" placeholder="https://" />
+          <button class="inline-flex min-h-10 shrink-0 items-center gap-1 rounded-lg bg-[#2564cf] px-3 text-sm font-medium text-white hover:bg-blue-700" type="submit">
+            <Plus :size="15" aria-hidden="true" />Lägg till
+          </button>
+        </form>
+        <p v-if="externalUrlError" class="mt-2 text-sm text-red-700 dark:text-red-300" role="alert">{{ externalUrlError }}</p>
       </section>
 
       <div class="shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
@@ -632,6 +745,26 @@ const saveStepTitle = () => {
       @confirm="confirmParentTaskCompletion"
       @cancel="isParentCompletionConfirmationOpen = false"
     />
+    <div v-if="isLinkTaskDialogOpen" class="fixed inset-0 z-[130] grid place-items-center bg-slate-950/45 px-4 py-6" role="presentation" @click.self="isLinkTaskDialogOpen = false" @keydown.esc.stop.prevent="isLinkTaskDialogOpen = false">
+      <section class="flex max-h-[80vh] w-full max-w-lg flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-700 dark:bg-slate-900" role="dialog" aria-modal="true" aria-labelledby="link-task-dialog-title">
+        <div class="mb-4 flex items-center justify-between gap-3">
+          <h2 id="link-task-dialog-title" class="text-lg font-semibold text-slate-800 dark:text-slate-100">Länka uppgift</h2>
+          <button class="grid size-9 place-items-center rounded-md text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800" type="button" aria-label="Stäng länka uppgift" @click="isLinkTaskDialogOpen = false">
+            <X :size="18" aria-hidden="true" />
+          </button>
+        </div>
+        <label class="sr-only" for="linked-task-search">Sök uppgift</label>
+        <input id="linked-task-search" v-model="linkSearch" class="mb-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#2564cf] dark:border-slate-700 dark:bg-slate-900" type="search" placeholder="Sök uppgift" autofocus />
+        <ul v-if="linkableTasks.length" class="min-h-0 space-y-1 overflow-y-auto">
+          <li v-for="candidate in linkableTasks" :key="candidate.id">
+            <button class="w-full rounded-lg px-3 py-2 text-left hover:bg-slate-100 dark:hover:bg-slate-800" type="button" :aria-label="`Länka ${candidate.title} från ${taskListName(candidate)}`" @click="emit('link-task', candidate.id); isLinkTaskDialogOpen = false">
+              <span class="block truncate text-sm font-medium text-slate-700 dark:text-slate-200">{{ candidate.title }}</span>
+              <span class="block truncate text-xs text-slate-500 dark:text-slate-400">{{ taskListName(candidate) }}</span>
+            </button>
+          </li>
+        </ul>
+        <p v-else class="py-6 text-center text-sm text-slate-500 dark:text-slate-400">Inga uppgifter hittades.</p>
+      </section>
+    </div>
   </aside>
 </template>
-
