@@ -430,13 +430,85 @@ describe('TaskDetailsPanel', () => {
       'tags-heading',
       'steps-heading',
       'planning-heading',
+      'linked-tasks-heading',
       'notes-heading',
+      'external-link-heading',
     ])
     expect(sections[1]?.classes()).toContain('bg-white')
     expect(sections[3]?.classes()).toContain('bg-white')
     expect(sections[4]?.classes()).toContain('bg-white')
     expect(sections[5]?.classes()).toContain('bg-white')
     expect(sections[6]?.classes()).toContain('bg-white')
+    expect(sections[7]?.classes()).toContain('bg-white')
+    expect(sections[8]?.classes()).toContain('bg-white')
+  })
+
+  it('searches tasks across lists and emits a symmetric link request', async () => {
+    const candidate: Task = { ...task, id: 'task-2', listId: 'list-2', title: 'Review roadmap' }
+    const wrapper = mount(TaskDetailsPanel, {
+      props: {
+        task,
+        steps,
+        availableTasks: [task, candidate, { ...candidate, id: 'task-3', title: 'Write report' }],
+        availableLists: [
+          { id: 'list-1', name: 'Home', icon: 'house', order: 0, createdAt: Timestamp.now() },
+          { id: 'list-2', name: 'Work', icon: 'briefcase', order: 1, createdAt: Timestamp.now() },
+        ],
+      },
+    })
+
+    const linkButton = wrapper.findAll('button').find((button) => button.text().includes('Länka uppgift'))
+    await linkButton?.trigger('click')
+    await wrapper.get('[aria-labelledby="link-task-dialog-title"] input[type="search"]').setValue('road')
+
+    const dialog = wrapper.get('[role="dialog"][aria-labelledby="link-task-dialog-title"]')
+    expect(dialog.text()).toContain('Review roadmap')
+    expect(dialog.text()).toContain('Work')
+    expect(dialog.text()).not.toContain('Write report')
+    await dialog.get('button[aria-label="Länka Review roadmap från Work"]').trigger('click')
+
+    expect(wrapper.emitted('link-task')).toEqual([['task-2']])
+    expect(wrapper.find('[role="dialog"][aria-labelledby="link-task-dialog-title"]').exists()).toBe(false)
+  })
+
+  it('adds multiple external URLs, truncates their display, and removes a saved URL', async () => {
+    const linkedTask: Task = { ...task, id: 'task-2', title: 'Review roadmap' }
+    const wrapper = mount(TaskDetailsPanel, {
+      props: {
+        task: { ...task, relatedTaskIds: [linkedTask.id] },
+        steps,
+        availableTasks: [task, linkedTask],
+      },
+    })
+
+    expect(wrapper.get('[aria-labelledby="linked-tasks-heading"]').text()).toContain('Review roadmap')
+    await wrapper.get('[aria-label="Ta bort länk till: Review roadmap"]').trigger('click')
+    expect(wrapper.emitted('unlink-task')).toEqual([['task-2']])
+
+    const firstUrl = 'https://www.tv4play.se/program/dea76dc5c339432e5796/robinson'
+    const secondUrl = 'https://example.com/project'
+    const urlInput = wrapper.get('#task-external-url')
+    await urlInput.setValue(firstUrl)
+    await wrapper.get('form:has(#task-external-url)').trigger('submit')
+    expect(wrapper.emitted('save-external-urls')).toEqual([[[new URL(firstUrl).href]]])
+    await wrapper.setProps({ task: { ...task, externalUrls: [firstUrl] } })
+    expect(wrapper.get(`a[title="${firstUrl}"] span.truncate`).text()).toBe('https://www.tv4play.se/prog...')
+
+    await urlInput.setValue(secondUrl)
+    await wrapper.get('form:has(#task-external-url)').trigger('submit')
+    expect(wrapper.emitted('save-external-urls')?.[1]).toEqual([[new URL(firstUrl).href, new URL(secondUrl).href]])
+    expect(wrapper.get(`a[href="${firstUrl}"]`).attributes('rel')).toBe('noopener noreferrer')
+    const normalizedFirstUrl = new URL(firstUrl).href
+    await wrapper.setProps({ task: { ...task, externalUrls: [normalizedFirstUrl, new URL(secondUrl).href] } })
+    await wrapper.get(`[aria-label="Ta bort extern länk: ${normalizedFirstUrl}"]`).trigger('click')
+    expect(wrapper.emitted('save-external-urls')?.[2]).toEqual([[new URL(secondUrl).href]])
+  })
+
+  it('shows legacy single external URLs until they are changed', () => {
+    const url = 'https://www.tv4play.se/program/robinson'
+    const wrapper = mount(TaskDetailsPanel, { props: { task: { ...task, externalUrl: url }, steps } })
+
+    expect(wrapper.get(`a[title="${url}"]`).attributes('href')).toBe(url)
   })
 
   it('keeps the step preparation and import section collapsed by default', () => {
@@ -446,22 +518,28 @@ describe('TaskDetailsPanel', () => {
     expect(wrapper.find('#step-tools-panel').exists()).toBe(false)
   })
 
-  it('copies only title, note, and expected response format in task context', async () => {
-    const wrapper = mount(TaskDetailsPanel, { props: { task: { ...task, note: 'Keep this note' }, steps } })
+  it('puts task title and note before the example JSON in task context', async () => {
+    const wrapper = mount(TaskDetailsPanel, {
+      props: { task: { ...task, title: 'Inför Bodø', note: 'Jag ska resa och fiska.' }, steps },
+    })
     await wrapper.get('#step-tools-toggle').trigger('click')
 
     const contextValue = (wrapper.get('[aria-label="Uppgiftskontext"]').element as HTMLTextAreaElement).value
-    const [instructions, contextJson] = contextValue.split('\n\n')
-    expect(instructions).toBe([
+    expect(contextValue).toBe([
       'Skapa konkreta delsteg för uppgiften nedan. Använd anteckningen som stöd och formulera varje steg som en tydlig åtgärd. Låt mig kunna kopiera ut resultaten direkt. Skriv endast JSON, inga förklaringar eller kommentarer.',
-      'Förväntat svarsformat är JSON. Returnera endast giltig JSON enligt noden expectedResponseFormat. Inget annat får returneras.',
+      'Förväntat svarsformat är JSON. Returnera endast giltig JSON enligt noden expectedResponseFormat nedan. Inget annat får returneras.',
+      '',
+      'Titel: "Inför Bodø"',
+      'Anteckning: "Jag ska resa och fiska."',
+      '{',
+      '  "expectedResponseFormat": {',
+      '    "steps": [',
+      '      "Delsteg 1",',
+      '      "Delsteg 2"',
+      '    ]',
+      '  }',
+      '}',
     ].join('\n'))
-    const context = JSON.parse(contextJson ?? '') as Record<string, unknown>
-    expect(context).toEqual({
-      title: task.title,
-      note: 'Keep this note',
-      expectedResponseFormat: { steps: ['Delsteg 1', 'Delsteg 2'] },
-    })
   })
 
   it('imports JSON subtasks for the current task in the requested order', async () => {
@@ -685,4 +763,3 @@ describe('TaskDetailsPanel', () => {
     expect(showPickerSpy).not.toHaveBeenCalled()
   })
 })
-

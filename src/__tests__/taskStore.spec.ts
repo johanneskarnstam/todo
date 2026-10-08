@@ -498,7 +498,104 @@ describe('useTaskStore', () => {
     await store.deleteTask('task-1')
     expect(store.tasks).toHaveLength(0)
     expect(store.activeTaskId).toBe(null)
-    expect(firestoreMocks.deleteDoc).toHaveBeenCalled()
+    expect(firestoreMocks.writeBatch).toHaveBeenCalled()
+  })
+
+  it('links tasks in both directions with one optimistic batch', async () => {
+    const createdAt = Timestamp.now()
+    const batch = {
+      set: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+      commit: vi.fn().mockResolvedValue(undefined),
+    }
+    firestoreMocks.writeBatch.mockReturnValueOnce(batch)
+    const store = useTaskStore()
+    store.tasks.push(
+      { id: 'task-1', listId: 'list-1', title: 'First', completed: false, important: false, myDay: false, createdAt },
+      { id: 'task-2', listId: 'list-2', title: 'Second', completed: false, important: false, myDay: false, createdAt },
+    )
+
+    await store.linkTasks('task-1', 'task-2')
+
+    expect(store.tasks.map((item) => item.relatedTaskIds)).toEqual([['task-2'], ['task-1']])
+    expect(batch.update).toHaveBeenCalledTimes(2)
+    expect(batch.commit).toHaveBeenCalledOnce()
+
+    await store.unlinkTasks('task-1', 'task-2')
+    expect(store.tasks.map((item) => item.relatedTaskIds)).toEqual([undefined, undefined])
+  })
+
+  it('rolls back both task links when the Firestore batch is rejected', async () => {
+    const createdAt = Timestamp.now()
+    const batch = {
+      set: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+      commit: vi.fn().mockRejectedValue(new Error('write rejected')),
+    }
+    firestoreMocks.writeBatch.mockReturnValueOnce(batch)
+    const store = useTaskStore()
+    store.tasks.push(
+      { id: 'task-1', listId: 'list-1', title: 'First', completed: false, important: false, myDay: false, createdAt },
+      { id: 'task-2', listId: 'list-2', title: 'Second', completed: false, important: false, myDay: false, createdAt },
+    )
+
+    await store.linkTasks('task-1', 'task-2')
+
+    expect(store.tasks.map((item) => item.relatedTaskIds)).toEqual([undefined, undefined])
+    expect(store.error).toBe('write rejected')
+  })
+
+  it('saves multiple external URLs and migrates a legacy single URL optimistically', async () => {
+    const createdAt = Timestamp.now()
+    const store = useTaskStore()
+    store.tasks.push({
+      id: 'task-1',
+      listId: 'list-1',
+      title: 'Open website',
+      completed: false,
+      important: false,
+      myDay: false,
+      createdAt,
+      externalUrl: 'https://legacy.example.com',
+    })
+
+    await store.saveExternalUrls('task-1', ['https://legacy.example.com', ' https://example.com '])
+    expect(store.tasks[0].externalUrls).toEqual(['https://legacy.example.com', 'https://example.com'])
+    expect(store.tasks[0].externalUrl).toBeUndefined()
+    expect(firestoreMocks.updateDoc).toHaveBeenCalledWith(expect.anything(), {
+      externalUrls: ['https://legacy.example.com', 'https://example.com'],
+      externalUrl: 'delete-field',
+    })
+
+    await store.saveExternalUrls('task-1', [])
+    expect(store.tasks[0].externalUrls).toBeUndefined()
+    expect(firestoreMocks.updateDoc).toHaveBeenLastCalledWith(expect.anything(), {
+      externalUrls: 'delete-field',
+      externalUrl: 'delete-field',
+    })
+  })
+
+  it('restores saved URLs after an external URL update is rejected', async () => {
+    const createdAt = Timestamp.now()
+    const store = useTaskStore()
+    store.tasks.push({
+      id: 'task-1',
+      listId: 'list-1',
+      title: 'Open website',
+      completed: false,
+      important: false,
+      myDay: false,
+      createdAt,
+      externalUrls: ['https://first.example.com'],
+    })
+    firestoreMocks.updateDoc.mockRejectedValueOnce(new Error('write rejected'))
+
+    await store.saveExternalUrls('task-1', ['https://second.example.com'])
+
+    expect(store.tasks[0].externalUrls).toEqual(['https://first.example.com'])
+    expect(store.error).toBe('write rejected')
   })
 
   it('updates task reminders and cleans up legacy reminder field', async () => {

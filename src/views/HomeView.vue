@@ -22,17 +22,25 @@ import { isTaskCompleted } from '@/utils/taskStatus'
 import type { ListSortMode, SmartView, TaskPriorityFilterValue, TaskReminder } from '@/types'
 import { filterTasksByPriority } from '@/utils/taskPriority'
 
+const route = useRoute()
+const router = useRouter()
 const isSidebarOpen = ref(typeof window === 'undefined' ? true : window.innerWidth >= 1024)
-const isTaskDetailsExpanded = ref(false)
+const isTaskDetailsExpanded = ref(route.query.details === 'expanded')
 const canExpandBothPanels = () => typeof window !== 'undefined' && window.innerWidth >= 1920
 const setSidebarOpen = (open: boolean) => {
   isSidebarOpen.value = open
-  if (open && !canExpandBothPanels()) isTaskDetailsExpanded.value = false
+  if (open && !canExpandBothPanels()) setTaskDetailsExpanded(false)
 }
 const toggleSidebar = () => setSidebarOpen(!isSidebarOpen.value)
 const setTaskDetailsExpanded = (expanded: boolean) => {
   isTaskDetailsExpanded.value = expanded
   if (expanded && !canExpandBothPanels()) isSidebarOpen.value = false
+  if (route.name !== 'task') return
+
+  const details = expanded ? 'expanded' : undefined
+  if (route.query.details !== details) {
+    void router.replace({ query: { ...route.query, details } })
+  }
 }
 const isSearchOpen = ref(false)
 const taskTitle = ref('')
@@ -50,8 +58,6 @@ const toastStore = useToastStore()
 const { enablePushForReminder, scheduleTaskReminder, cancelTaskReminder } = useReminderNotifications()
 const { isDark, toggleTheme } = useTheme()
 const { preferences } = usePreferences()
-const route = useRoute()
-const router = useRouter()
 
 interface PlannedGroup {
   key: 'overdue' | 'today' | 'tomorrow' | 'thisWeek' | 'nextWeek' | 'later'
@@ -64,6 +70,15 @@ const routeListId = computed(() => typeof route.params.listId === 'string' ? rou
 const routeTaskId = computed(() => typeof route.params.taskId === 'string' ? route.params.taskId : null)
 const notificationTaskId = computed(() => typeof route.query.task === 'string' ? route.query.task : null)
 const isPlannedView = computed(() => routeSmartView.value === 'planned')
+
+watch(
+  () => route.query.details,
+  (details) => {
+    isTaskDetailsExpanded.value = routeTaskId.value !== null && details === 'expanded'
+    if (isTaskDetailsExpanded.value && !canExpandBothPanels()) isSidebarOpen.value = false
+  },
+  { immediate: true },
+)
 
 const activeList = computed(() => {
   const view = taskStore.activeView
@@ -297,7 +312,11 @@ const handleSelectList = (listId: string) => {
 }
 
 const openTask = (taskId: string) => {
-  void router.push({ name: 'task', params: { taskId } })
+  void router.push({
+    name: 'task',
+    params: { taskId },
+    ...(isTaskDetailsExpanded.value ? { query: { details: 'expanded' } } : {}),
+  })
 }
 
 const copyListLink = async () => {
@@ -310,7 +329,11 @@ const copyListLink = async () => {
 const copyActiveTaskLink = async () => {
   const taskId = taskStore.activeTaskId
   if (!taskId) return
-  const href = router.resolve({ name: 'task', params: { taskId } }).href
+  const href = router.resolve({
+    name: 'task',
+    params: { taskId },
+    ...(isTaskDetailsExpanded.value ? { query: { details: 'expanded' } } : {}),
+  }).href
   const copied = await copyRouteLink(href)
   toastStore.show(copied ? 'Uppgiftslänk kopierad.' : 'Länken kunde inte kopieras.')
 }
@@ -849,6 +872,7 @@ watch(
         :task="taskStore.activeTask"
         :steps="taskStore.activeSteps"
         :available-tags="availableTags"
+        :available-tasks="taskStore.tasks"
         :available-lists="listStore.lists"
         @close="closeActiveTask"
         @copy-link="copyActiveTaskLink"
@@ -864,6 +888,10 @@ watch(
         @set-due-date="handleSetDueDate(taskStore.activeTaskId!, $event)"
         @save-reminders="handleSaveReminders(taskStore.activeTaskId!, $event)"
         @save-note="taskStore.saveNote(taskStore.activeTaskId!, $event)"
+        @save-external-urls="taskStore.saveExternalUrls(taskStore.activeTaskId!, $event)"
+        @link-task="taskStore.linkTasks(taskStore.activeTaskId!, $event)"
+        @unlink-task="taskStore.unlinkTasks(taskStore.activeTaskId!, $event)"
+        @open-linked-task="openTask"
         @save-tags="taskStore.updateTask(taskStore.activeTaskId!, { tags: $event })"
         @select-tag="handleSelectTag"
         @move-to-list="handleMoveTaskToList(taskStore.activeTaskId!, $event)"

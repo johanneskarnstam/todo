@@ -110,6 +110,46 @@ test('opens task details from a task row', async ({ page }) => {
   await expect(page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' }).getByRole('img', { name: 'Anteckning finns' })).toBeVisible()
 })
 
+test('links tasks across lists in both directions and saves multiple external URLs', async ({ page }) => {
+  await page.goto('/#/tasks/local-task-2')
+  await dismissReleaseNotes(page)
+
+  const details = page.getByRole('dialog', { name: 'Uppgiftsdetaljer' })
+  const linkedTasks = details.getByRole('region', { name: 'Länkade uppgifter' })
+  await expect(linkedTasks).toContainText('Inga länkade uppgifter.')
+  await details.getByRole('button', { name: 'Länka uppgift' }).click()
+
+  const linkDialog = page.getByRole('dialog', { name: 'Länka uppgift' })
+  await linkDialog.getByRole('searchbox', { name: 'Sök uppgift' }).fill('Förbered nästa release')
+  await linkDialog.getByRole('button', { name: /Länka Förbered nästa release/ }).click()
+  await expect(linkedTasks).toContainText('Förbered nästa release')
+
+  await linkedTasks.getByRole('button', { name: 'Öppna länkad uppgift: Förbered nästa release' }).click()
+  await expect(page).toHaveURL(/\/#\/tasks\/local-task-3$/)
+  const reverseLink = page.getByRole('region', { name: 'Länkade uppgifter' })
+  await expect(reverseLink).toContainText('Kontrollera mobilvyn')
+  await reverseLink.getByRole('button', { name: 'Ta bort länk till: Kontrollera mobilvyn' }).click()
+  await page.goBack()
+  await expect(page).toHaveURL(/\/#\/tasks\/local-task-2$/)
+  await expect(page.getByRole('region', { name: 'Länkade uppgifter' })).toContainText('Inga länkade uppgifter.')
+
+  const urlInput = page.getByRole('textbox', { name: 'URL' })
+  const firstUrl = 'https://www.tv4play.se/program/dea76dc5c339432e5796/robinson'
+  const externalLinks = details.getByRole('region', { name: 'Extern länk' })
+  await urlInput.fill(firstUrl)
+  await externalLinks.getByRole('button', { name: 'Lägg till' }).click()
+  await expect(externalLinks.getByRole('link', { name: `Öppna extern länk: ${firstUrl}` })).toContainText('https://www.tv4play.se/prog...')
+  await urlInput.fill('https://example.com/project')
+  await externalLinks.getByRole('button', { name: 'Lägg till' }).click()
+  await expect(externalLinks.getByRole('link', { name: 'Öppna extern länk: https://example.com/project' })).toBeVisible()
+  await page.reload()
+  await dismissReleaseNotes(page)
+  await expect(page.getByRole('link', { name: `Öppna extern länk: ${firstUrl}` })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Öppna extern länk: https://example.com/project' })).toBeVisible()
+  await page.getByRole('button', { name: `Ta bort extern länk: ${new URL(firstUrl).href}` }).click()
+  await expect(page.getByRole('link', { name: `Öppna extern länk: ${firstUrl}` })).toHaveCount(0)
+})
+
 test('expands task details on desktop and keeps the control out of mobile', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 })
   await page.goto('/#/tasks/local-task-3')
@@ -119,6 +159,11 @@ test('expands task details on desktop and keeps the control out of mobile', asyn
   const expandButton = details.getByRole('button', { name: 'Expandera uppgiftsdetaljer' })
   await expect(expandButton).toBeVisible()
   await expandButton.click()
+  await expect(details.getByRole('button', { name: 'Minimera uppgiftsdetaljer' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page).toHaveURL(/\/#\/tasks\/local-task-3\?details=expanded$/)
+  await page.reload()
+  await dismissReleaseNotes(page)
+  await expect(page).toHaveURL(/\/#\/tasks\/local-task-3\?details=expanded$/)
   await expect(details.getByRole('button', { name: 'Minimera uppgiftsdetaljer' })).toHaveAttribute('aria-pressed', 'true')
   const sidebar = page.getByRole('complementary', { name: 'Uppgiftsnavigering' })
   await expect(sidebar.getByRole('button', { name: 'Expandera navigeringsmeny' })).toBeVisible()
@@ -160,6 +205,7 @@ test('expands task details on desktop and keeps the control out of mobile', asyn
   expect(Math.abs(largeScreenBounds.right - 1920)).toBeLessThan(2)
 
   await details.getByRole('button', { name: 'Minimera uppgiftsdetaljer' }).click()
+  await expect(page).toHaveURL(/\/#\/tasks\/local-task-3$/)
   await expect(details.getByRole('button', { name: 'Expandera uppgiftsdetaljer' })).toHaveAttribute('aria-pressed', 'false')
   await expect(sidebar.getByRole('button', { name: 'Fäll ihop navigeringsmeny' })).toBeVisible()
   await sidebar.getByRole('button', { name: 'Fäll ihop navigeringsmeny' }).click()
@@ -184,16 +230,20 @@ test('prepares and imports subtasks from the task details panel', async ({ page 
   await expect(details.getByRole('textbox', { name: 'Uppgiftskontext' })).toHaveCount(0)
   await stepToolsToggle.click()
 
-  const expectedContext = {
-    title: 'Förbered nästa release',
-    note: 'Testa bygget innan publicering.',
-    expectedResponseFormat: { steps: ['Delsteg 1', 'Delsteg 2'] },
-  }
   const expectedInstructions = [
     'Skapa konkreta delsteg för uppgiften nedan. Använd anteckningen som stöd och formulera varje steg som en tydlig åtgärd. Låt mig kunna kopiera ut resultaten direkt. Skriv endast JSON, inga förklaringar eller kommentarer.',
-    'Förväntat svarsformat är JSON. Returnera endast giltig JSON enligt noden expectedResponseFormat. Inget annat får returneras.',
+    'Förväntat svarsformat är JSON. Returnera endast giltig JSON enligt noden expectedResponseFormat nedan. Inget annat får returneras.',
   ].join('\n')
-  const expectedCopiedContext = `${expectedInstructions}\n\n${JSON.stringify(expectedContext, null, 2)}`
+  const expectedExampleJson = JSON.stringify({
+    expectedResponseFormat: { steps: ['Delsteg 1', 'Delsteg 2'] },
+  }, null, 2)
+  const expectedCopiedContext = [
+    expectedInstructions,
+    '',
+    'Titel: "Förbered nästa release"',
+    'Anteckning: "Testa bygget innan publicering."',
+    expectedExampleJson,
+  ].join('\n')
   const contextInput = details.getByRole('textbox', { name: 'Uppgiftskontext' })
   await expect(contextInput).toHaveValue(expectedCopiedContext)
   await details.getByRole('button', { name: 'Kopiera kontext' }).click()
