@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { ArrowLeft, Bell, CalendarDays, Check, ChevronDown, Clock, Copy, Expand, ExternalLink, Link2, Plus, Shrink, Sun, Trash2, X } from '@lucide/vue'
+import { Bell, CalendarDays, Check, ChevronDown, Clock, Copy, Expand, ExternalLink, Link2, Plus, Shrink, Sun, Trash2, X } from '@lucide/vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import ReminderEditor from '@/components/ReminderEditor.vue'
 import type { List, Step, Task, TaskPriority, TaskReminder } from '@/types'
@@ -433,7 +433,7 @@ const saveStepTitle = () => {
           <Copy :size="17" aria-hidden="true" />
         </button>
         <button class="grid size-8 place-items-center rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700" type="button" aria-label="Stäng uppgiftsdetaljer" @click="emit('close')">
-          <ArrowLeft :size="19" :stroke-width="1.8" aria-hidden="true" />
+          <X :size="19" :stroke-width="1.8" aria-hidden="true" />
         </button>
       </div>
     </div>
