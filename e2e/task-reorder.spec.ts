@@ -62,6 +62,46 @@ test.describe('task drag-and-drop reorder', () => {
     await expect(page.locator('[aria-labelledby="task-details-heading"]')).toHaveCount(0)
   })
 
+  test('reorders subtasks with touch input on a mobile-sized viewport', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/#/tasks/local-task-3')
+    await page.getByRole('button', { name: 'Jag har sett detta' }).click()
+
+    const details = page.getByRole('dialog', { name: 'Uppgiftsdetaljer' })
+    await details.getByRole('button', { name: 'Förbered och importera delsteg' }).click()
+    await details.getByRole('textbox', { name: 'JSON för delsteg' }).fill(JSON.stringify({
+      steps: ['Första delsteget', 'Andra delsteget'],
+    }))
+    await details.getByRole('button', { name: 'Importera delsteg', exact: true }).click()
+
+    const stepRows = details.locator('[data-step-id]')
+    await expect(stepRows).toHaveCount(2)
+    const firstHandle = stepRows.first().locator('[data-step-drag-handle]')
+    await expect(firstHandle).toHaveCSS('touch-action', 'none')
+    const secondRowBox = await stepRows.nth(1).boundingBox()
+    expect(secondRowBox).not.toBeNull()
+
+    if (secondRowBox) {
+      await firstHandle.evaluate((element, targetY) => {
+        const dispatch = (target: EventTarget, type: string, clientY: number) => {
+          target.dispatchEvent(new PointerEvent(type, {
+            bubbles: true,
+            cancelable: true,
+            pointerId: 7,
+            pointerType: 'touch',
+            clientY,
+          }))
+        }
+        dispatch(element, 'pointerdown', element.getBoundingClientRect().top + 10)
+        dispatch(window, 'pointermove', targetY)
+        dispatch(window, 'pointerup', targetY)
+      }, secondRowBox.y + secondRowBox.height - 2)
+    }
+
+    await expect(stepRows.first()).toContainText('Andra delsteget')
+    await expect(stepRows.nth(1)).toContainText('Första delsteget')
+  })
+
   test('shows drag handle on hover in list view', async ({ page }) => {
     await page.goto('/')
     await page.getByRole('button', { name: 'Jag har sett detta' }).click()

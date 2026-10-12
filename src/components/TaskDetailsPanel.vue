@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { Bell, CalendarDays, Check, ChevronDown, Clock, Copy, Expand, ExternalLink, Link2, Plus, Shrink, Sun, Trash2, X } from '@lucide/vue'
+import { Bell, CalendarDays, Check, ChevronDown, Clock, Copy, Expand, ExternalLink, GripVertical, Link2, Plus, Shrink, Sun, Trash2, X } from '@lucide/vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import ReminderEditor from '@/components/ReminderEditor.vue'
 import type { List, Step, Task, TaskPriority, TaskReminder } from '@/types'
@@ -75,6 +75,7 @@ const { isDragging: isDraggingStep, dragIndex: dragStepIndex } = useDragReorder(
   enabled: computed(() => props.steps.length > 1),
   itemSelector: '[data-step-id]',
   handleSelector: '[data-step-id]',
+  touchHandleSelector: '[data-step-drag-handle]',
 })
 const isParentCompletionConfirmationOpen = ref(false)
 const showReminderEditor = ref(false)
@@ -507,9 +508,14 @@ const saveStepTitle = () => {
             ]"
           >
             <span
-              class="w-5 shrink-0 text-center text-xs font-semibold tabular-nums text-slate-400 dark:text-slate-500"
+              class="flex min-h-10 w-8 shrink-0 items-center justify-center gap-0.5 text-xs font-semibold tabular-nums text-slate-400 dark:text-slate-500"
+              :class="steps.length > 1 ? 'touch-none cursor-grab active:cursor-grabbing' : ''"
+              :data-step-drag-handle="steps.length > 1 ? '' : undefined"
               aria-hidden="true"
-            >{{ index + 1 }}</span>
+            >
+              <GripVertical v-if="steps.length > 1" :size="14" aria-hidden="true" />
+              <span class="text-xs font-semibold tabular-nums">{{ index + 1 }}</span>
+            </span>
             <button
               class="grid size-6 shrink-0 place-items-center rounded-full border border-slate-400 text-xs text-white transition hover:border-[#2564cf] dark:border-slate-500"
               :class="{ 'border-[#2564cf] bg-[#2564cf] dark:border-blue-400 dark:bg-blue-400': step.completed }"

@@ -7,6 +7,7 @@ interface DragReorderOptions {
   enabled: Ref<boolean>
   itemSelector?: string
   handleSelector?: string
+  touchHandleSelector?: string
 }
 
 export function useDragReorder(options: DragReorderOptions) {
@@ -17,6 +18,7 @@ export function useDragReorder(options: DragReorderOptions) {
     enabled,
     itemSelector = '[data-task-id]',
     handleSelector = '[data-drag-handle]',
+    touchHandleSelector,
   } = options
 
   const isDragging = ref(false)
@@ -33,6 +35,11 @@ export function useDragReorder(options: DragReorderOptions) {
   let activePointerId: number | null = null
 
   const DRAG_THRESHOLD = 6
+
+  const getMatchingElement = (target: EventTarget | null, selector: string): HTMLElement | null => {
+    if (!(target instanceof Element)) return null
+    return target.closest<HTMLElement>(selector)
+  }
 
   const getItemElements = (): HTMLElement[] => {
     const container = containerRef.value
@@ -92,11 +99,14 @@ export function useDragReorder(options: DragReorderOptions) {
 
   const handlePointerDown = (event: PointerEvent) => {
     if (!enabled.value) return
-    const handle = (event.target as HTMLElement).closest(handleSelector) as HTMLElement | null
-    if (!handle) return
-
-    const taskEl = handle.closest(itemSelector) as HTMLElement | null
+    const taskEl = getMatchingElement(event.target, itemSelector)
     if (!taskEl) return
+
+    const handleSelectorForPointer = event.pointerType === 'touch' && touchHandleSelector
+      ? touchHandleSelector
+      : handleSelector
+    const handle = getMatchingElement(event.target, handleSelectorForPointer)
+    if (!handle || !taskEl.contains(handle)) return
 
     const els = getItemElements()
     const idx = els.indexOf(taskEl)
