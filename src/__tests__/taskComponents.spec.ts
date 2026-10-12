@@ -417,6 +417,23 @@ describe('TaskDetailsPanel', () => {
     },
   ]
 
+  it('toggles task completion from the rounded checkbox beside the title', async () => {
+    const wrapper = mount(TaskDetailsPanel, { props: { task, steps } })
+    const checkbox = wrapper.get('[role="checkbox"][aria-label="Markera uppgift som slutförd"]')
+
+    expect(checkbox.classes()).toContain('rounded-full')
+    expect(checkbox.attributes('aria-checked')).toBe('false')
+
+    await checkbox.trigger('click')
+
+    expect(wrapper.emitted('toggle-task-completed')).toHaveLength(1)
+
+    await wrapper.setProps({ task: { ...task, completed: true } })
+
+    const completedCheckbox = wrapper.get('[role="checkbox"][aria-label="Markera uppgift som aktiv"]')
+    expect(completedCheckbox.attributes('aria-checked')).toBe('true')
+  })
+
   it('uses consistent backgrounds for detail sections', () => {
     const wrapper = mount(TaskDetailsPanel, { props: { task, steps } })
     const sections = wrapper.findAll('[aria-labelledby]')

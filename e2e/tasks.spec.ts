@@ -110,6 +110,23 @@ test('opens task details from a task row', async ({ page }) => {
   await expect(page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' }).getByRole('img', { name: 'Anteckning finns' })).toBeVisible()
 })
 
+test('completes and restores a task from its details panel', async ({ page }) => {
+  await page.goto('/#/tasks/local-task-2')
+  await dismissReleaseNotes(page)
+
+  const details = page.getByRole('dialog', { name: 'Uppgiftsdetaljer' })
+  const completeButton = details.getByRole('checkbox', { name: 'Markera uppgift som slutförd' })
+  await expect(completeButton).toHaveAttribute('aria-checked', 'false')
+  await completeButton.click()
+
+  const restoreButton = details.getByRole('checkbox', { name: 'Markera uppgift som aktiv' })
+  await expect(restoreButton).toHaveAttribute('aria-checked', 'true')
+  await expect(details).toBeVisible()
+  await expect(details.getByRole('textbox', { name: 'Uppgiftens titel' })).toHaveCSS('text-decoration-line', 'line-through')
+  await restoreButton.click()
+  await expect(details.getByRole('checkbox', { name: 'Markera uppgift som slutförd' })).toHaveAttribute('aria-checked', 'false')
+})
+
 test('links tasks across lists in both directions and saves multiple external URLs', async ({ page }) => {
   await page.goto('/#/tasks/local-task-2')
   await dismissReleaseNotes(page)

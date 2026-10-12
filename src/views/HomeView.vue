@@ -881,7 +881,7 @@ watch(
         @reorder-steps="taskStore.reorderSteps(taskStore.activeTaskId!, $event)"
         @save-step-title="handleSaveStepTitle"
         @toggle-step="taskStore.toggleStep($event)"
-        @toggle-task-completed="taskStore.toggleCompleted(taskStore.activeTaskId!)"
+        @toggle-task-completed="handleToggleCompleted(taskStore.activeTaskId!)"
         @delete-step="taskStore.deleteStep($event)"
         @toggle-my-day="taskStore.toggleMyDay(taskStore.activeTaskId!)"
         @set-priority="taskStore.updateTask(taskStore.activeTaskId!, { priority: $event })"

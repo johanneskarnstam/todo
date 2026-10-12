@@ -102,6 +102,25 @@ test.describe('task drag-and-drop reorder', () => {
     await expect(stepRows.nth(1)).toContainText('Första delsteget')
   })
 
+  test('edits a subtask title on desktop without starting a drag', async ({ page }) => {
+    await page.goto('/#/tasks/local-task-3')
+    await page.getByRole('button', { name: 'Jag har sett detta' }).click()
+
+    const details = page.getByRole('dialog', { name: 'Uppgiftsdetaljer' })
+    await details.getByRole('button', { name: 'Förbered och importera delsteg' }).click()
+    await details.getByRole('textbox', { name: 'JSON för delsteg' }).fill(JSON.stringify({
+      steps: ['Första delsteget', 'Andra delsteget'],
+    }))
+    await details.getByRole('button', { name: 'Importera delsteg', exact: true }).click()
+
+    await details.getByRole('button', { name: 'Redigera delsteg: Första delsteget' }).click()
+    const titleInput = details.getByRole('textbox', { name: 'Redigera delsteg: Första delsteget' })
+    await titleInput.fill('Uppdaterat delsteg')
+    await titleInput.press('Enter')
+
+    await expect(details.getByRole('button', { name: 'Redigera delsteg: Uppdaterat delsteg' })).toBeVisible()
+  })
+
   test('shows drag handle on hover in list view', async ({ page }) => {
     await page.goto('/')
     await page.getByRole('button', { name: 'Jag har sett detta' }).click()

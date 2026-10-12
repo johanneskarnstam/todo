@@ -4,6 +4,7 @@ import { Bell, CalendarDays, Check, ChevronDown, Clock, Copy, Expand, ExternalLi
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import ReminderEditor from '@/components/ReminderEditor.vue'
 import type { List, Step, Task, TaskPriority, TaskReminder } from '@/types'
+import { isTaskCompleted } from '@/utils/taskStatus'
 import { normalizeTag, normalizeTags } from '@/utils/taskTags'
 import { getTaskPriority, isTaskPriority } from '@/utils/taskPriority'
 import { useDragReorder } from '@/composables/useDragReorder'
@@ -74,7 +75,7 @@ const { isDragging: isDraggingStep, dragIndex: dragStepIndex } = useDragReorder(
   onReorder: (orderedIds) => emit('reorder-steps', orderedIds),
   enabled: computed(() => props.steps.length > 1),
   itemSelector: '[data-step-id]',
-  handleSelector: '[data-step-id]',
+  handleSelector: '[data-step-drag-handle]',
   touchHandleSelector: '[data-step-drag-handle]',
 })
 const isParentCompletionConfirmationOpen = ref(false)
@@ -444,15 +445,29 @@ const saveStepTitle = () => {
     <div class="min-h-0 flex flex-1 flex-col gap-3 overflow-y-auto bg-slate-100 p-3 dark:bg-slate-950">
       <section class="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-900" aria-labelledby="title-heading">
         <label id="title-heading" class="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400" for="task-title">Titel</label>
-        <input
-          id="task-title"
-          v-model="title"
-          class="w-full border-b border-transparent bg-transparent pb-2 text-lg font-semibold text-slate-800 outline-none transition focus:border-[#2564cf] dark:text-slate-100"
-          type="text"
-          aria-label="Uppgiftens titel"
-          @blur="saveTitle"
-          @keydown.enter.prevent="saveTitle"
-        />
+        <div class="flex items-center gap-3">
+          <button
+            class="grid size-6 shrink-0 place-items-center rounded-full border border-slate-400 text-xs text-white transition hover:border-[#2564cf] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2564cf] focus-visible:ring-offset-2 dark:border-slate-500 dark:focus-visible:ring-offset-slate-900"
+            :class="{ 'border-[#2564cf] bg-[#2564cf] dark:border-blue-400 dark:bg-blue-400': isTaskCompleted(task) }"
+            type="button"
+            role="checkbox"
+            :aria-checked="isTaskCompleted(task)"
+            :aria-label="isTaskCompleted(task) ? 'Markera uppgift som aktiv' : 'Markera uppgift som slutförd'"
+            @click="emit('toggle-task-completed')"
+          >
+            <Check v-if="isTaskCompleted(task)" :size="14" aria-hidden="true" />
+          </button>
+          <input
+            id="task-title"
+            v-model="title"
+            class="min-w-0 flex-1 border-b border-transparent bg-transparent pb-2 text-lg font-semibold text-slate-800 outline-none transition focus:border-[#2564cf] dark:text-slate-100"
+            :class="{ 'text-slate-400 line-through dark:text-slate-500': isTaskCompleted(task) }"
+            type="text"
+            aria-label="Uppgiftens titel"
+            @blur="saveTitle"
+            @keydown.enter.prevent="saveTitle"
+          />
+        </div>
       </section>
 
       <section class="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-900" aria-labelledby="priority-heading">
@@ -502,10 +517,7 @@ const saveStepTitle = () => {
             :key="step.id"
             :data-step-id="step.id"
             class="flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm text-slate-700 select-none hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
-            :class="[
-              steps.length > 1 ? 'cursor-grab active:cursor-grabbing' : '',
-              dragStepIndex === index ? 'opacity-50' : '',
-            ]"
+            :class="{ 'opacity-50': dragStepIndex === index }"
           >
             <span
               class="flex min-h-10 w-8 shrink-0 items-center justify-center gap-0.5 text-xs font-semibold tabular-nums text-slate-400 dark:text-slate-500"
@@ -543,7 +555,7 @@ const saveStepTitle = () => {
             <button
               v-else
               class="min-w-0 flex-1 truncate text-left"
-              :class="{ 'text-slate-400 line-through dark:text-slate-500': step.completed, 'cursor-grab active:cursor-grabbing': steps.length > 1 }"
+              :class="{ 'text-slate-400 line-through dark:text-slate-500': step.completed }"
               type="button"
               :aria-label="`Redigera delsteg: ${step.title}`"
               @click="!isDraggingStep && startEditingStep(step)"
