@@ -29,11 +29,11 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
-    "@lucide/vue": "^1.48.0",
+    "@lucide/vue": "^1.54.0",
     "firebase": "^12.13.0",
     "pinia": "^3.0.4",
     "vue": "^3.5.34",
-    "vue-router": "^5.0.7"
+    "vue-router": "^5.4.0"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.2",
