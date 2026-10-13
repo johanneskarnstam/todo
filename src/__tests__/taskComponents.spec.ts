@@ -569,7 +569,7 @@ describe('TaskDetailsPanel', () => {
     expect(importButton).toBeTruthy()
     await importButton?.trigger('click')
 
-    expect(wrapper.emitted('add-step')).toEqual([['Second step'], ['First step']])
+    expect(wrapper.emitted('add-step')).toEqual([['First step'], ['Second step']])
     expect(wrapper.get('#step-tools-panel').get('[role="status"]').text()).toContain('2 delsteg importerade.')
   })
 

@@ -313,7 +313,7 @@ const importSteps = async () => {
 
   isImportingSteps.value = true
   try {
-    for (const stepTitle of [...stepTitles].reverse()) emit('add-step', stepTitle)
+    for (const stepTitle of stepTitles) emit('add-step', stepTitle)
     stepImportJson.value = ''
     stepImportStatus.value = `${stepTitles.length} delsteg importerade.`
   } finally {
