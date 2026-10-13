@@ -97,7 +97,7 @@ const handleSave = () => {
 
   const reminder: AbsoluteReminder = {
     mode: 'absolute',
-    at: `${absoluteDate.value}T${absoluteTime.value}`,
+    at: `${absoluteDate.value}T${absoluteTime.value.slice(0, 5)}`,
     timeZone,
   }
   emit('update:modelValue', reminder)

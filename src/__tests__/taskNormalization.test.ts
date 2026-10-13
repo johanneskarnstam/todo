@@ -16,6 +16,19 @@ describe('taskNormalization', () => {
       })
     })
 
+    it('strips seconds from absolute reminder at field (HH:MM:SS → HH:MM)', () => {
+      const result = normalizeSingleReminder({
+        mode: 'absolute',
+        at: '2026-10-15T09:00:00',
+        timeZone: 'Europe/Stockholm',
+      })
+      expect(result).toEqual({
+        mode: 'absolute',
+        at: '2026-10-15T09:00',
+        timeZone: 'Europe/Stockholm',
+      })
+    })
+
     it('rejects absolute reminder with missing fields', () => {
       expect(normalizeSingleReminder({ mode: 'absolute', at: '' })).toBeNull()
       expect(normalizeSingleReminder({ mode: 'absolute', at: '2026-10-15T09:00' })).toBeNull()
