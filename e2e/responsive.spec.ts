@@ -101,6 +101,7 @@ test.describe('desktop layout', () => {
         viewportHeight: window.innerHeight,
         shellHeight: shell?.getBoundingClientRect().height ?? 0,
         sidebarBottom: sidebar?.getBoundingClientRect().bottom ?? 0,
+        sidebarHeight: sidebar?.getBoundingClientRect().height ?? 0,
         detailsBottom: details?.getBoundingClientRect().bottom ?? 0,
         detailClientHeight: detailContent?.clientHeight ?? 0,
         detailScrollHeight: detailContent?.scrollHeight ?? 0,
@@ -109,7 +110,8 @@ test.describe('desktop layout', () => {
 
     expect(dimensions.documentHeight).toBe(dimensions.viewportHeight)
     expect(dimensions.shellHeight).toBe(dimensions.viewportHeight)
-    expect(dimensions.sidebarBottom).toBe(dimensions.viewportHeight)
+    // Sidebar is closed on large screens when task details are open
+    expect(dimensions.sidebarHeight).toBe(0)
     expect(dimensions.detailsBottom).toBe(dimensions.viewportHeight)
     expect(dimensions.detailScrollHeight).toBeGreaterThan(dimensions.detailClientHeight)
   })

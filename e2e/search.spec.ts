@@ -43,7 +43,7 @@ test('opens a task search result at its canonical task URL', async ({ page }) =>
   await expect(result).toBeVisible()
   await result.click()
 
-  await expect(page).toHaveURL(/\/#\/tasks\/local-task-3$/)
+  await expect(page).toHaveURL(/\/#\/tasks\/local-task-3(\?details=expanded)?$/)
   await expect(page.getByRole('dialog', { name: 'Uppgiftsdetaljer' }).getByRole('textbox', { name: 'Uppgiftens titel' })).toHaveValue('Förbered nästa release')
 })
 

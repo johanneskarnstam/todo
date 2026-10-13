@@ -51,7 +51,7 @@ test('opens task details from a task row', async ({ page }) => {
 
   const details = page.getByRole('dialog', { name: 'Uppgiftsdetaljer' })
   await expect(details).toBeVisible()
-  await expect(page).toHaveURL(/\/#\/tasks\/local-task-2$/)
+  await expect(page).toHaveURL(/\/#\/tasks\/local-task-2(\?details=expanded)?$/)
   await expect(details.getByLabel('Uppgiftens titel')).not.toBeFocused()
   await expect(details.getByRole('heading', { name: 'Taggar' })).toBeVisible()
   await expect(details.getByRole('heading', { name: 'Delsteg' })).toBeVisible()
@@ -142,12 +142,12 @@ test('links tasks across lists in both directions and saves multiple external UR
   await expect(linkedTasks).toContainText('Förbered nästa release')
 
   await linkedTasks.getByRole('button', { name: 'Öppna länkad uppgift: Förbered nästa release' }).click()
-  await expect(page).toHaveURL(/\/#\/tasks\/local-task-3$/)
+  await expect(page).toHaveURL(/\/#\/tasks\/local-task-3(\?details=expanded)?$/)
   const reverseLink = page.getByRole('region', { name: 'Länkade uppgifter' })
   await expect(reverseLink).toContainText('Kontrollera mobilvyn')
   await reverseLink.getByRole('button', { name: 'Ta bort länk till: Kontrollera mobilvyn' }).click()
   await page.goBack()
-  await expect(page).toHaveURL(/\/#\/tasks\/local-task-2$/)
+  await expect(page).toHaveURL(/\/#\/tasks\/local-task-2(\?details=expanded)?$/)
   await expect(page.getByRole('region', { name: 'Länkade uppgifter' })).toContainText('Inga länkade uppgifter.')
 
   const urlInput = page.getByRole('textbox', { name: 'URL' })
@@ -173,10 +173,8 @@ test('expands task details on desktop and keeps the control out of mobile', asyn
   await dismissReleaseNotes(page)
 
   const details = page.getByRole('dialog', { name: 'Uppgiftsdetaljer' })
-  const expandButton = details.getByRole('button', { name: 'Expandera uppgiftsdetaljer' })
-  await expect(expandButton).toBeVisible()
-  await expandButton.click()
-  await expect(details.getByRole('button', { name: 'Minimera uppgiftsdetaljer' })).toHaveAttribute('aria-pressed', 'true')
+  // Task details are now auto-expanded on large screens
+  await expect(details.getByRole('button', { name: 'Minimera uppgiftsdetaljer' })).toBeVisible()
   await expect(page).toHaveURL(/\/#\/tasks\/local-task-3\?details=expanded$/)
   await page.reload()
   await dismissReleaseNotes(page)
@@ -289,7 +287,7 @@ test('opens a task directly from its URL and restores its details after reload',
   await dismissReleaseNotes(page)
 
   const details = page.getByRole('dialog', { name: 'Uppgiftsdetaljer' })
-  await expect(page).toHaveURL(/\/#\/tasks\/local-task-3$/)
+  await expect(page).toHaveURL(/\/#\/tasks\/local-task-3(\?details=expanded)?$/)
   await expect(details.getByRole('textbox', { name: 'Uppgiftens titel' })).toHaveValue('Förbered nästa release')
   await expect(page.getByRole('heading', { name: 'Projekt' })).toBeVisible()
   await details.getByRole('button', { name: 'Kopiera uppgiftslänk' }).click()
@@ -307,10 +305,10 @@ test('switches to a different task route when another row is selected', async ({
   await page.getByPlaceholder('Lägg till en uppgift').press('Enter')
 
   await page.getByRole('group', { name: 'Uppgift: Kontrollera mobilvyn' }).click()
-  await expect(page).toHaveURL(/\/#\/tasks\/local-task-2$/)
+  await expect(page).toHaveURL(/\/#\/tasks\/local-task-2(\?details=expanded)?$/)
   await page.getByRole('group', { name: 'Uppgift: En annan routbar uppgift' }).click()
 
-  await expect(page).toHaveURL(/\/#\/tasks\/[^/]+$/)
+  await expect(page).toHaveURL(/\/#\/tasks\/[^/]+(\?details=expanded)?$/)
   await expect(page.getByRole('dialog', { name: 'Uppgiftsdetaljer' }).getByRole('textbox', { name: 'Uppgiftens titel' })).toHaveValue('En annan routbar uppgift')
 })
 
@@ -318,7 +316,7 @@ test('redirects a legacy notification link to the canonical task URL', async ({ 
   await page.goto('/#/?task=local-task-3')
   await dismissReleaseNotes(page)
 
-  await expect(page).toHaveURL(/\/#\/tasks\/local-task-3$/)
+  await expect(page).toHaveURL(/\/#\/tasks\/local-task-3(\?details=expanded)?$/)
   await expect(page.getByRole('dialog', { name: 'Uppgiftsdetaljer' }).getByRole('textbox', { name: 'Uppgiftens titel' })).toHaveValue('Förbered nästa release')
 })
 
@@ -336,7 +334,7 @@ test('keeps the task URL when moving a task to another list', async ({ page }) =
   await page.getByRole('button', { name: 'Flytta till lista' }).click()
   await page.getByRole('menuitem', { name: 'Uppgiftsflyttmål' }).click()
 
-  await expect(page).toHaveURL(/\/#\/tasks\/local-task-3$/)
+  await expect(page).toHaveURL(/\/#\/tasks\/local-task-3(\?details=expanded)?$/)
   await expect(page.getByRole('heading', { name: 'Uppgiftsflyttmål' })).toBeVisible()
   await expect(page.getByRole('dialog', { name: 'Uppgiftsdetaljer' }).getByRole('textbox', { name: 'Uppgiftens titel' })).toHaveValue('Förbered nästa release')
 })
@@ -372,7 +370,7 @@ test('shows a not-found state for an unknown task URL', async ({ page }) => {
   await dismissReleaseNotes(page)
 
   await expect(page.getByRole('alert')).toContainText('Uppgiften hittades inte')
-  await expect(page).toHaveURL(/\/#\/tasks\/missing-task-id$/)
+  await expect(page).toHaveURL(/\/#\/tasks\/missing-task-id(\?details=expanded)?$/)
 })
 
 test('asks to complete the parent task when all subtasks are checked', async ({ page }) => {
@@ -566,6 +564,9 @@ test('adds a tag and uses a quick due-date preset', async ({ page }) => {
   await expect(details.getByLabel('Aktiva påminnelser').getByRole('listitem')).toContainText('2026-12-01')
 
   await details.getByRole('button', { name: 'Stäng uppgiftsdetaljer' }).click()
+  // Open sidebar if it's closed on large screens
+  const sidebarToggle = page.getByRole('button', { name: 'Öppna navigeringsmeny' })
+  if (await sidebarToggle.count()) await sidebarToggle.click()
   await page.getByRole('button', { name: 'Taggar' }).click()
   await page.getByRole('menuitem', { name: '#arbete' }).click()
 
