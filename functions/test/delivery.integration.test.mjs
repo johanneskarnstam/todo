@@ -60,7 +60,7 @@ test("claims and marks a due job sent through the mock adapter", async () => {
   assert.deepEqual(deliveredMessage.tokens, ["mock-token"]);
   assert.equal(deliveredMessage.data.taskId, "task-delivery");
   assert.equal(deliveredMessage.notification, undefined);
-  assert.equal(deliveredMessage.data.title, "Påminnelse: Mock delivery task");
+  assert.equal(deliveredMessage.data.title, "Mock delivery task");
   assert.equal(
     deliveredMessage.data.body,
     "Mock delivery task",

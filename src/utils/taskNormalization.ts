@@ -13,9 +13,12 @@ export function normalizeSingleReminder(raw: unknown): TaskReminder | null {
   // Explicit absolute reminder
   if (raw.mode === 'absolute') {
     if (typeof raw.at === 'string' && raw.at.trim().length > 0 && typeof raw.timeZone === 'string' && raw.timeZone.trim().length > 0) {
+      const rawAt = raw.at.trim()
+      // Normalize to HH:MM (drop seconds if present: "T09:00:00" → "T09:00")
+      const at = rawAt.replace(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}):\d{2}$/, '$1')
       return {
         mode: 'absolute',
-        at: raw.at.trim(),
+        at,
         timeZone: raw.timeZone.trim(),
       }
     }

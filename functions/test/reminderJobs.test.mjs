@@ -157,3 +157,19 @@ test("creates distinct idempotency ID when reminderIndex > 0", () => {
   );
 });
 
+test("handles absolute reminder with seconds in at field", () => {
+  const task = {
+    userId: "user-1",
+    taskId: "task-abs-sec",
+    title: "Seconds in at",
+    reminders: [
+      {
+        mode: "absolute",
+        at: "2026-10-15T09:00:00",
+        timeZone: "Europe/Stockholm",
+      },
+    ],
+  };
+  assert.equal(isReminderEligible(task), true);
+  assert.equal(getReminderAt(task), "2026-10-15T07:00:00.000Z");
+});
