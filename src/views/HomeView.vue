@@ -27,6 +27,8 @@ const router = useRouter()
 const isSidebarOpen = ref(typeof window === 'undefined' ? true : window.innerWidth >= 1024)
 const isTaskDetailsExpanded = ref(route.query.details === 'expanded')
 const canExpandBothPanels = () => typeof window !== 'undefined' && window.innerWidth >= 1920
+const isLargeScreen = () => typeof window !== 'undefined' && window.innerWidth >= 1024
+
 const setSidebarOpen = (open: boolean) => {
   isSidebarOpen.value = open
   if (open && !canExpandBothPanels()) setTaskDetailsExpanded(false)
@@ -76,6 +78,17 @@ watch(
   (details) => {
     isTaskDetailsExpanded.value = routeTaskId.value !== null && details === 'expanded'
     if (isTaskDetailsExpanded.value && !canExpandBothPanels()) isSidebarOpen.value = false
+  },
+  { immediate: true },
+)
+
+watch(
+  () => routeTaskId.value,
+  (taskId) => {
+    if (taskId && isLargeScreen() && !isTaskDetailsExpanded.value) {
+      setTaskDetailsExpanded(true)
+      isSidebarOpen.value = false
+    }
   },
   { immediate: true },
 )
@@ -589,8 +602,17 @@ const handleGlobalKeydown = (event: KeyboardEvent) => {
   void nextTick(() => document.querySelector<HTMLElement>(`[data-task-id="${taskId}"]`)?.focus())
 }
 
+const handleResize = () => {
+  const isLgScreen = isLargeScreen()
+  if (isLgScreen && routeTaskId.value && !isTaskDetailsExpanded.value) {
+    setTaskDetailsExpanded(true)
+    isSidebarOpen.value = false
+  }
+}
+
 onMounted(async () => {
   window.addEventListener('keydown', handleGlobalKeydown)
+  window.addEventListener('resize', handleResize)
   if (!notificationTaskId.value) syncRouteView()
   await listStore.fetchLists()
   const taskId = routeTaskId.value ?? notificationTaskId.value
@@ -600,10 +622,12 @@ onMounted(async () => {
     if (task) await router.replace({ name: 'task', params: { taskId: task.id } })
   }
   syncRouteView()
+  handleResize()
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleGlobalKeydown)
+  window.removeEventListener('resize', handleResize)
   if (confettiTimer !== undefined) window.clearTimeout(confettiTimer)
 })
 
