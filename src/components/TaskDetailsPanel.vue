@@ -52,6 +52,8 @@ const setExpanded = (expanded: boolean) => {
   emit('update:expanded', expanded)
 }
 
+const isTaskDone = computed(() => isTaskCompleted(props.task))
+
 const title = ref(props.task.title)
 const note = ref(props.task.note ?? '')
 const externalUrlDraft = ref('')
@@ -464,6 +466,7 @@ const saveStepTitle = () => {
             :class="{ 'text-slate-400 line-through dark:text-slate-500': isTaskCompleted(task) }"
             type="text"
             aria-label="Uppgiftens titel"
+            :readonly="isTaskDone"
             @blur="saveTitle"
             @keydown.enter.prevent="saveTitle"
           />
@@ -475,7 +478,7 @@ const saveStepTitle = () => {
         <label class="flex min-h-10 items-center justify-between gap-3 text-sm text-slate-700 dark:text-slate-200">
           <span>Uppgiftens nivå</span>
           <span class="relative inline-flex items-center">
-            <select class="max-w-40 appearance-none rounded-md border border-slate-200 bg-white py-1.5 pl-2 pr-8 dark:border-slate-700 dark:bg-slate-900" aria-label="Uppgiftens prioritet" :value="getTaskPriority(task)" @change="handlePriorityChange">
+            <select class="max-w-40 appearance-none rounded-md border border-slate-200 bg-white py-1.5 pl-2 pr-8 dark:border-slate-700 dark:bg-slate-900" aria-label="Uppgiftens prioritet" :value="getTaskPriority(task)" @change="handlePriorityChange" :disabled="isTaskDone">
               <option v-for="option in priorityOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
             </select>
             <ChevronDown class="pointer-events-none absolute right-2.5 text-slate-500 dark:text-slate-400" :size="16" aria-hidden="true" />
@@ -488,18 +491,18 @@ const saveStepTitle = () => {
         <div class="flex flex-wrap gap-2">
           <span v-for="tag in tags" :key="tag" class="inline-flex items-center gap-1 rounded-full bg-blue-50 px-3 py-1 text-xs text-[#2564cf] dark:bg-blue-950/40 dark:text-blue-300">
             <button type="button" :aria-label="`Visa uppgifter med taggen #${tag}`" @click="emit('select-tag', tag)">#{{ tag }}</button>
-            <button type="button" :aria-label="`Ta bort taggen ${tag}`" @click="removeTag(tag)">×</button>
+            <button type="button" :aria-label="`Ta bort taggen ${tag}`" @click="removeTag(tag)" :disabled="isTaskDone">×</button>
           </span>
         </div>
         <form class="mt-2 flex flex-col gap-2" @submit.prevent="addTag()">
           <label class="sr-only" for="new-task-tag">Ny tagg</label>
           <div class="flex gap-2">
-            <input id="new-task-tag" v-model="tagTitle" autocomplete="off" class="min-w-0 flex-1 rounded-lg border border-slate-200 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#2564cf] dark:border-slate-700" type="text" placeholder="Lägg till tagg" />
-            <button class="rounded-lg bg-[#2564cf] px-3 text-sm text-white" type="submit">Lägg till</button>
+            <input id="new-task-tag" v-model="tagTitle" autocomplete="off" class="min-w-0 flex-1 rounded-lg border border-slate-200 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#2564cf] dark:border-slate-700" type="text" placeholder="Lägg till tagg" :readonly="isTaskDone" />
+            <button class="rounded-lg bg-[#2564cf] px-3 text-sm text-white" type="submit" :disabled="isTaskDone">Lägg till</button>
           </div>
           <ul v-if="tagSuggestions.length" class="max-h-36 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-900" aria-label="Taggförslag">
             <li v-for="tag in tagSuggestions" :key="tag">
-              <button class="w-full rounded-md px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800" type="button" :aria-label="`Lägg till befintlig tagg #${tag}`" @click="addTag(tag)">#{{ tag }}</button>
+              <button class="w-full rounded-md px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800" type="button" :aria-label="`Lägg till befintlig tagg #${tag}`" @click="addTag(tag)" :disabled="isTaskDone">#{{ tag }}</button>
             </li>
           </ul>
         </form>
@@ -547,6 +550,7 @@ const saveStepTitle = () => {
               type="text"
               :aria-label="`Redigera delsteg: ${step.title}`"
               autofocus
+              :readonly="isTaskDone"
               @pointerdown.stop
               @blur="saveStepTitle"
               @keydown.enter.prevent="saveStepTitle"
@@ -558,7 +562,7 @@ const saveStepTitle = () => {
               :class="{ 'text-slate-400 line-through dark:text-slate-500': step.completed }"
               type="button"
               :aria-label="`Redigera delsteg: ${step.title}`"
-              @click="!isDraggingStep && startEditingStep(step)"
+              @click="!isDraggingStep && !isTaskDone && startEditingStep(step)"
             >
               {{ step.title }}
             </button>
@@ -568,6 +572,7 @@ const saveStepTitle = () => {
               :aria-label="`Ta bort delsteg: ${step.title}`"
               @pointerdown.stop
               @click="emit('delete-step', step.id)"
+              :disabled="isTaskDone"
             >
               ×
             </button>
@@ -576,20 +581,20 @@ const saveStepTitle = () => {
         <form class="mt-2 flex items-center gap-2 border-b border-slate-200 px-2 py-2 dark:border-slate-700" @submit.prevent="addStep">
           <span class="text-lg text-[#2564cf] dark:text-blue-400" aria-hidden="true">＋</span>
           <label class="sr-only" for="new-step-title">Lägg till delsteg</label>
-          <input id="new-step-title" v-model="stepTitle" class="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-500" type="text" placeholder="Lägg till delsteg" />
+          <input id="new-step-title" v-model="stepTitle" class="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-500" type="text" placeholder="Lägg till delsteg" :readonly="isTaskDone" />
         </form>
       </section>
 
       <section class="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-900" aria-labelledby="planning-heading">
         <h2 id="planning-heading" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Planering</h2>
         <div class="space-y-2">
-        <button class="flex min-h-11 w-full items-center gap-3 rounded-lg px-2 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800" type="button" @click="emit('toggle-my-day')">
+        <button class="flex min-h-11 w-full items-center gap-3 rounded-lg px-2 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800" type="button" @click="emit('toggle-my-day')" :disabled="isTaskDone">
           <Sun :size="18" :class="task.myDay ? 'text-[#2564cf] dark:text-blue-400' : 'text-slate-500'" aria-hidden="true" />
           <span class="flex-1 text-sm">{{ task.myDay ? 'Ta bort från Min dag' : 'Lägg till i Min dag' }}</span>
           <span v-if="task.myDay" class="text-xs text-[#2564cf] dark:text-blue-400">Added</span>
         </button>
 
-        <label class="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-2 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800">
+        <label class="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-2 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800" :class="isTaskDone ? 'cursor-not-allowed opacity-50' : ''">
           <CalendarDays :size="18" class="text-slate-500" aria-hidden="true" />
           <span class="flex-1 text-sm">Förfallodatum</span>
           <input
@@ -600,31 +605,32 @@ const saveStepTitle = () => {
             aria-label="Uppgiftens förfallodatum"
             @click="openDatePicker"
             @change="emit('set-due-date', ($event.target as HTMLInputElement).value)"
+            :disabled="isTaskDone"
           />
         </label>
         <label
           class="flex min-h-11 items-center gap-3 rounded-lg px-2 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-          :class="!dueDate ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'"
+          :class="!dueDate || isTaskDone ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'"
         >
           <Clock :size="18" class="text-slate-500" aria-hidden="true" />
           <span class="flex-1 text-sm">Förfallotid</span>
           <input
             ref="timeInputRef"
             class="planning-picker w-24 bg-transparent text-right text-sm text-slate-600 outline-none disabled:opacity-50 dark:text-slate-300"
-            :class="!dueDate ? 'cursor-not-allowed' : 'cursor-pointer'"
+            :class="!dueDate || isTaskDone ? 'cursor-not-allowed' : 'cursor-pointer'"
             type="time"
             :value="dueTime"
-            :disabled="!dueDate"
+            :disabled="!dueDate || isTaskDone"
             aria-label="Uppgiftens förfallotid"
             @click="openTimePicker"
             @change="saveDueTime(($event.target as HTMLInputElement).value)"
           />
         </label>
         <div class="flex flex-wrap gap-2 px-2" aria-label="Snabbval för förfallodatum">
-          <button class="rounded-full border border-slate-200 px-3 py-1 text-sm text-slate-600 hover:border-[#2564cf] hover:text-[#2564cf] dark:border-slate-700 dark:text-slate-300" type="button" @click="selectQuickDate(0)">Idag</button>
-          <button class="rounded-full border border-slate-200 px-3 py-1 text-sm text-slate-600 hover:border-[#2564cf] hover:text-[#2564cf] dark:border-slate-700 dark:text-slate-300" type="button" @click="selectQuickDate(1)">Imorgon</button>
-          <button class="rounded-full border border-slate-200 px-3 py-1 text-sm text-slate-600 hover:border-[#2564cf] hover:text-[#2564cf] dark:border-slate-700 dark:text-slate-300" type="button" @click="selectQuickDate(7)">Nästa vecka</button>
-          <button class="rounded-full border border-slate-200 px-3 py-1 text-sm text-slate-600 hover:border-[#2564cf] hover:text-[#2564cf] dark:border-slate-700 dark:text-slate-300" type="button" @click="selectQuickDate(null)">Rensa</button>
+          <button class="rounded-full border border-slate-200 px-3 py-1 text-sm text-slate-600 hover:border-[#2564cf] hover:text-[#2564cf] dark:border-slate-700 dark:text-slate-300" type="button" @click="selectQuickDate(0)" :disabled="isTaskDone">Idag</button>
+          <button class="rounded-full border border-slate-200 px-3 py-1 text-sm text-slate-600 hover:border-[#2564cf] hover:text-[#2564cf] dark:border-slate-700 dark:text-slate-300" type="button" @click="selectQuickDate(1)" :disabled="isTaskDone">Imorgon</button>
+          <button class="rounded-full border border-slate-200 px-3 py-1 text-sm text-slate-600 hover:border-[#2564cf] hover:text-[#2564cf] dark:border-slate-700 dark:text-slate-300" type="button" @click="selectQuickDate(7)" :disabled="isTaskDone">Nästa vecka</button>
+          <button class="rounded-full border border-slate-200 px-3 py-1 text-sm text-slate-600 hover:border-[#2564cf] hover:text-[#2564cf] dark:border-slate-700 dark:text-slate-300" type="button" @click="selectQuickDate(null)" :disabled="isTaskDone">Rensa</button>
         </div>
         <!-- Reminders section -->
         <div class="flex items-center gap-3 px-2 pt-1 text-sm text-slate-700 dark:text-slate-200">
@@ -643,6 +649,7 @@ const saveStepTitle = () => {
               class="ml-2 rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950 dark:hover:text-red-400"
               :aria-label="`Ta bort påminnelse: ${formatReminderLabel(reminder)}`"
               @click="removeReminder(index)"
+              :disabled="isTaskDone"
             >
               <Trash2 :size="14" aria-hidden="true" />
             </button>
@@ -660,6 +667,7 @@ const saveStepTitle = () => {
             type="button"
             class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
             @click="showReminderEditor = true"
+            :disabled="isTaskDone"
           >
             <Plus :size="15" aria-hidden="true" />
             Lägg till påminnelse
@@ -671,7 +679,7 @@ const saveStepTitle = () => {
       <section class="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-900" aria-labelledby="linked-tasks-heading">
         <div class="mb-2 flex items-center justify-between gap-3">
           <h2 id="linked-tasks-heading" class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Länkade uppgifter</h2>
-          <button class="inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 text-sm font-medium text-[#2564cf] hover:bg-blue-50 dark:hover:bg-blue-950/40" type="button" @click="isLinkTaskDialogOpen = true">
+          <button class="inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 text-sm font-medium text-[#2564cf] hover:bg-blue-50 dark:hover:bg-blue-950/40" type="button" @click="isLinkTaskDialogOpen = true" :disabled="isTaskDone">
             <Link2 :size="15" aria-hidden="true" />Länka uppgift
           </button>
         </div>
@@ -681,7 +689,7 @@ const saveStepTitle = () => {
               <span class="block truncate text-sm text-slate-700 dark:text-slate-200">{{ linkedTask.title }}</span>
               <span class="block truncate text-xs text-slate-500 dark:text-slate-400">{{ taskListName(linkedTask) }}</span>
             </button>
-            <button class="grid size-8 shrink-0 place-items-center rounded-md text-slate-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-700" type="button" :aria-label="`Ta bort länk till: ${linkedTask.title}`" @click="emit('unlink-task', linkedTask.id)">
+            <button class="grid size-8 shrink-0 place-items-center rounded-md text-slate-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-700" type="button" :aria-label="`Ta bort länk till: ${linkedTask.title}`" @click="emit('unlink-task', linkedTask.id)" :disabled="isTaskDone">
               <X :size="15" aria-hidden="true" />
             </button>
           </li>
@@ -692,7 +700,7 @@ const saveStepTitle = () => {
       <section class="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-900" aria-labelledby="notes-heading">
         <h2 id="notes-heading" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Anteckningar</h2>
         <label class="sr-only" for="task-note">Anteckningar</label>
-        <textarea id="task-note" v-model="note" class="min-h-28 w-full resize-y rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-700 outline-none transition focus:border-[#2564cf] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200" placeholder="Lägg till en anteckning" @blur="saveNote" />
+        <textarea id="task-note" v-model="note" class="min-h-28 w-full resize-y rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-700 outline-none transition focus:border-[#2564cf] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200" placeholder="Lägg till en anteckning" :readonly="isTaskDone" @blur="saveNote" />
       </section>
 
       <section class="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-900" aria-labelledby="external-link-heading">
@@ -702,15 +710,15 @@ const saveStepTitle = () => {
             <a class="inline-flex min-w-0 flex-1 items-center gap-1 truncate text-sm text-[#2564cf] hover:underline" :href="url" target="_blank" rel="noopener noreferrer" :title="url" :aria-label="`Öppna extern länk: ${url}`">
               <span class="truncate">{{ displayExternalUrl(url) }}</span><ExternalLink class="shrink-0" :size="14" aria-hidden="true" />
             </a>
-            <button class="grid size-8 shrink-0 place-items-center rounded-md text-slate-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-700" type="button" :aria-label="`Ta bort extern länk: ${url}`" @click="removeExternalUrl(url)">
+            <button class="grid size-8 shrink-0 place-items-center rounded-md text-slate-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-700" type="button" :aria-label="`Ta bort extern länk: ${url}`" @click="removeExternalUrl(url)" :disabled="isTaskDone">
               <X :size="15" aria-hidden="true" />
             </button>
           </li>
         </ul>
         <form class="flex gap-2" @submit.prevent="addExternalUrl">
           <label class="sr-only" for="task-external-url">URL</label>
-          <input id="task-external-url" v-model="externalUrlDraft" class="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-[#2564cf] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200" type="url" placeholder="https://" />
-          <button class="inline-flex min-h-10 shrink-0 items-center gap-1 rounded-lg bg-[#2564cf] px-3 text-sm font-medium text-white hover:bg-blue-700" type="submit">
+          <input id="task-external-url" v-model="externalUrlDraft" class="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-[#2564cf] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200" type="url" placeholder="https://" :readonly="isTaskDone" />
+          <button class="inline-flex min-h-10 shrink-0 items-center gap-1 rounded-lg bg-[#2564cf] px-3 text-sm font-medium text-white hover:bg-blue-700" type="submit" :disabled="isTaskDone">
             <Plus :size="15" aria-hidden="true" />Lägg till
           </button>
         </form>
@@ -725,6 +733,7 @@ const saveStepTitle = () => {
           aria-controls="step-tools-panel"
           :aria-expanded="isStepToolsExpanded"
           @click="isStepToolsExpanded = !isStepToolsExpanded"
+          :disabled="isTaskDone"
         >
           <span>Förbered och importera delsteg</span>
           <ChevronDown :size="17" class="shrink-0 transition-transform" :class="{ 'rotate-180': isStepToolsExpanded }" aria-hidden="true" />
@@ -733,15 +742,15 @@ const saveStepTitle = () => {
           <p class="text-sm text-slate-500 dark:text-slate-400">Kopiera kontexten till en extern AI och importera dess JSON-svar.</p>
           <label class="mt-3 block text-sm font-medium" for="task-context-json">Uppgiftskontext</label>
           <textarea id="task-context-json" aria-label="Uppgiftskontext" class="mt-1 min-h-32 w-full resize-y rounded-md border border-slate-300 bg-slate-50 p-3 font-mono text-xs outline-none dark:border-slate-600 dark:bg-slate-800" :value="taskContextJson" readonly />
-          <button class="mt-2 inline-flex min-h-9 items-center gap-2 rounded-md border border-slate-300 px-3 text-sm font-medium hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800" type="button" @click="copyTaskContext">
+          <button class="mt-2 inline-flex min-h-9 items-center gap-2 rounded-md border border-slate-300 px-3 text-sm font-medium hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800" type="button" @click="copyTaskContext" :disabled="isTaskDone">
             <Copy :size="15" aria-hidden="true" />Kopiera kontext
           </button>
 
           <label class="mt-4 block text-sm font-medium" for="step-import-json">JSON med delsteg</label>
-          <textarea id="step-import-json" v-model="stepImportJson" aria-label="JSON för delsteg" class="mt-1 min-h-28 w-full resize-y rounded-md border border-slate-300 bg-white p-3 font-mono text-xs outline-none focus:border-[#2564cf] dark:border-slate-600 dark:bg-slate-800" :placeholder="stepImportExample" :disabled="isImportingSteps" />
+          <textarea id="step-import-json" v-model="stepImportJson" aria-label="JSON för delsteg" class="mt-1 min-h-28 w-full resize-y rounded-md border border-slate-300 bg-white p-3 font-mono text-xs outline-none focus:border-[#2564cf] dark:border-slate-600 dark:bg-slate-800" :placeholder="stepImportExample" :disabled="isImportingSteps || isTaskDone" />
           <label class="mt-3 block text-sm font-medium" for="step-import-file">Eller välj en JSON-fil</label>
-          <input id="step-import-file" class="mt-1 block w-full text-sm text-slate-600 file:mr-3 file:min-h-9 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:text-sm file:font-medium dark:text-slate-300 dark:file:bg-slate-800" type="file" accept=".json,application/json" :disabled="isImportingSteps" @change="loadStepImportFile" />
-          <button class="mt-3 min-h-10 rounded-md bg-[#2564cf] px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50" type="button" :disabled="isImportingSteps || !stepImportJson.trim()" @click="importSteps">
+          <input id="step-import-file" class="mt-1 block w-full text-sm text-slate-600 file:mr-3 file:min-h-9 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:text-sm file:font-medium dark:text-slate-300 dark:file:bg-slate-800" type="file" accept=".json,application/json" :disabled="isImportingSteps || isTaskDone" @change="loadStepImportFile" />
+          <button class="mt-3 min-h-10 rounded-md bg-[#2564cf] px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50" type="button" :disabled="isImportingSteps || !stepImportJson.trim() || isTaskDone" @click="importSteps">
             {{ isImportingSteps ? 'Importerar...' : 'Importera delsteg' }}
           </button>
           <p v-if="stepImportStatus" class="mt-2 text-sm text-emerald-700 dark:text-emerald-300" role="status">{{ stepImportStatus }}</p>
@@ -752,7 +761,7 @@ const saveStepTitle = () => {
     </div>
 
     <div class="shrink-0 border-t border-slate-200 p-3 dark:border-slate-700">
-      <button class="flex min-h-10 w-full items-center justify-center gap-2 rounded-lg text-sm text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950" type="button" @click="emit('delete-task')">
+      <button class="flex min-h-10 w-full items-center justify-center gap-2 rounded-lg text-sm text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950" type="button" @click="emit('delete-task')" :disabled="isTaskDone">
         <span aria-hidden="true">♲</span>
         <span>Ta bort uppgift</span>
       </button>
