@@ -298,6 +298,17 @@ describe('useListStore', () => {
     expect(store.lists).toHaveLength(0)
     expect(firestoreMocks.deleteDoc).toHaveBeenCalledTimes(2)
   })
+   it('deletes an empty folder', async () => {
+     const store = useListStore()
+     store.folders.push({ id: 'folder-1', name: 'Empty Folder', order: 1 })
+
+     const removedLists = await store.deleteFolder('folder-1', false)
+
+     expect(removedLists).toEqual([])
+     expect(store.folders).toHaveLength(0)
+     expect(firestoreMocks.deleteDoc).toHaveBeenCalledTimes(1)
+   })
+
 
   it('rolls back folder deletion when Firestore rejects', async () => {
     const store = useListStore()
