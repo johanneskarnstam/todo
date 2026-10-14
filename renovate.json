@@ -1,0 +1,106 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard"
+  ],
+  "timezone": "Europe/Stockholm",
+  "schedule": ["before 7am on monday"],
+  "minimumReleaseAge": "3 days",
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
+  "labels": ["dependencies", "automated"],
+  "semanticCommits": "enabled",
+  "commitMessagePrefix": "chore(deps):",
+  "commitMessageAction": "uppdatera",
+  "packageRules": [
+    {
+      "description": "Kritiska säkerhetsuppdateringar ska skapas omedelbart utan att vänta på veckoschemat",
+      "matchPackagePatterns": ["*"],
+      "isVulnerabilityAlert": true,
+      "schedule": ["at any time"],
+      "groupName": "säkerhetsuppdateringar"
+    },
+    {
+      "description": "Gruppera alla Vue-kärnpaket",
+      "groupName": "vue-ekosystem",
+      "matchPackageNames": [
+        "vue",
+        "vue-router",
+        "pinia",
+        "@vitejs/plugin-vue"
+      ]
+    },
+    {
+      "description": "Gruppera testramverk och verktyg",
+      "groupName": "test-verktyg",
+      "matchPackageNames": [
+        "vitest",
+        "@vitest/*",
+        "@playwright/test",
+        "@vue/test-utils",
+        "jsdom",
+        "@types/jsdom",
+        "@firebase/rules-unit-testing"
+      ]
+    },
+    {
+      "description": "Gruppera linter, typsättning och formatering",
+      "groupName": "kodkvalitet-och-lint",
+      "matchPackageNames": [
+        "eslint",
+        "eslint-plugin-vue",
+        "@vue/eslint-config-prettier",
+        "@vue/eslint-config-typescript",
+        "prettier",
+        "@vue/tsconfig",
+        "@tsconfig/*"
+      ]
+    },
+    {
+      "description": "Gruppera Tailwind och CSS-verktyg",
+      "groupName": "styling-och-css",
+      "matchPackageNames": [
+        "tailwindcss",
+        "@tailwindcss/*",
+        "postcss",
+        "autoprefixer"
+      ]
+    },
+    {
+      "description": "Gruppera Firebase SDK och verktyg för frontend och functions",
+      "groupName": "firebase-sdk",
+      "matchPackageNames": [
+        "firebase",
+        "@firebase/*",
+        "firebase-admin",
+        "firebase-functions"
+      ]
+    },
+    {
+      "description": "Gruppera bygg- och utvecklingsverktyg",
+      "groupName": "bygg-och-utvecklingsverktyg",
+      "matchPackageNames": [
+        "typescript",
+        "vue-tsc",
+        "vite",
+        "vite-plugin-pwa",
+        "vite-plugin-vue-devtools",
+        "jiti",
+        "npm-run-all2"
+      ]
+    },
+    {
+      "description": "Major-uppdateringar ska aldrig grupperas utan granskas en och en",
+      "matchUpdateTypes": ["major"],
+      "groupName": null,
+      "automerge": false
+    },
+    {
+      "description": "Övriga devDependencies för minor och patch grupperas samlat",
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "dev-beroenden (non-major)"
+    }
+  ]
+}
