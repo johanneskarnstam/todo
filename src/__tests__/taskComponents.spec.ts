@@ -1,11 +1,24 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
-import { nextTick } from 'vue'
+import { nextTick, ref } from 'vue'
+import { createPinia, setActivePinia } from 'pinia'
 import { Timestamp } from 'firebase/firestore'
 import TaskDetailsPanel from '@/components/TaskDetailsPanel.vue'
 import TaskRow from '@/components/TaskRow.vue'
 import TodoSidebar from '@/components/TodoSidebar.vue'
 import type { Step, Task } from '@/types'
+
+const forceUpdateAppMock = vi.fn()
+const isUpdatingAppMock = ref(false)
+const updateErrorMock = ref<string | null>(null)
+
+vi.mock('@/composables/useAppUpdate', () => ({
+  useAppUpdate: () => ({
+    isUpdatingApp: isUpdatingAppMock,
+    updateError: updateErrorMock,
+    forceUpdateApp: forceUpdateAppMock,
+  }),
+}))
 
 vi.mock('@/firebase', () => ({
   auth: { currentUser: { uid: 'test-user' } },
@@ -23,6 +36,12 @@ const task: Task = {
 }
 
 describe('TodoSidebar', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    forceUpdateAppMock.mockClear()
+    isUpdatingAppMock.value = false
+    updateErrorMock.value = null
+  })
   it('opens the tag menu and emits the selected tag', async () => {
     const wrapper = mount(TodoSidebar, {
       props: {
@@ -202,6 +221,35 @@ describe('TodoSidebar', () => {
     expect(wrapper.text()).not.toContain('Projekt')
     expect(wrapper.text()).toContain('Att göra')
     expect(wrapper.text()).toContain('Bali')
+  })
+
+  it('triggers forceUpdateApp when clicking the reload button and disables it while updating', async () => {
+    const wrapper = mount(TodoSidebar, {
+      props: {
+        open: true,
+        activeListId: null,
+        activeSmartView: null,
+        availableTags: [],
+        selectedTag: '',
+        folders: [],
+        ungroupedLists: [],
+        smartViewCounts: { myDay: 0, important: 0, planned: 0, archived: 0 },
+        listTaskCounts: {},
+      },
+      global: { stubs: { RouterLink: true } },
+    })
+
+    const updateButton = wrapper.get('button[aria-label="Ladda om och uppdatera appen"]')
+    expect(updateButton.attributes('disabled')).toBeUndefined()
+    expect(updateButton.find('.animate-spin').exists()).toBe(false)
+
+    await updateButton.trigger('click')
+    expect(forceUpdateAppMock).toHaveBeenCalledTimes(1)
+
+    isUpdatingAppMock.value = true
+    await nextTick()
+    expect(updateButton.attributes('disabled')).toBeDefined()
+    expect(updateButton.find('.animate-spin').exists()).toBe(true)
   })
 })
 
