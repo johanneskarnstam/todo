@@ -55,6 +55,7 @@ const deleteListTasks = ref(false)
 const isListOptionsOpen = ref(false)
 const listRenameTitle = ref('')
 const isRenamingList = ref(false)
+const arePlannedCompletedTasksVisible = ref(false)
 const listStore = useListStore()
 const taskStore = useTaskStore()
 const toastStore = useToastStore()
@@ -170,6 +171,10 @@ const toggleCompletedTasks = () => {
   if (listId) void listStore.updateList(listId, { showCompletedTasks: !areCompletedTasksVisible.value })
 }
 
+const togglePlannedCompletedTasks = () => {
+  arePlannedCompletedTasksVisible.value = !arePlannedCompletedTasksVisible.value
+}
+
 const activeListCompact = computed(() => activeList.value?.viewMode === 'compact')
 
 const availableTags = computed(() => [...new Set(taskStore.tasks.flatMap((task) => task.tags ?? []))].sort())
@@ -283,6 +288,8 @@ const plannedGroups = computed<PlannedGroup[]>(() => {
   }
 
   for (const task of filteredVisibleTasks.value) {
+    if (isTaskCompleted(task)) continue
+
     const key = dueDateKey(task)
     if (!key) continue
 
@@ -317,6 +324,10 @@ const plannedGroups = computed<PlannedGroup[]>(() => {
   return (Object.keys(groups) as PlannedGroup['key'][])
     .map((key) => ({ key, tasks: groups[key].sort((first, second) => dueDateKey(first).localeCompare(dueDateKey(second))) }))
     .filter((group) => group.tasks.length > 0)
+})
+
+const plannedCompletedTasks = computed(() => {
+  return filteredVisibleTasks.value.filter((task) => isTaskCompleted(task) && dueDateKey(task))
 })
 
 const handleSelectList = (listId: string) => {
@@ -806,6 +817,41 @@ watch(
               <div class="overflow-hidden rounded-xl border border-slate-200 shadow-sm dark:border-slate-700">
                 <TaskRow
                   v-for="task in group.tasks"
+                  :key="task.id"
+                  :task="task"
+                  :compact="activeListCompact"
+                  :step-count="taskStore.taskStepCounts.get(task.id) ?? null"
+                  :list-name="taskListName(task.listId)"
+                  :show-due-date="true"
+                  task-status-mode="binary"
+                  :available-lists="listStore.lists"
+                  @select="openTask(task.id)"
+                  @toggle-completed="handleToggleCompleted(task.id)"
+                  @toggle-important="taskStore.toggleImportant(task.id)"
+                  @set-priority="taskStore.updateTask(task.id, { priority: $event })"
+                  @toggle-my-day="taskStore.toggleMyDay(task.id)"
+                  @delete="requestDeleteTask(task.id)"
+                  @move-to-list="handleMoveTaskToList(task.id, $event)"
+                  @select-tag="handleSelectTag"
+                />
+              </div>
+            </section>
+            <section v-if="plannedCompletedTasks.length" class="mt-6" aria-labelledby="planned-completed-tasks-heading">
+              <h2 id="planned-completed-tasks-heading" class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                <button
+                  class="inline-flex min-h-8 items-center gap-1 rounded text-left transition hover:text-slate-800 dark:hover:text-slate-100"
+                  type="button"
+                  :aria-label="arePlannedCompletedTasksVisible ? 'Dölj avbockade uppgifter' : 'Visa avbockade uppgifter'"
+                  :aria-expanded="arePlannedCompletedTasksVisible"
+                  @click="togglePlannedCompletedTasks"
+                >
+                  Avbockade
+                  <ChevronDown :size="16" :class="{ '-rotate-90': !arePlannedCompletedTasksVisible }" aria-hidden="true" />
+                </button>
+              </h2>
+              <div v-if="arePlannedCompletedTasksVisible" class="overflow-hidden rounded-xl border border-slate-200 shadow-sm dark:border-slate-700">
+                <TaskRow
+                  v-for="task in plannedCompletedTasks"
                   :key="task.id"
                   :task="task"
                   :compact="activeListCompact"
