@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { Archive, CalendarDays, Check, ChevronDown, FolderOpen, FolderPlus, MoreVertical, PanelLeftClose, PanelLeftOpen, Plus, Settings, Star, Sun, Tags, X } from '@lucide/vue'
+import { Archive, CalendarDays, Check, ChevronDown, FolderOpen, FolderPlus, MoreVertical, PanelLeftClose, PanelLeftOpen, Plus, RefreshCw, Settings, Star, Sun, Tags, X } from '@lucide/vue'
 import ListIcon from '@/components/ListIcon.vue'
 import type { Folder, List, SmartView } from '@/types'
 import { DEFAULT_LIST_ID } from '@/stores/listStore'
+import { useToastStore } from '@/stores/toastStore'
+import { useAppUpdate } from '@/composables/useAppUpdate'
 import { appVersion, formattedBuildTime } from '@/buildInfo'
 
 interface FolderSection {
@@ -40,6 +42,16 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 const iconUrl = `${import.meta.env.BASE_URL}img/icons/todo-icon.svg`
+
+const toastStore = useToastStore()
+const { isUpdatingApp, updateError, forceUpdateApp } = useAppUpdate()
+
+const handleUpdateApp = async () => {
+  await forceUpdateApp()
+  if (updateError.value) {
+    toastStore.show(updateError.value)
+  }
+}
 
 const smartViews = [
   { key: 'myDay' as const, view: 'myDay' as SmartView, icon: Sun },
@@ -693,15 +705,27 @@ onUnmounted(() => window.removeEventListener('click', closeMoveMenuOnOutsideClic
           <p class="min-w-0 truncate pb-0.5 text-[10px] text-slate-400 dark:text-slate-500">
             Uppdaterat: {{ formattedBuildTime }} - v{{ appVersion }}
           </p>
-          <RouterLink
-            class="grid size-7 shrink-0 place-items-center rounded text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2564cf] dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-            to="/settings"
-            aria-label="Öppna inställningar"
-            title="Inställningar"
-            @click="emit('close')"
-          >
-            <Settings :size="15" :stroke-width="1.8" aria-hidden="true" />
-          </RouterLink>
+          <div class="flex shrink-0 items-center gap-1">
+            <button
+              class="grid size-7 shrink-0 place-items-center rounded text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2564cf] disabled:cursor-wait disabled:opacity-60 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+              type="button"
+              :disabled="isUpdatingApp"
+              aria-label="Ladda om och uppdatera appen"
+              title="Ladda om och uppdatera appen"
+              @click="handleUpdateApp"
+            >
+              <RefreshCw :size="15" :stroke-width="1.8" :class="{ 'animate-spin': isUpdatingApp }" aria-hidden="true" />
+            </button>
+            <RouterLink
+              class="grid size-7 shrink-0 place-items-center rounded text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2564cf] dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+              to="/settings"
+              aria-label="Öppna inställningar"
+              title="Inställningar"
+              @click="emit('close')"
+            >
+              <Settings :size="15" :stroke-width="1.8" aria-hidden="true" />
+            </RouterLink>
+          </div>
         </div>
       </div>
     </div>

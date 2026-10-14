@@ -333,6 +333,16 @@ test('opens settings and returns to the task list', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Att göra', exact: true })).toBeVisible()
 })
 
+test('triggers app reload and update from the sidebar footer', async ({ page }) => {
+  await page.goto('/')
+  await dismissReleaseNotes(page)
+
+  const reloadButton = page.getByRole('button', { name: 'Ladda om och uppdatera appen' })
+  await expect(reloadButton).toBeVisible()
+  await reloadButton.click()
+  await expect(page.getByRole('heading', { name: 'Att göra', exact: true })).toBeVisible()
+})
+
 test('opens the overview of all folders and lists', async ({ page }) => {
   await page.goto('/')
   await dismissReleaseNotes(page)
