@@ -16,6 +16,17 @@ export const appVersion = packageJson.version
 // version changes on every bump, making previously-seen entries appear new again.
 export const releaseNotes: ReleaseNote[] = [
   {
+    version: '1.13.0',
+    date: '2026-10-14',
+    title: 'Utökade aviseringar och användarprofil',
+    summary: 'Aviseringar innehåller nu delärenden, beskrivning och lista, samt Google-profilbild i appen och notiser.',
+    items: [
+      'Aviseringar visar antal delärenden (t.ex. 2/3), beskrivning och tillhörande lista.',
+      'Google-profilbilden visas i själva aviseringen istället för standardikonen.',
+      'Profilbilden från Google visas nu i sidohuvudet och sidomenyn med direktlänk till kontoinställningar.',
+    ],
+  },
+  {
     version: '0.26.2',
     date: '2026-10-01',
     title: 'Enhetliga kort i uppgiftsdetaljer',

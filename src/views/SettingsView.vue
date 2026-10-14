@@ -66,6 +66,10 @@ const { isDark } = useTheme()
 const { requestPermission } = useReminderNotifications()
 const { isUpdatingApp, updateError, forceUpdateApp } = useAppUpdate()
 const displayName = ref(authStore.user?.displayName ?? '')
+const avatarError = ref(false)
+const userInitial = computed(() =>
+  (authStore.user?.displayName?.[0] || authStore.user?.email?.[0] || 'U').toUpperCase(),
+)
 const isRefreshing = ref(false)
 const statusMessage = ref('')
 const importListId = ref('')
@@ -479,9 +483,23 @@ const handleLogout = async () => {
       <section class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-800/40 sm:px-5" aria-labelledby="account-heading">
         <h2 id="account-heading" class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Konto</h2>
         <div class="flex items-center gap-4">
-          <img v-if="authStore.user?.photoURL" :src="authStore.user.photoURL" alt="Profilbild" class="h-14 w-14 rounded-full object-cover" />
-          <div v-else class="h-14 w-14 rounded-full bg-slate-300 dark:bg-slate-600" />
+          <img
+            v-if="authStore.user?.photoURL && !avatarError"
+            :src="authStore.user.photoURL"
+            alt="Profilbild"
+            class="h-14 w-14 rounded-full object-cover ring-2 ring-slate-200 dark:ring-slate-700"
+            @error="avatarError = true"
+          />
+          <div
+            v-else
+            class="grid h-14 w-14 place-items-center rounded-full bg-[#2564cf] text-xl font-bold text-white dark:bg-blue-600"
+          >
+            {{ userInitial }}
+          </div>
           <div class="min-w-0 flex-1">
+            <p v-if="authStore.user?.displayName" class="truncate font-semibold text-slate-800 dark:text-slate-100">
+              {{ authStore.user.displayName }}
+            </p>
             <p class="truncate text-sm text-slate-500 dark:text-slate-400">{{ authStore.user?.email || '' }}</p>
           </div>
         </div>

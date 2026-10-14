@@ -5,6 +5,7 @@ import ListIcon from '@/components/ListIcon.vue'
 import type { Folder, List, SmartView } from '@/types'
 import { DEFAULT_LIST_ID } from '@/stores/listStore'
 import { useToastStore } from '@/stores/toastStore'
+import { useAuthStore } from '@/stores/auth'
 import { useAppUpdate } from '@/composables/useAppUpdate'
 import { appVersion, formattedBuildTime } from '@/buildInfo'
 
@@ -41,7 +42,6 @@ interface Emits {
 
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
-const iconUrl = `${import.meta.env.BASE_URL}img/icons/todo-icon.svg`
 
 const toastStore = useToastStore()
 const { isUpdatingApp, updateError, forceUpdateApp } = useAppUpdate()
@@ -52,6 +52,16 @@ const handleUpdateApp = async () => {
     toastStore.show(updateError.value)
   }
 }
+
+const authStore = useAuthStore()
+const sidebarAvatarError = ref(false)
+const mobileAvatarError = ref(false)
+const userInitial = computed(() =>
+  (authStore.user?.displayName?.[0] || authStore.user?.email?.[0] || 'U').toUpperCase(),
+)
+const userName = computed(() =>
+  authStore.user?.displayName || authStore.user?.email || 'Mitt konto',
+)
 
 const smartViews = [
   { key: 'myDay' as const, view: 'myDay' as SmartView, icon: Sun },
@@ -270,10 +280,30 @@ onUnmounted(() => window.removeEventListener('click', closeMoveMenuOnOutsideClic
     >
     <div class="flex h-full flex-col px-2 py-3">
       <div class="mb-3 flex h-10 items-center justify-between lg:hidden">
-        <div class="flex items-center gap-2 px-1">
-          <img class="size-8 rounded-lg shadow-sm" :src="iconUrl" alt="" aria-hidden="true" />
-          <span class="text-lg font-semibold tracking-tight text-slate-800 dark:text-slate-100">To Do</span>
-        </div>
+        <RouterLink
+          class="flex min-w-0 items-center gap-2.5 rounded-lg px-1 py-0.5 transition hover:bg-slate-100 dark:hover:bg-slate-800"
+          to="/settings"
+          aria-label="Öppna användarprofil"
+          title="Konto och inställningar"
+          @click="emit('close')"
+        >
+          <img
+            v-if="authStore.user?.photoURL && !mobileAvatarError"
+            class="size-8 rounded-full object-cover ring-1 ring-slate-200 dark:ring-slate-700"
+            :src="authStore.user.photoURL"
+            alt=""
+            @error="mobileAvatarError = true"
+          />
+          <div
+            v-else
+            class="grid size-8 place-items-center rounded-full bg-[#2564cf] text-xs font-semibold text-white dark:bg-blue-600"
+          >
+            {{ userInitial }}
+          </div>
+          <span class="truncate text-base font-semibold tracking-tight text-slate-800 dark:text-slate-100">
+            {{ userName }}
+          </span>
+        </RouterLink>
         <button
           class="grid size-9 place-items-center rounded-lg text-xl text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
           type="button"
@@ -284,9 +314,35 @@ onUnmounted(() => window.removeEventListener('click', closeMoveMenuOnOutsideClic
         </button>
       </div>
 
-      <div class="mb-2 hidden h-9 items-center justify-end px-1 lg:flex">
+      <div class="mb-2 hidden h-10 items-center justify-between px-1 lg:flex">
+        <RouterLink
+          class="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg p-1.5 transition hover:bg-slate-100 dark:hover:bg-slate-800"
+          to="/settings"
+          aria-label="Öppna användarprofil"
+          title="Konto och inställningar"
+          @click="emit('close')"
+        >
+          <img
+            v-if="authStore.user?.photoURL && !sidebarAvatarError"
+            class="size-8 shrink-0 rounded-full object-cover ring-1 ring-slate-200 dark:ring-slate-700"
+            :src="authStore.user.photoURL"
+            alt=""
+            @error="sidebarAvatarError = true"
+          />
+          <div
+            v-else
+            class="grid size-8 shrink-0 place-items-center rounded-full bg-[#2564cf] text-xs font-semibold text-white dark:bg-blue-600"
+          >
+            {{ userInitial }}
+          </div>
+          <div class="min-w-0 flex-1">
+            <p class="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">
+              {{ userName }}
+            </p>
+          </div>
+        </RouterLink>
         <button
-          class="grid size-9 place-items-center rounded-lg text-slate-500 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+          class="grid size-9 shrink-0 place-items-center rounded-lg text-slate-500 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
           type="button"
           aria-label="Fäll ihop navigeringsmeny"
           aria-controls="task-sidebar"
