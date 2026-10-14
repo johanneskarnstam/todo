@@ -335,6 +335,32 @@ Firestore-reglerna finns i [`firestore.rules`](firestore.rules), och indexdefini
 
 ---
 
+## 🔄 Automatisk beroendehantering (Renovate)
+
+Projektet använder [Renovate Bot](https://docs.renovatebot.com/) för att hålla alla npm-beroenden uppdaterade och säkra, både för frontend (`package.json`) och Firebase Cloud Functions (`functions/package.json`).
+
+### Vad är Renovate?
+Renovate är en automatiserad bot som kontinuerligt bevakar när nya versioner av projektets bibliotek släpps. När en uppdatering finns skapar Renovate en Pull Request med uppdaterade versionsnummer och en uppdaterad `package-lock.json`. När PR:n skapas körs projektets GitHub Actions-arbetsflöde (`npm run validate`) automatiskt för att säkerställa att ingenting går sönder.
+
+### Hur fungerar det i detta repo?
+Konfigurationen styrs via [`renovate.json`](renovate.json) med följande inställningar:
+
+- **📅 Schemaläggning (Måndagar före 07:00):** För att minimera störningar under aktiv utveckling skapas ordinarie uppdaterings-PR:ar samlat på måndagsmorgnar (svensk tid).
+- **⏳ 3 dagars karantän (Stability Days):** Renovate väntar minst 3 dagar efter att en paketversion har publicerats på npm innan en PR skapas. Detta minskar risken för problem med trasiga nysläppta versioner eller nyligen komprometterade paket.
+- **🛡 Omedelbara säkerhetsfixar:** Kritiska och höga sårbarhetslarm (`isVulnerabilityAlert`) prioriteras och skapas omedelbart utan att vänta på veckoschemat.
+- **📦 Intelligent gruppering:** För att undvika dussintals separata PR:ar grupperas relaterade paket ihop:
+  - **Vue-ekosystemet:** `vue`, `vue-router`, `pinia`, `@vitejs/plugin-vue`
+  - **Testverktyg:** `vitest`, `@vitest/*`, `@playwright/test`, `@vue/test-utils`, `jsdom`, `@firebase/rules-unit-testing`
+  - **Kodkvalitet & Lint:** `eslint`, `eslint-plugin-vue`, `@vue/eslint-*`, `prettier`, `@vue/tsconfig`, `@tsconfig/*`
+  - **Styling & CSS:** `tailwindcss`, `@tailwindcss/*`, `postcss`, `autoprefixer`
+  - **Firebase SDK:** `firebase`, `@firebase/*`, `firebase-admin`, `firebase-functions`
+  - **Byggverktyg:** `typescript`, `vue-tsc`, `vite`, `vite-plugin-pwa`, `vite-plugin-vue-devtools`, `jiti`, `npm-run-all2`
+  - **Övriga devDependencies:** Icke-kritiska minor- och patch-uppdateringar samlas i en gemensam PR.
+- **⚠️ Separata Major-uppdateringar:** Stora versionssteg med potentiellt brytande ändringar (breaking changes) grupperas aldrig ihop, utan skapas som enskilda PR:ar så att de kan granskas och testas individuellt.
+- **📋 Dependency Dashboard:** Under repositoryts **Issues** på GitHub skapar Renovate en interaktiv instrumentpanel där du kan se väntande uppdateringar och manuellt trigga omskapande av PR:ar med en enkel bockruta.
+
+---
+
 ## 🤝 Bidrag & Licens
 
 ### Git Workflow
@@ -350,6 +376,6 @@ Firestore-reglerna finns i [`firestore.rules`](firestore.rules), och indexdefini
 
 ---
 
-**Version:** 0.23.0 | **Licens:** Privat
+**Version:** 1.14.1 | **Licens:** Privat
 
 *Made with Vue 3, TypeScript, and Firebase ❤️*
