@@ -56,11 +56,15 @@ function toTitleCase(slug) {
 
 function readFile(relPath) {
   const abs = path.join(ROOT, relPath)
-  if (!fs.existsSync(abs)) {
-    console.warn(`  File not found, skipping: ${relPath}`)
-    return null
+  try {
+    return fs.readFileSync(abs, 'utf-8')
+  } catch (error) {
+    if (error && error.code === 'ENOENT') {
+      console.warn(`  File not found, skipping: ${relPath}`)
+      return null
+    }
+    throw error
   }
-  return fs.readFileSync(abs, 'utf-8')
 }
 
 function writeFile(relPath, content) {
