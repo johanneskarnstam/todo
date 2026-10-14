@@ -44,18 +44,16 @@ if (!firebaseConfig || !firebaseConfig.apiKey) {
 function getEnvPrefix() {
   try {
     const pkgPath = path.resolve(process.cwd(), 'package.json')
-    if (fs.existsSync(pkgPath)) {
-      const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'))
-      const deps = { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) }
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'))
+    const deps = { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) }
 
-      if (deps['vite']) return 'VITE_'
-      if (deps['next']) return 'NEXT_PUBLIC_'
-      if (deps['react-scripts']) return 'REACT_APP_'
-      if (deps['nuxt']) return 'NUXT_PUBLIC_'
-      if (deps['gatsby']) return 'GATSBY_'
-      if (deps['@vue/cli-service']) return 'VUE_APP_'
-      if (deps['svelte']) return 'VITE_'
-    }
+    if (deps['vite']) return 'VITE_'
+    if (deps['next']) return 'NEXT_PUBLIC_'
+    if (deps['react-scripts']) return 'REACT_APP_'
+    if (deps['nuxt']) return 'NUXT_PUBLIC_'
+    if (deps['gatsby']) return 'GATSBY_'
+    if (deps['@vue/cli-service']) return 'VUE_APP_'
+    if (deps['svelte']) return 'VITE_'
   } catch (_error) {
     // Ignore error
   }
@@ -71,8 +69,12 @@ const prefix = getEnvPrefix()
 const envPath = path.resolve(process.cwd(), '.env')
 
 let envContent = ''
-if (fs.existsSync(envPath)) {
+try {
   envContent = fs.readFileSync(envPath, 'utf-8')
+} catch (error) {
+  if (error && error.code !== 'ENOENT') {
+    throw error
+  }
 }
 
 const generatedVars = []
