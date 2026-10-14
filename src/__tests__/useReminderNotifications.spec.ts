@@ -111,4 +111,40 @@ describe('useReminderNotifications', () => {
     })
     wrapper.unmount()
   })
+
+  it('formats notification body with list name, step count, note and user photo icon', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-02T12:00:00'))
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
+    const notificationConstructor = Object.assign(vi.fn(), {
+      permission: 'granted',
+      requestPermission: vi.fn().mockResolvedValue('granted'),
+    })
+    vi.stubGlobal('Notification', notificationConstructor)
+    const { api, wrapper } = mountReminderNotifications()
+    const title = 'Handla mat'
+
+    api.scheduleTaskReminder(
+      {
+        id: 'task-groceries',
+        title,
+        dueDate: new Date(Date.now() + 1_000).toISOString(),
+        reminder: { offsetMinutes: 0 },
+        note: 'Köp även frukt',
+      },
+      {
+        listName: 'Inköp',
+        stepCount: { completed: 2, total: 3 },
+        userPhotoUrl: 'https://example.test/photo.jpg',
+      },
+    )
+    await vi.advanceTimersByTimeAsync(1_000)
+
+    expect(notificationConstructor).toHaveBeenCalledWith(`Påminnelse: ${title}`, {
+      body: 'Inköp (2/3)\nKöp även frukt',
+      tag: 'todo-task-task-groceries',
+      icon: 'https://example.test/photo.jpg',
+    })
+    wrapper.unmount()
+  })
 })

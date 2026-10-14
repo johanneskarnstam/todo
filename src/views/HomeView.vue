@@ -13,6 +13,7 @@ import { useTheme } from '@/composables/useTheme'
 import { DEFAULT_LIST_ID, useListStore } from '@/stores/listStore'
 import { useTaskStore } from '@/stores/taskStore'
 import { useToastStore } from '@/stores/toastStore'
+import { useAuthStore } from '@/stores/auth'
 import { useReminderNotifications } from '@/composables/useReminderNotifications'
 import { useDragReorder } from '@/composables/useDragReorder'
 import { usePreferences, type TaskSortPreference } from '@/composables/usePreferences'
@@ -57,6 +58,7 @@ const isRenamingList = ref(false)
 const listStore = useListStore()
 const taskStore = useTaskStore()
 const toastStore = useToastStore()
+const authStore = useAuthStore()
 const { enablePushForReminder, scheduleTaskReminder, cancelTaskReminder } = useReminderNotifications()
 const { isDark, toggleTheme } = useTheme()
 const { preferences } = usePreferences()
@@ -651,7 +653,13 @@ watch(
       if (isTaskCompleted(task) || !task.dueDate) {
         cancelTaskReminder(task.id)
       } else {
-        scheduleTaskReminder(task)
+        const list = listStore.lists.find((l) => l.id === task.listId)
+        const stepCount = taskStore.taskStepCounts.get(task.id)
+        scheduleTaskReminder(task, {
+          listName: list?.name,
+          stepCount,
+          userPhotoUrl: authStore.user?.photoURL,
+        })
       }
     }
   },

@@ -160,3 +160,17 @@ test('restores a full backup with list settings and subtasks', async ({ page }) 
   await restoredTask.click()
   await expect(page.getByText('Återställt delsteg', { exact: true })).toBeVisible()
 })
+
+test('navigates to settings from the user profile avatar', async ({ page }) => {
+  await page.goto('#/')
+  const releaseCloseButton = page.getByRole('button', { name: 'Jag har sett detta' })
+  if (await releaseCloseButton.count()) await releaseCloseButton.click()
+
+  const profileLink = page.getByRole('link', { name: 'Öppna användarprofil' }).first()
+  await expect(profileLink).toBeVisible()
+  await profileLink.click()
+
+  await expect(page).toHaveURL(/.*#\/settings/)
+  await expect(page.getByRole('heading', { name: 'Inställningar', exact: true })).toBeVisible()
+})
+

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { Cloud, Menu, Moon, Search, Sun, X } from '@lucide/vue'
+import { useAuthStore } from '@/stores/auth'
 
 interface Props {
   isDark: boolean
@@ -25,6 +26,11 @@ const props = withDefaults(defineProps<Props>(), {
   showMenu: true,
 })
 const emit = defineEmits<Emits>()
+const authStore = useAuthStore()
+const avatarError = ref(false)
+const userInitial = computed(() =>
+  (authStore.user?.displayName?.[0] || authStore.user?.email?.[0] || 'U').toUpperCase(),
+)
 const iconUrl = `${import.meta.env.BASE_URL}img/icons/todo-icon.svg`
 const isOnline = ref(true)
 const showSavedIndicator = ref(false)
@@ -115,6 +121,26 @@ onUnmounted(() => {
         <Sun v-if="isDark" :size="18" aria-hidden="true" />
         <Moon v-else :size="18" aria-hidden="true" />
       </button>
+      <RouterLink
+        class="grid size-9 place-items-center rounded-lg text-white/90 transition hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+        to="/settings"
+        aria-label="Öppna användarprofil"
+        title="Konto och inställningar"
+      >
+        <img
+          v-if="authStore.user?.photoURL && !avatarError"
+          class="size-7 rounded-full object-cover ring-1 ring-white/40"
+          :src="authStore.user.photoURL"
+          alt=""
+          @error="avatarError = true"
+        />
+        <div
+          v-else
+          class="grid size-7 place-items-center rounded-full bg-white/20 text-xs font-semibold text-white"
+        >
+          {{ userInitial }}
+        </div>
+      </RouterLink>
     </div>
   </header>
 </template>

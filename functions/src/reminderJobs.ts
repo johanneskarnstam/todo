@@ -43,6 +43,8 @@ export interface ReminderTaskSnapshot {
   reminders?: TaskReminder[] | null;
   completed?: boolean;
   status?: "todo" | "inProgress" | "completed";
+  note?: string;
+  listId?: string;
 }
 
 export interface ReminderJob {

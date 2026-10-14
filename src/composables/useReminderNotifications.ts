@@ -26,6 +26,14 @@ const clearTaskReminder = (taskId: string) => {
   }
 }
 
+import { formatNotificationBody } from '@/utils/notificationFormat'
+
+export interface ReminderNotificationContext {
+  listName?: string
+  stepCount?: { completed: number; total: number }
+  userPhotoUrl?: string | null
+}
+
 export const useReminderNotifications = () => {
   const { preferences } = usePreferences()
   const { enablePush } = usePushNotifications()
@@ -45,7 +53,10 @@ export const useReminderNotifications = () => {
     return await enablePush() ? 'enabled' : 'unavailable'
   }
 
-  const scheduleTaskReminder = (task: Pick<Task, 'id' | 'title' | 'dueDate' | 'reminder'>) => {
+  const scheduleTaskReminder = (
+    task: Pick<Task, 'id' | 'title' | 'dueDate' | 'reminder'> & Partial<Pick<Task, 'note' | 'listId'>>,
+    context?: ReminderNotificationContext,
+  ) => {
     clearTaskReminder(task.id)
     if (!preferences.value.notifications || !isSupported || Notification.permission !== 'granted' || !task.reminder) return
 
@@ -58,10 +69,19 @@ export const useReminderNotifications = () => {
       if (remaining <= 0) {
         reminderTimers.delete(task.id)
         if (document.visibilityState === 'visible' && Notification.permission === 'granted') {
-          new Notification(`Påminnelse: ${task.title}`, {
-            body: task.title,
+          const body = formatNotificationBody({
+            listName: context?.listName,
+            stepCount: context?.stepCount,
+            note: task.note,
+          }) || task.title
+
+          const options: NotificationOptions = {
+            body,
             tag: `todo-task-${task.id}`,
-          })
+            ...(context?.userPhotoUrl ? { icon: context.userPhotoUrl } : {}),
+          }
+
+          new Notification(`Påminnelse: ${task.title}`, options)
         }
         return
       }

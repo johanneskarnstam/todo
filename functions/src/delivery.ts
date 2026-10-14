@@ -4,6 +4,7 @@ import {
   type MulticastMessage,
   type SendResponse,
 } from "firebase-admin/messaging";
+import {getAuth} from "firebase-admin/auth";
 import {getApps, initializeApp} from "firebase-admin/app";
 import {
   FieldValue,
@@ -113,12 +114,69 @@ async function processReminderJob(
       return;
     }
 
+    let listName: string | undefined;
+    if (typeof task.listId === "string" && task.listId.length > 0) {
+      try {
+        const listDoc = await db.doc(
+          `users/${initialJob.userId}/lists/${task.listId}`,
+        ).get();
+        if (listDoc.exists) {
+          listName = listDoc.get("name");
+        }
+      } catch {
+        // Ignore failure fetching list name
+      }
+    }
+
+    let stepCount: {completed: number; total: number} | undefined;
+    try {
+      const stepsSnapshot = await taskReference.collection("steps").get();
+      if (!stepsSnapshot.empty) {
+        const total = stepsSnapshot.size;
+        const completed = stepsSnapshot.docs.filter((doc) =>
+          Boolean(doc.get("completed")),
+        ).length;
+        stepCount = {completed, total};
+      }
+    } catch {
+      // Ignore failure fetching steps
+    }
+
+    let userPhotoUrl: string | undefined;
+    try {
+      const userRecord = await getAuth().getUser(initialJob.userId);
+      if (userRecord.photoURL) {
+        userPhotoUrl = userRecord.photoURL;
+      }
+    } catch {
+      // Ignore failure fetching user profile
+    }
+
+    const metaParts: string[] = [];
+    if (typeof listName === "string" && listName.trim().length > 0) {
+      metaParts.push(listName.trim());
+    }
+    if (stepCount && stepCount.total > 0) {
+      metaParts.push(`(${stepCount.completed}/${stepCount.total})`);
+    }
+    const metaLine = metaParts.join(" ");
+    const trimmedNote = typeof task.note === "string" ? task.note.trim() : "";
+    let body = task.title;
+    if (metaLine && trimmedNote) {
+      body = `${metaLine}\n${trimmedNote}`;
+    } else if (metaLine) {
+      body = metaLine;
+    } else if (trimmedNote) {
+      body = trimmedNote;
+    }
+
     const message: MulticastMessage = {
       tokens,
       data: {
         taskId: initialJob.taskId,
         title: task.title,
-        body: task.title,
+        body,
+        ...(userPhotoUrl ? {icon: userPhotoUrl} : {}),
       },
     };
     const response = await send(message);

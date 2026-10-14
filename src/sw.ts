@@ -35,9 +35,13 @@ onBackgroundMessage(messaging, (payload) => {
   const title = payload.data?.title ?? payload.notification?.title ?? 'Todo'
   const body = payload.data?.body ?? payload.notification?.body ?? payload.notification?.title
   const taskId = payload.data?.taskId
+  const fallbackIcon = new URL('/todo/img/icons/icon-192.png', self.location.origin).href
+  const icon = payload.data?.icon ?? payload.notification?.icon ?? fallbackIcon
 
   void self.registration.showNotification(title, {
     body,
+    icon,
+    badge: fallbackIcon,
     tag: taskId ? `todo-task-${taskId}` : 'todo-reminder',
     data: { taskId },
   })
