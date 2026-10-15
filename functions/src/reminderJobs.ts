@@ -43,7 +43,7 @@ export interface ReminderTaskSnapshot {
   important?: boolean;
   dueDate?: string | Timestamp | null;
   dueTimeZone?: string | null;
-  reminder?: {offsetMinutes: 0 | 10 | 60 | 1440} | RelativeReminder | null;
+  reminder?: {offsetMinutes: 0 | 1 | 2 | 5 | 10 | 60 | 120 | 1440} | RelativeReminder | null;
   reminders?: TaskReminder[] | null;
   completed?: boolean;
   status?: "todo" | "inProgress" | "completed";

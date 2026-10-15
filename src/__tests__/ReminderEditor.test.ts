@@ -57,6 +57,28 @@ describe('ReminderEditor.vue', () => {
     ])
   })
 
+  it('supports relative reminders one, two, and five minutes before', async () => {
+    for (const { offset, label } of [
+      { offset: 1, label: '1 minut före' },
+      { offset: 2, label: '2 minuter före' },
+      { offset: 5, label: '5 minuter före' },
+    ]) {
+      const wrapper = mount(ReminderEditor, {
+        props: { dueDate: '2026-10-15' },
+      })
+
+      const select = wrapper.find('#relative-reminder-offset')
+      expect(select.text()).toContain(label)
+      await select.setValue(String(offset))
+      const saveButton = wrapper.findAll('button').find((button) => button.text().includes('Spara påminnelse'))
+      await saveButton?.trigger('click')
+
+      expect(wrapper.emitted('update:modelValue')).toEqual([
+        [{ mode: 'relative', offsetMinutes: offset }],
+      ])
+    }
+  })
+
   it('emits update:modelValue with absolute reminder when valid', async () => {
     const futureDate = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
     const wrapper = mount(ReminderEditor, {

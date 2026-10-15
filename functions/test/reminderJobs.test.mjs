@@ -90,6 +90,23 @@ test("calculates a timed Stockholm reminder in the stored timezone", () => {
   );
 });
 
+test("calculates reminders one, two, and five minutes before the due time", () => {
+  for (const [offsetMinutes, expected] of [
+    [1, "2026-10-01T06:59:00.000Z"],
+    [2, "2026-10-01T06:58:00.000Z"],
+    [5, "2026-10-01T06:55:00.000Z"],
+  ]) {
+    assert.equal(
+      getReminderAt({
+        ...baseTask,
+        dueDate: "2026-10-01T09:00",
+        reminder: {offsetMinutes},
+      }),
+      expected,
+    );
+  }
+});
+
 test("rejects invalid calendar dates and nonexistent local times", () => {
   assert.equal(
     getReminderAt({...baseTask, dueDate: "2026-02-30"}),

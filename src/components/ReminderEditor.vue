@@ -36,6 +36,9 @@ watch(
 
 const relativeOptions: { value: ReminderOffset; label: string }[] = [
   { value: 0, label: 'Vid förfallotid' },
+  { value: 1, label: '1 minut före' },
+  { value: 2, label: '2 minuter före' },
+  { value: 5, label: '5 minuter före' },
   { value: 10, label: '10 minuter före' },
   { value: 60, label: '1 timme före' },
   { value: 120, label: '2 timmar före' },

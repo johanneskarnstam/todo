@@ -41,7 +41,8 @@ const isJsonObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const isReminderOffset = (value: unknown): value is RelativeReminder['offsetMinutes'] =>
-  value === 0 || value === 10 || value === 60 || value === 1440
+  value === 0 || value === 1 || value === 2 || value === 5 ||
+  value === 10 || value === 60 || value === 120 || value === 1440
 
 const isValidDueDate = (value: string) => {
   const match = /^(\d{4}-\d{2}-\d{2})(?:T(\d{2}):(\d{2}))?$/.exec(value)
@@ -359,7 +360,7 @@ const importTasks = async () => {
       } else if (isJsonObject(row.reminder) && isReminderOffset(row.reminder.offsetMinutes)) {
         reminder = { mode: 'relative', offsetMinutes: row.reminder.offsetMinutes }
       } else {
-        importError.value = `Fältet reminder i uppgift ${index + 1} måste ha offsetMinutes 0, 10, 60 eller 1440.`
+        importError.value = `Fältet reminder i uppgift ${index + 1} måste ha offsetMinutes 0, 1, 2, 5, 10, 60, 120 eller 1440.`
         return
       }
     }
@@ -610,7 +611,7 @@ const handleLogout = async () => {
   },
   { "title": "Boka möte" }
 ]</pre>
-          <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">Förfallodatum skrivs ÅÅÅÅ-MM-DD eller med tid som ÅÅÅÅ-MM-DDTHH:mm. Påminnelse väljer minuter före förfallodatum: 0, 10, 60 eller 1440. Status är todo, inProgress eller completed; completed ska stämma med status.</p>
+          <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">Förfallodatum skrivs ÅÅÅÅ-MM-DD eller med tid som ÅÅÅÅ-MM-DDTHH:mm. Påminnelse väljer minuter före förfallodatum: 0, 1, 2, 5, 10, 60, 120 eller 1440. Status är todo, inProgress eller completed; completed ska stämma med status.</p>
           </div>
         </div>
       </section>
