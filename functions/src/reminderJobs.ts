@@ -80,13 +80,15 @@ export function formatReminderNotificationBody(
 
   if (options.stepCount && options.stepCount.total > 0) {
     metaParts.push(
-      `Deluppgifter ${options.stepCount.completed}/${options.stepCount.total} klara`,
+      `Deluppgifter ${options.stepCount.completed}/` +
+      `${options.stepCount.total} klara`,
     );
   }
 
   const priority = options.priority ??
     (options.important ? "high" : undefined);
-  const priorityLabel = priority ? priorityLabels[priority] : undefined;
+  const priorityLabel = priority ?
+    priorityLabels[priority] : undefined;
   if (priorityLabel) metaParts.push(`Prioritet: ${priorityLabel}`);
 
   const metaLine = metaParts.join(" · ");
