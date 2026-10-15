@@ -73,6 +73,7 @@ type ListUpdate = Partial<Pick<List, 'name' | 'folderId' | 'icon' | 'order' | 't
 type FolderUpdate = Partial<Pick<Folder, 'name' | 'order'>>
 
 export const DEFAULT_LIST_ID = '__default__'
+const DEFAULT_LIST_SETTINGS_ID = 'default-list'
 
 const defaultList: List = {
   id: DEFAULT_LIST_ID,
@@ -147,7 +148,7 @@ export const useListStore = defineStore('lists', () => {
     pendingFolderIds.clear()
   }
 
-  const userCollection = (collectionName: 'folders' | 'lists') => {
+  const userCollection = (collectionName: 'folders' | 'lists' | 'settings') => {
     const userId = isMockAuthEnabled ? MOCK_USER_ID : auth.currentUser?.uid
     if (!userId) {
       throw new Error('En inloggad användare krävs för att komma åt listor.')
@@ -184,14 +185,18 @@ export const useListStore = defineStore('lists', () => {
 
     try {
       const read = isBrowserOffline() ? getDocsFromCache : getDocs
-      const [folderSnapshot, listSnapshot] = await Promise.all([
+      const [folderSnapshot, listSnapshot, settingsSnapshot] = await Promise.all([
         read(userCollection('folders')),
         read(userCollection('lists')),
+        read(userCollection('settings')),
       ])
 
       const fetchedFolders = folderSnapshot.docs.map((folder) => ({ id: folder.id, ...folder.data() }) as Folder)
       const fetchedLists = listSnapshot.docs.map((list) => ({ id: list.id, ...list.data() }) as List)
       const fetchedDefault = fetchedLists.find((list) => list.id === DEFAULT_LIST_ID)
+      const fetchedDefaultSettings = settingsSnapshot.docs
+        .find((setting) => setting.id === DEFAULT_LIST_SETTINGS_ID)
+        ?.data() as ListUpdate | undefined
       const pendingFolders = folders.value.filter((folder) => pendingFolderIds.has(folder.id))
       const pendingLists = lists.value.filter((list) => pendingListIds.has(list.id))
 
@@ -203,7 +208,7 @@ export const useListStore = defineStore('lists', () => {
         ...pendingFolders.filter((folder) => !fetchedFolders.some((item) => item.id === folder.id)),
       ])
       lists.value = sortByOrder([
-        { ...defaultList, ...fetchedDefault },
+        { ...defaultList, ...fetchedDefault, ...fetchedDefaultSettings },
         ...fetchedLists.filter((list) => list.id !== DEFAULT_LIST_ID),
         ...pendingLists.filter((list) => !fetchedLists.some((item) => item.id === list.id)),
       ])
@@ -213,16 +218,20 @@ export const useListStore = defineStore('lists', () => {
       isLoaded.value = true
     } catch (fetchError) {
       try {
-        const [folderSnapshot, listSnapshot] = await Promise.all([
+        const [folderSnapshot, listSnapshot, settingsSnapshot] = await Promise.all([
           getDocsFromCache(userCollection('folders')),
           getDocsFromCache(userCollection('lists')),
+          getDocsFromCache(userCollection('settings')),
         ])
         const cachedFolders = folderSnapshot.docs.map((folder) => ({ id: folder.id, ...folder.data() }) as Folder)
         const cachedLists = listSnapshot.docs.map((list) => ({ id: list.id, ...list.data() }) as List)
         const cachedDefault = cachedLists.find((list) => list.id === DEFAULT_LIST_ID)
+        const cachedDefaultSettings = settingsSnapshot.docs
+          .find((setting) => setting.id === DEFAULT_LIST_SETTINGS_ID)
+          ?.data() as ListUpdate | undefined
         folders.value = sortByOrder(cachedFolders)
         lists.value = sortByOrder([
-          { ...defaultList, ...cachedDefault },
+          { ...defaultList, ...cachedDefault, ...cachedDefaultSettings },
           ...cachedLists.filter((list) => list.id !== DEFAULT_LIST_ID),
         ])
         selectedListId.value = lists.value.some((list) => list.id === selectedListId.value)
@@ -340,7 +349,7 @@ export const useListStore = defineStore('lists', () => {
 
     try {
       await trackWrite(() => isDefaultListSettingsUpdate
-        ? setDoc(doc(userCollection('lists'), listId), updates, { merge: true })
+        ? setDoc(doc(userCollection('settings'), DEFAULT_LIST_SETTINGS_ID), updates, { merge: true })
         : updateDoc(doc(userCollection('lists'), listId), updates))
     } catch (updateError) {
       lists.value = lists.value.map((list) => (list.id === listId ? previousList : list))

@@ -72,6 +72,23 @@ describe('useListStore', () => {
     expect(store.selectedListId).toBe('__default__')
   })
 
+  it('loads persisted settings for the default list', async () => {
+    firestoreMocks.getDocs
+      .mockResolvedValueOnce(snapshot([]))
+      .mockResolvedValueOnce(snapshot([]))
+      .mockResolvedValueOnce(snapshot([
+        { id: 'default-list', data: () => ({ showCompletedTasks: false }) },
+      ]))
+
+    const store = useListStore()
+    await store.fetchLists()
+
+    expect(store.selectedList).toMatchObject({
+      id: DEFAULT_LIST_ID,
+      showCompletedTasks: false,
+    })
+  })
+
   it('always starts with Att göra even when an old default list is stored', async () => {
     vi.stubGlobal('localStorage', {
       getItem: vi.fn(() => 'list-1'),
@@ -157,6 +174,33 @@ describe('useListStore', () => {
 
     expect(store.lists[0].name).toBe('Original name')
     expect(store.error).toBe('update failed')
+  })
+
+  it('persists default-list settings using a valid settings document id', async () => {
+    const store = useListStore()
+    store.lists.push({
+      id: DEFAULT_LIST_ID,
+      name: 'Att göra',
+      icon: 'list',
+      order: 0,
+      createdAt: Timestamp.fromMillis(0),
+    })
+
+    await store.updateList(DEFAULT_LIST_ID, { showCompletedTasks: false })
+
+    expect(firestoreMocks.collection).toHaveBeenCalledWith({}, 'users', 'user-1', 'settings')
+    expect(firestoreMocks.doc).toHaveBeenCalledWith(
+      { path: [{}, 'users', 'user-1', 'settings'] },
+      'default-list',
+    )
+    expect(firestoreMocks.setDoc).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: [{ path: [{}, 'users', 'user-1', 'settings'] }, 'default-list'],
+      }),
+      { showCompletedTasks: false },
+      { merge: true },
+    )
+    expect(firestoreMocks.updateDoc).not.toHaveBeenCalled()
   })
 
   it('updates and rolls back a list theme when Firestore rejects', async () => {
