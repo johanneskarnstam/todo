@@ -28,6 +28,7 @@ import { normalizeTags } from '@/utils/taskTags'
 import { vibrateOnTaskCompletion } from '@/utils/deviceFeedback'
 import { getTaskStatus, isTaskCompleted, isTaskStatusAllowed, taskStatusToCompleted } from '@/utils/taskStatus'
 import { normalizeTask, normalizeTaskReminders } from '@/utils/taskNormalization'
+import { failE2ETaskReadIfRequested, failE2EWriteIfRequested } from '@/utils/e2eFailureInjection'
 
 const prepareTask = (task: Task): Task => normalizeTask(normalizeTaskPriority(task))
 
@@ -255,8 +256,16 @@ export const useTaskStore = defineStore('tasks', () => {
         { id: 'local-task-2', listId: '__default__', title: 'Kontrollera mobilvyn', completed: false, important: false, myDay: false, order: 1, createdAt },
         { id: 'local-task-3', listId: 'local-projects', title: 'Förbered nästa release', completed: false, important: false, myDay: false, order: 0, createdAt },
       ] satisfies Task[]
-      tasks.value = sortTasks((readMockTasks() ?? initialTasks).map(prepareTask))
-      if (!readMockTasks()) persistMockTasks(tasks.value)
+      let storedTasks: Task[] | null
+      try {
+        failE2ETaskReadIfRequested()
+        storedTasks = readMockTasks()
+      } catch (readError) {
+        storedTasks = readMockTasks()
+        if (!storedTasks) throw readError
+      }
+      tasks.value = sortTasks((storedTasks ?? initialTasks).map(prepareTask))
+      if (!storedTasks) persistMockTasks(tasks.value)
       isLoaded.value = true
       return
     }
@@ -346,8 +355,15 @@ export const useTaskStore = defineStore('tasks', () => {
     error.value = null
 
     if (isMockAuthEnabled) {
-      persistMockTasks(tasks.value)
-      return optimisticTask
+      try {
+        failE2EWriteIfRequested('create-task')
+        persistMockTasks(tasks.value)
+        return optimisticTask
+      } catch (createError) {
+        tasks.value = tasks.value.filter((task) => task.id !== optimisticId)
+        reportWriteError(createError, 'Uppgiften kunde inte skapas.')
+        return
+      }
     }
 
     try {
@@ -410,10 +426,13 @@ export const useTaskStore = defineStore('tasks', () => {
       currentTask.reminder = null
     }
     error.value = null
-    if (isMockAuthEnabled) persistMockTasks(tasks.value)
-
     try {
-      await trackWrite(() => updateDoc(doc(userCollection(), taskId), firestoreUpdates))
+      if (isMockAuthEnabled) {
+        failE2EWriteIfRequested('update-task')
+        persistMockTasks(tasks.value)
+      } else {
+        await trackWrite(() => updateDoc(doc(userCollection(), taskId), firestoreUpdates))
+      }
     } catch (updateError) {
       tasks.value = tasks.value.map((task) => (task.id === taskId ? previousTask : task))
       reportWriteError(updateError, 'Uppgiften kunde inte uppdateras.')
