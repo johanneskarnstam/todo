@@ -69,6 +69,26 @@ test.describe('Flexibla påminnelser', () => {
     await expect(details.getByText('1 timme före deadline')).toBeVisible()
   })
 
+  test('kan välja och spara påminnelser 1, 2 och 5 minuter före deadline', async ({ page }) => {
+    await page.goto('/')
+    const details = await openDetailsForTask(page, 'Kontrollera mobilvyn')
+
+    await details.getByLabel('Uppgiftens förfallodatum').fill('2099-06-15')
+
+    for (const [offset, label] of [
+      ['1', '1 minut före deadline'],
+      ['2', '2 minuter före deadline'],
+      ['5', '5 minuter före deadline'],
+    ]) {
+      await details.getByRole('button', { name: 'Lägg till påminnelse' }).click()
+      await details.getByLabel('När ska du påminnas?').selectOption(offset)
+      await details.getByRole('button', { name: 'Spara påminnelse' }).click()
+      await expect(details.getByText(label)).toBeVisible()
+    }
+
+    await expect(details.getByLabel('Aktiva påminnelser').locator('li')).toHaveCount(3)
+  })
+
   test('lägger till två påminnelser och visar båda i TaskDetailsPanel', async ({ page }) => {
     await page.goto('/')
     const details = await openDetailsForTask(page, 'Kontrollera mobilvyn')

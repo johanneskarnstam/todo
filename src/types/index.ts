@@ -33,7 +33,7 @@ export interface List {
 
 export type ReminderMode = 'relative' | 'absolute'
 
-export type ReminderOffset = 0 | 10 | 60 | 120 | 1440
+export type ReminderOffset = 0 | 1 | 2 | 5 | 10 | 60 | 120 | 1440
 
 export interface RelativeReminder {
   mode: 'relative'

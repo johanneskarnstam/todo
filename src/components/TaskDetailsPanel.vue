@@ -382,6 +382,8 @@ const formatReminderLabel = (reminder: TaskReminder): string => {
     return d.toLocaleString('sv-SE', { dateStyle: 'short', timeStyle: 'short' })
   }
   if (reminder.offsetMinutes === 0) return 'Vid förfallotid'
+  if (reminder.offsetMinutes === 1) return '1 minut före deadline'
+  if (reminder.offsetMinutes === 2 || reminder.offsetMinutes === 5) return `${reminder.offsetMinutes} minuter före deadline`
   if (reminder.offsetMinutes === 10) return '10 minuter före deadline'
   if (reminder.offsetMinutes === 60) return '1 timme före deadline'
   if (reminder.offsetMinutes === 120) return '2 timmar före deadline'
