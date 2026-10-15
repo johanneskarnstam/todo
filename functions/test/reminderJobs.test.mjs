@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   getReminderJobId,
   getReminderAt,
+  formatReminderNotificationBody,
   isReminderDeliveryEnabled,
   isReminderEligible,
   isReminderTooOld,
@@ -16,6 +17,30 @@ const baseTask = {
   dueTimeZone: "Europe/Stockholm",
   reminder: {offsetMinutes: 10},
 };
+
+test("formats reminder details without repeating the task title", () => {
+  assert.equal(
+    formatReminderNotificationBody({
+      listName: "Inköp",
+      stepCount: {completed: 2, total: 3},
+      note: "Köp även frukt",
+      priority: "high",
+    }),
+    "Inköp · Deluppgifter 2/3 klara · Prioritet: Hög\nKöp även frukt",
+  );
+  assert.equal(
+    formatReminderNotificationBody({note: "Anteckning"}),
+    "Anteckning",
+  );
+  assert.equal(formatReminderNotificationBody({}), "");
+});
+
+test("uses legacy importance when explicit priority is absent", () => {
+  assert.equal(
+    formatReminderNotificationBody({important: true}),
+    "Prioritet: Hög",
+  );
+});
 
 test("creates a stable idempotency ID", () => {
   assert.equal(

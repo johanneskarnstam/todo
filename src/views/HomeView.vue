@@ -658,8 +658,12 @@ watch(
 )
 
 watch(
-  () => taskStore.tasks,
-  (tasks) => {
+  [
+    () => taskStore.tasks,
+    () => taskStore.taskStepCounts,
+    () => listStore.lists,
+  ],
+  ([tasks]) => {
     for (const task of tasks) {
       if (isTaskCompleted(task) || !task.dueDate) {
         cancelTaskReminder(task.id)
@@ -669,6 +673,7 @@ watch(
         scheduleTaskReminder(task, {
           listName: list?.name,
           stepCount,
+          priority: task.priority,
           userPhotoUrl: authStore.user?.photoURL,
         })
       }

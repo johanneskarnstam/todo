@@ -21,11 +21,24 @@ test("claims and marks a due job sent through the mock adapter", async () => {
 
   await taskReference.set({
     title: "Mock delivery task",
+    note: "Ta med inköpslista",
+    priority: "high",
     dueDate: Timestamp.fromDate(reminderAt),
     reminder: {offsetMinutes: 0},
     completed: false,
     status: "todo",
   });
+  const steps = [
+    taskReference.collection("steps").doc("step-completed").set({
+      title: "Kontrollera skafferiet",
+      completed: true,
+    }),
+    taskReference.collection("steps").doc("step-open").set({
+      title: "Skriv inköpslista",
+      completed: false,
+    }),
+  ];
+  await Promise.all(steps);
   const taskSnapshot = await taskReference.get();
   await deviceReference.set({enabled: true, token: "mock-token"});
   await duplicateDeviceReference.set({enabled: true, token: "mock-token"});
@@ -63,11 +76,14 @@ test("claims and marks a due job sent through the mock adapter", async () => {
   assert.equal(deliveredMessage.data.title, "Mock delivery task");
   assert.equal(
     deliveredMessage.data.body,
-    "Mock delivery task",
+    "Deluppgifter 1/2 klara · Prioritet: Hög\nTa med inköpslista",
   );
 
   await Promise.all([
     taskReference.delete(),
+    ...["step-completed", "step-open"].map((stepId) =>
+      taskReference.collection("steps").doc(stepId).delete(),
+    ),
     jobReference.delete(),
     deviceReference.delete(),
     duplicateDeviceReference.delete(),

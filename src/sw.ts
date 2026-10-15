@@ -34,7 +34,7 @@ const messaging = getMessaging(firebaseApp)
 
 onBackgroundMessage(messaging, (payload) => {
   const title = payload.data?.title ?? payload.notification?.title ?? 'Todo'
-  const body = payload.data?.body ?? payload.notification?.body ?? payload.notification?.title
+  const body = payload.data?.body ?? payload.notification?.body ?? ''
   const taskId = payload.data?.taskId
   const fallbackIcon = new URL('/todo/img/icons/icon-192.png', self.location.origin).href
   const icon = payload.data?.icon ?? payload.notification?.icon ?? fallbackIcon
