@@ -33,10 +33,14 @@ export interface AbsoluteReminder {
 
 export type TaskReminder = RelativeReminder | AbsoluteReminder;
 
+export type ReminderTaskPriority = "low" | "normal" | "high" | "urgent";
+
 export interface ReminderTaskSnapshot {
   userId: string;
   taskId: string;
   title: string;
+  priority?: ReminderTaskPriority;
+  important?: boolean;
   dueDate?: string | Timestamp | null;
   dueTimeZone?: string | null;
   reminder?: {offsetMinutes: 0 | 10 | 60 | 1440} | RelativeReminder | null;
@@ -45,6 +49,50 @@ export interface ReminderTaskSnapshot {
   status?: "todo" | "inProgress" | "completed";
   note?: string;
   listId?: string;
+}
+
+export interface ReminderNotificationBodyOptions {
+  listName?: string;
+  stepCount?: {completed: number; total: number};
+  note?: string;
+  priority?: ReminderTaskPriority;
+  important?: boolean;
+}
+
+const priorityLabels: Partial<Record<ReminderTaskPriority, string>> = {
+  low: "Låg",
+  high: "Hög",
+  urgent: "Brådskande",
+};
+
+/**
+ * Formats optional task details for the notification body.
+ * @param {ReminderNotificationBodyOptions} options Task details to display.
+ * @return {string} Notification body without a duplicate task title.
+ */
+export function formatReminderNotificationBody(
+  options: ReminderNotificationBodyOptions,
+): string {
+  const metaParts: string[] = [];
+  const listName = typeof options.listName === "string" ?
+    options.listName.trim() : "";
+  if (listName) metaParts.push(listName);
+
+  if (options.stepCount && options.stepCount.total > 0) {
+    metaParts.push(
+      `Deluppgifter ${options.stepCount.completed}/${options.stepCount.total} klara`,
+    );
+  }
+
+  const priority = options.priority ??
+    (options.important ? "high" : undefined);
+  const priorityLabel = priority ? priorityLabels[priority] : undefined;
+  if (priorityLabel) metaParts.push(`Prioritet: ${priorityLabel}`);
+
+  const metaLine = metaParts.join(" · ");
+  const note = typeof options.note === "string" ? options.note.trim() : "";
+  if (metaLine && note) return `${metaLine}\n${note}`;
+  return metaLine || note || "";
 }
 
 export interface ReminderJob {

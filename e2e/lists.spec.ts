@@ -118,7 +118,7 @@ test('creates a folder and moves a list into it', async ({ page }) => {
   await page.getByRole('button', { name: 'Flytta Reselista' }).click()
   await page.getByRole('menuitem', { name: 'Semester' }).click()
 
-  await page.getByRole('button', { name: 'Semester' }).click()
+  await page.getByRole('button', { name: 'Semester', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Reselista', exact: true })).toBeVisible()
 })
 

@@ -85,7 +85,7 @@ describe('useReminderNotifications', () => {
     wrapper.unmount()
   })
 
-  it('includes the task title in the reminder notification body', async () => {
+  it('does not repeat the task title in an otherwise empty notification body', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-10-02T12:00:00'))
     vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
@@ -106,7 +106,7 @@ describe('useReminderNotifications', () => {
     await vi.advanceTimersByTimeAsync(1_000)
 
     expect(notificationConstructor).toHaveBeenCalledWith(`Påminnelse: ${title}`, {
-      body: title,
+      body: '',
       tag: 'todo-task-task-reminder',
     })
     wrapper.unmount()
@@ -131,6 +131,8 @@ describe('useReminderNotifications', () => {
         dueDate: new Date(Date.now() + 1_000).toISOString(),
         reminder: { offsetMinutes: 0 },
         note: 'Köp även frukt',
+        priority: 'high',
+        important: true,
       },
       {
         listName: 'Inköp',
@@ -141,7 +143,7 @@ describe('useReminderNotifications', () => {
     await vi.advanceTimersByTimeAsync(1_000)
 
     expect(notificationConstructor).toHaveBeenCalledWith(`Påminnelse: ${title}`, {
-      body: 'Inköp (2/3)\nKöp även frukt',
+      body: 'Inköp · Deluppgifter 2/3 klara · Prioritet: Hög\nKöp även frukt',
       tag: 'todo-task-task-groceries',
       icon: 'https://example.test/photo.jpg',
     })

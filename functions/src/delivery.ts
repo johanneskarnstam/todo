@@ -17,6 +17,7 @@ import {
   isReminderDeliveryEnabled,
   isReminderEligible,
   isReminderTooOld,
+  formatReminderNotificationBody,
   type ReminderJob,
   type ReminderTaskSnapshot,
 } from "./reminderJobs.js";
@@ -139,7 +140,9 @@ async function processReminderJob(
         stepCount = {completed, total};
       }
     } catch {
-      // Ignore failure fetching steps
+      logger.warn("Reminder step details could not be loaded", {
+        taskId: initialJob.taskId,
+      });
     }
 
     let userPhotoUrl: string | undefined;
@@ -152,23 +155,13 @@ async function processReminderJob(
       // Ignore failure fetching user profile
     }
 
-    const metaParts: string[] = [];
-    if (typeof listName === "string" && listName.trim().length > 0) {
-      metaParts.push(listName.trim());
-    }
-    if (stepCount && stepCount.total > 0) {
-      metaParts.push(`(${stepCount.completed}/${stepCount.total})`);
-    }
-    const metaLine = metaParts.join(" ");
-    const trimmedNote = typeof task.note === "string" ? task.note.trim() : "";
-    let body = task.title;
-    if (metaLine && trimmedNote) {
-      body = `${metaLine}\n${trimmedNote}`;
-    } else if (metaLine) {
-      body = metaLine;
-    } else if (trimmedNote) {
-      body = trimmedNote;
-    }
+    const body = formatReminderNotificationBody({
+      listName,
+      stepCount,
+      note: task.note,
+      priority: task.priority,
+      important: task.important,
+    });
 
     const message: MulticastMessage = {
       tokens,

@@ -1,7 +1,11 @@
+import type { TaskPriority } from '@/types'
+import { taskPriorityLabel } from '@/utils/taskPriority'
+
 export interface NotificationBodyOptions {
   listName?: string | null
   stepCount?: { completed: number; total: number } | null
   note?: string | null
+  priority?: TaskPriority | null
 }
 
 export const formatNotificationBody = (options: NotificationBodyOptions): string => {
@@ -12,10 +16,14 @@ export const formatNotificationBody = (options: NotificationBodyOptions): string
   }
 
   if (options.stepCount && options.stepCount.total > 0) {
-    metaParts.push(`(${options.stepCount.completed}/${options.stepCount.total})`)
+    metaParts.push(`Deluppgifter ${options.stepCount.completed}/${options.stepCount.total} klara`)
   }
 
-  const metaLine = metaParts.join(' ')
+  if (options.priority && options.priority !== 'normal') {
+    metaParts.push(`Prioritet: ${taskPriorityLabel(options.priority)}`)
+  }
+
+  const metaLine = metaParts.join(' · ')
   const trimmedNote = options.note?.trim()
 
   if (metaLine && trimmedNote) {

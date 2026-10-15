@@ -8,7 +8,7 @@ describe('formatNotificationBody', () => {
       stepCount: { completed: 2, total: 3 },
       note: 'Mjölk och bröd',
     })
-    expect(body).toBe('Inköp (2/3)\nMjölk och bröd')
+    expect(body).toBe('Inköp · Deluppgifter 2/3 klara\nMjölk och bröd')
   })
 
   it('formats list name and step count when no note is present', () => {
@@ -17,7 +17,7 @@ describe('formatNotificationBody', () => {
       stepCount: { completed: 1, total: 4 },
       note: null,
     })
-    expect(body).toBe('Projekt (1/4)')
+    expect(body).toBe('Projekt · Deluppgifter 1/4 klara')
   })
 
   it('formats list name and note when no steps are present', () => {
@@ -35,7 +35,7 @@ describe('formatNotificationBody', () => {
       stepCount: { completed: 3, total: 5 },
       note: 'Kom ihåg biljetter',
     })
-    expect(body).toBe('(3/5)\nKom ihåg biljetter')
+    expect(body).toBe('Deluppgifter 3/5 klara\nKom ihåg biljetter')
   })
 
   it('formats only note when list name and step count are absent', () => {
@@ -57,7 +57,13 @@ describe('formatNotificationBody', () => {
       listName: '  Mina uppgifter  ',
       stepCount: { completed: 0, total: 2 },
       note: '   Fixa cykeln   ',
+      priority: 'urgent',
     })
-    expect(body).toBe('Mina uppgifter (0/2)\nFixa cykeln')
+    expect(body).toBe('Mina uppgifter · Deluppgifter 0/2 klara · Prioritet: Brådskande\nFixa cykeln')
+  })
+
+  it('omits the default normal priority', () => {
+    const body = formatNotificationBody({ priority: 'normal', note: 'Ring Anna' })
+    expect(body).toBe('Ring Anna')
   })
 })

@@ -1,7 +1,8 @@
 import { onUnmounted } from 'vue'
-import type { Task } from '@/types'
+import type { Task, TaskPriority } from '@/types'
 import { usePreferences } from '@/composables/usePreferences'
 import { usePushNotifications } from '@/composables/usePushNotifications'
+import { formatNotificationBody } from '@/utils/notificationFormat'
 
 const reminderTimers = new Map<string, ReturnType<typeof setTimeout>>()
 const maxTimeout = 2_147_000_000
@@ -26,11 +27,10 @@ const clearTaskReminder = (taskId: string) => {
   }
 }
 
-import { formatNotificationBody } from '@/utils/notificationFormat'
-
 export interface ReminderNotificationContext {
   listName?: string
   stepCount?: { completed: number; total: number }
+  priority?: TaskPriority
   userPhotoUrl?: string | null
 }
 
@@ -54,7 +54,7 @@ export const useReminderNotifications = () => {
   }
 
   const scheduleTaskReminder = (
-    task: Pick<Task, 'id' | 'title' | 'dueDate' | 'reminder'> & Partial<Pick<Task, 'note' | 'listId'>>,
+    task: Pick<Task, 'id' | 'title' | 'dueDate' | 'reminder'> & Partial<Pick<Task, 'note' | 'listId' | 'priority' | 'important'>>,
     context?: ReminderNotificationContext,
   ) => {
     clearTaskReminder(task.id)
@@ -73,7 +73,8 @@ export const useReminderNotifications = () => {
             listName: context?.listName,
             stepCount: context?.stepCount,
             note: task.note,
-          }) || task.title
+            priority: context?.priority ?? (task.priority || (task.important ? 'high' : 'normal')),
+          })
 
           const options: NotificationOptions = {
             body,
