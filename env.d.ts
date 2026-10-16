@@ -3,6 +3,7 @@
 
 interface ImportMetaEnv {
 	readonly VITE_DEV_AUTH_BYPASS?: string
+	readonly VITE_E2E_FAILURE_INJECTION?: string
 	readonly VITE_FIREBASE_VAPID_KEY?: string
 	readonly VITE_RECAPTCHA_ENTERPRISE_SITE_KEY?: string
 }
@@ -12,4 +13,3 @@ interface Window {
 }
 
 declare const __BUILD_TIME__: string
-

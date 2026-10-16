@@ -287,14 +287,14 @@ describe('useListStore', () => {
     expect(store.error).toBe('move failed')
   })
 
-  it('keeps a newly created list visible when the write is temporarily rejected', async () => {
+  it('rolls back a newly created list when Firestore rejects the write', async () => {
     firestoreMocks.setDoc.mockRejectedValueOnce(new Error('temporarily unavailable'))
     const store = useListStore()
 
     const createdList = await store.createList({ name: 'Offline list' })
 
-    expect(createdList?.name).toBe('Offline list')
-    expect(store.lists.map((list) => list.name)).toContain('Offline list')
+    expect(createdList).toBeUndefined()
+    expect(store.lists.map((list) => list.name)).not.toContain('Offline list')
     expect(store.error).toBe('temporarily unavailable')
   })
 

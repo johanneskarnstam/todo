@@ -20,21 +20,21 @@ Testerna ska vara:
 
 ## Nuläge
 
-- 6 Vitest-filer i `src/__tests__/`.
-- 7 Playwright-filer i `e2e/`.
-- `npm run validate` kör lint, typkontroll, coverage, E2E och produktionsbygge.
+- 16 Vitest-testfiler i `src/__tests__/`.
+- 10 Playwright-specfiler i `e2e/`, inklusive separat auth-gating-konfiguration.
+- `npm run validate` kör lint, typkontroll, coverage, Functions-tester, E2E, separat auth-gating och produktionsbygge.
 - Coverage-gate har följande globala minimikrav:
   - Statements: 70 %
   - Branches: 55 %
   - Functions: 65 %
   - Lines: 75 %
 - Senast genererade coverage-baslinje:
-  - Statements: 76,84 %
-  - Branches: 66,14 %
-  - Functions: 73,23 %
-  - Lines: 81,25 %
-- Senaste fullständiga validering: 31 godkända E2E-tester och godkänt produktionsbygge.
-  - Privat auth-gating är verifierad i en separat Playwright-svit utan Firebase-credentials.
+  - Statements: 74,14 %
+  - Branches: 65,75 %
+  - Functions: 70,56 %
+  - Lines: 78,45 %
+- Senaste fullständiga validering (15 oktober 2026): 153 Vitest-tester, 18 Functions-tester, 92 mock-auth E2E-tester och 2 auth-gating-tester godkända; produktionsbygget passerade.
+  - Privat auth-gating körs i en separat Playwright-svit utan Firebase-credentials.
 
 Baslinjen är ett regressionsskydd, inte ett bevis på testkvalitet. Täckningen ska därför inte höjas eller sänkas utan motsvarande beteendetester och en dokumenterad motivering.
 
@@ -196,7 +196,9 @@ Mocka Firestore-reject explicit och verifiera att:
 
 ### E2E-nivå
 
-Bygg ut mockläget med en explicit testflagga eller kontrollerad Playwright-route. Använd inte slumpmässiga nätverksfel. Lägg till browsertester för task-create rollback, task-update rollback, list-create/list-update rollback, cache-fallback vid läsning offline och fortsatt navigation efter fel.
+Mock-auth-läget har deterministisk felinjektion som endast aktiveras av Playwright-serverns `VITE_E2E_FAILURE_INJECTION=true`. Ett engångsvärde i isolerad `localStorage` väljer operationen (`create-task`, `update-task`, `create-list` eller `update-list`); felet kastas innan mock-persistens sker. Tester verifierar feltoast, återställt synligt state, lyckad efterföljande skrivning och fortsatt navigation. En separat läsfelssignal verifierar att uppgifter laddas från mocklägets lokala cache efter ett simulerat läsfel.
+
+Detta provar appens mock-auth-flöde och dess återställning deterministiskt, inte Firestores SDK-cache eller nätverksprotokoll. Verifiering av riktig Firestore-persistens och offline-cache hör till den separata Firebase Emulator Suite.
 
 ## Testinfrastruktur och testdesign
 
@@ -248,7 +250,6 @@ När Firebase Emulator Suite införs ska den separata sviten:
 
 Följande är de viktigaste dokumenterade luckorna:
 
-- kontrollerade E2E-write-fel och browserbaserad cache-fallback
 - gemensamma testhelpers när dupliceringen blir märkbar
 - kompletterande dragfall för samma task, drag efter mål och separata completed-sektioner
 - full CI-dokumentation och verifiering av Chromium-installation i ren miljö
@@ -270,11 +271,10 @@ Strategin är genomförd när:
 
 ## Prioriterad ordning
 
-1. Lägg till kontrollerade E2E-felvägar och cache-fallback.
-2. Komplettera drag-and-drop med återstående gränsfall.
-3. Inför helpers när testduplicering motiverar det.
-4. Dokumentera och kör Firebase Emulator Suite separat.
-5. Lägg till bredare browser- och visuell regression vid behov.
+1. Komplettera drag-and-drop med återstående gränsfall.
+2. Inför helpers när testduplicering motiverar det.
+3. Dokumentera och kör Firebase Emulator Suite separat.
+4. Lägg till bredare browser- och visuell regression vid behov.
 
 ## Implementeringssteg för återstående arbete
 
@@ -296,13 +296,15 @@ Strategin är genomförd när:
 
 **Mål:** verifiera optimistic UI, rollback och återhämtning i riktig browser.
 
+**Status:** Genomförd för task-create, task-update, list-create, list-update och mock-cache-fallback i `e2e/write-failures.spec.ts`.
+
 - Inför en explicit testflagga eller en kontrollerad Playwright-route för valda Firestore-writes.
 - Använd stabila operationer, till exempel `create-task`, `update-task`, `create-list` och `update-list`, så varje test kan styra exakt vilket anrop som fallerar.
-- Lägg tester i `e2e/tasks.spec.ts` och `e2e/lists.spec.ts` för feltoast, återställt state och fortsatt navigation.
-- Lägg till separat läsfel/cache-fallback när appens mockläge kan simulera det deterministiskt.
-- Kontrollera att `isSaving` eller motsvarande loading-state återställs och att nästa write fungerar efter felet.
+- Tester i `e2e/write-failures.spec.ts` verifierar feltoast, återställt state, lyckad efterföljande skrivning och navigation efter task- och listfel.
+- Separat läsfel/cache-fallback är testad med deterministisk lokal mock-cache. Det ersätter inte emulator-verifiering av Firestore-cache.
+- För dessa synkrona mock-auth-flöden verifieras återhämtning genom nästa lyckade write och fortsatt navigation; de har inget asynkront `isSaving`-läge.
 
-**Klart när:** varje kritisk optimistic write har en grön väg och en kontrollerad felväg i både store- och E2E-test.
+**Klart när:** varje kritisk optimistic write har en grön väg och en kontrollerad felväg i både store- och E2E-test. **Steget är klart för de fyra specificerade task-/list-operationerna; övriga write-operationer och riktig Firestore-cache hör till respektive domän- och emulator-tester.**
 
 ### Steg 3: Komplettera drag-and-drop
 

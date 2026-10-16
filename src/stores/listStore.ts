@@ -16,6 +16,7 @@ import { auth, db } from '@/firebase'
 import { isMockAuthEnabled, MOCK_USER_ID } from '@/devMode'
 import { useToastStore } from '@/stores/toastStore'
 import { isBrowserOffline } from '@/composables/useNetworkStatus'
+import { failE2EWriteIfRequested } from '@/utils/e2eFailureInjection'
 import type { Folder, List, ListSortMode, TaskStatusMode } from '@/types'
 
 const mockListsStorageKey = 'todo-mock-lists'
@@ -250,6 +251,7 @@ export const useListStore = defineStore('lists', () => {
     if (!name) return
 
     const optimisticId = `optimistic-${crypto.randomUUID()}`
+    const previousSelectedListId = selectedListId.value
     const listReference = doc(userCollection('lists'), optimisticId)
     const optimisticList: List = {
       id: optimisticId,
@@ -274,8 +276,17 @@ export const useListStore = defineStore('lists', () => {
     error.value = null
 
     if (isMockAuthEnabled) {
-      persistMockLists(lists.value)
-      return optimisticList
+      try {
+        failE2EWriteIfRequested('create-list')
+        persistMockLists(lists.value)
+        return optimisticList
+      } catch (createError) {
+        lists.value = lists.value.filter((list) => list.id !== optimisticId)
+        pendingListIds.delete(optimisticId)
+        selectedListId.value = previousSelectedListId
+        reportWriteError(createError, 'Listan kunde inte skapas.')
+        return
+      }
     }
 
     try {
@@ -296,8 +307,10 @@ export const useListStore = defineStore('lists', () => {
       }))
       return optimisticList
     } catch (createError) {
+      lists.value = lists.value.filter((list) => list.id !== optimisticId)
+      pendingListIds.delete(optimisticId)
+      selectedListId.value = previousSelectedListId
       reportWriteError(createError, 'Listan kunde inte skapas.')
-      return optimisticList
     }
   }
 
@@ -345,12 +358,17 @@ export const useListStore = defineStore('lists', () => {
     const previousList = { ...currentList }
     Object.assign(currentList, updates)
     lists.value = sortByOrder(lists.value)
-    if (isMockAuthEnabled) persistMockLists(lists.value)
+    error.value = null
 
     try {
-      await trackWrite(() => isDefaultListSettingsUpdate
-        ? setDoc(doc(userCollection('settings'), DEFAULT_LIST_SETTINGS_ID), updates, { merge: true })
-        : updateDoc(doc(userCollection('lists'), listId), updates))
+      if (isMockAuthEnabled) {
+        failE2EWriteIfRequested('update-list')
+        persistMockLists(lists.value)
+      } else {
+        await trackWrite(() => isDefaultListSettingsUpdate
+          ? setDoc(doc(userCollection('settings'), DEFAULT_LIST_SETTINGS_ID), updates, { merge: true })
+          : updateDoc(doc(userCollection('lists'), listId), updates))
+      }
     } catch (updateError) {
       lists.value = lists.value.map((list) => (list.id === listId ? previousList : list))
       reportWriteError(updateError, 'Listan kunde inte uppdateras.')
